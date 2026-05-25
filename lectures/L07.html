@@ -1,0 +1,640 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>L07 — YOLO (You Only Look Once)</title>
+<meta name="description" content="Full revision notes for Lecture 7: YOLO single-pass object detector — grid, anchor boxes, output tensor, NMS, and loss." />
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/katex.min.css">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/katex.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/contrib/auto-render.min.js"
+        onload="renderMathInElement(document.body,{delimiters:[{left:'$$',right:'$$',display:true},{left:'$',right:'$',display:false}]});"></script>
+<link rel="stylesheet" href="../assets/css/styles.css">
+<script>
+  (function(){
+    const saved = localStorage.getItem('theme') || 'light';
+    document.documentElement.setAttribute('data-theme', saved);
+  })();
+</script>
+</head>
+<body class="max-w-5xl mx-auto px-4 pb-24">
+
+<header class="flex items-center justify-between py-4 border-b border-slate-200 dark:border-slate-700 no-print">
+  <a href="../index.html" class="text-sm">← Back to index</a>
+  <div class="flex items-center gap-3">
+    <span class="text-xs opacity-70">Lecture 7 of 12</span>
+    <button id="themeToggle" class="text-sm border rounded px-2 py-1">🌓 Theme</button>
+  </div>
+</header>
+
+<nav class="section-jump no-print" aria-label="Sections in this lecture">
+  <a href="#s7.1">s7.1 YOLO concept</a>
+  <a href="#s7.2">s7.2 Cell vs Image encoding</a>
+  <a href="#s7.3">s7.3 Anchor boxes</a>
+  <a href="#s7.4">s7.4 Output tensor &amp; NMS</a>
+  <a href="#s7.5">s7.5 Architecture &amp; loss</a>
+  <a href="#practice">Practice quiz</a>
+</nav>
+
+<main>
+<h1 class="text-3xl font-extrabold mt-4 mb-2">Lecture 7 — YOLO (You Only Look Once)</h1>
+<p class="text-slate-500 dark:text-slate-400 mb-6">Slides © Dr. Khaled M. ElSayed, Zewail City. 70 slides (incl. handwritten in-class notes).</p>
+
+<!-- =========================================== s7.1 =========================================== -->
+<section id="s7.1" class="mt-10">
+  <h2 class="text-2xl font-bold border-b pb-1 mb-3">s7.1 — The YOLO Concept (single-pass detector)</h2>
+
+  <div class="concept">
+    <h3>What problem is YOLO solving?</h3>
+    <p class="why">Why it matters: classical detectors (e.g. sliding window, R-CNN) feed many image crops through a classifier — that is slow. YOLO converts detection into a <em>single regression problem</em>: one CNN pass over the image emits <em>all</em> bounding boxes + classes at once. Hence the name: <strong>You Only Look Once.</strong></p>
+
+    <figure class="slide-figure">
+      <img src="../assets/slides/L07/page-003.png" alt="YOLO — input image (dog + bicycle + truck)">
+      <figcaption>L07 · slide 3 — example input.</figcaption>
+    </figure>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L07/page-004.png" alt="YOLO — detected output with class confidence">
+      <figcaption>L07 · slide 4 — YOLO output: <code>dog 100%</code>, <code>truck 92%</code>, <code>bicycle 99%</code>.</figcaption>
+    </figure>
+
+    <p>YOLO is trained on standard object-detection datasets. Three classic ones appear in the slides:</p>
+    <ul class="list-disc ml-6">
+      <li><strong>VOC 2007 / 2012</strong> — 20 classes (person, cat, dog, car, chair, bottle…).</li>
+      <li><strong>MS COCO</strong> — 80 classes (book, apple, teddy bear, scissors…).</li>
+      <li><strong>ImageNet-1000</strong> — 1000 fine classes (German shepherd, golden retriever…).</li>
+    </ul>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L07/page-002.png" alt="Detection data sets: VOC, COCO, ImageNet">
+      <figcaption>L07 · slide 2 — classic detection datasets.</figcaption>
+    </figure>
+  </div>
+
+  <div class="concept">
+    <h3>Review — the sliding-window detector YOLO replaces</h3>
+    <p class="why">Why it matters: understanding what was wrong with sliding windows tells you exactly why the YOLO grid + anchors design was invented.</p>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L07/page-022.png" alt="Review of sliding-window concept">
+      <figcaption>L07 · slide 22 — sliding-window detector: many templates × many positions → many sub-images → classify each.</figcaption>
+    </figure>
+    <p>In sliding-window detection the <em>system is trained only to classify</em> each crop; the (W,H,x,y) of the window itself is <strong>not learned</strong>. The more window sizes and the smoother the slide, the better the box — but inference is very slow.</p>
+  </div>
+
+  <div class="concept">
+    <h3>YOLO at a glance — the $S\times S$ grid + "responsible cell"</h3>
+    <p class="why">Why it matters: the grid + responsible-cell rule is the heart of YOLO; every output number is keyed to a cell.</p>
+
+    <figure class="slide-figure">
+      <img src="../assets/slides/L07/page-023.png" alt="YOLO at a glance: S×S grid, training labels, predictions">
+      <figcaption>L07 · slide 23 — YOLO splits the image into an $S\times S$ grid and predicts one label vector per cell.</figcaption>
+    </figure>
+
+    <ol class="list-decimal ml-6">
+      <li>Divide image into a grid of $S\times S$ cells (e.g. $13\times 13$).</li>
+      <li>For every ground-truth box: find its <strong>centre</strong> $(x_c, y_c)$; the cell that contains the centre is the <strong>responsible cell</strong>.</li>
+      <li>Each cell's label vector contains: $[p_c,\ b_x,\ b_y,\ b_w,\ b_h,\ c_1,\dots,c_N]$ — i.e. <em>"is there an object?"</em>, the bounding box, and the one-hot class.</li>
+      <li>The CNN learns to predict this label vector at every cell in one forward pass.</li>
+    </ol>
+
+    <figure class="slide-figure">
+      <img src="../assets/slides/L07/page-024.png" alt="S×S grid → many boxes + class-probability map → final detected objects">
+      <figcaption>L07 · slide 24 — pipeline: grid → many predicted boxes + class-probability map → final detections after NMS.</figcaption>
+    </figure>
+
+    <div class="callout">
+      <h4>The "responsible cell" rule in one sentence</h4>
+      <p>Each object in a training image is assigned to the <strong>single grid cell that contains the centre (midpoint) of the object's bounding box</strong>. All other cells output $p_c = 0$ for that object.</p>
+    </div>
+
+    <div class="callout trap">
+      <h4>Common exam traps</h4>
+      <ul class="list-disc ml-6">
+        <li>"The responsible cell is the one with the largest <em>overlap</em>." — <strong>False.</strong> It is the one that contains the <em>centre</em>, not the largest overlap.</li>
+        <li>"With one anchor per cell, YOLO can detect $S\times S \times M$ objects." — With <strong>one</strong> anchor per cell the cap is just $S\times S$ (one object per cell).</li>
+        <li>"YOLO does two passes — one for boxes, one for classes." — Single pass. That is the entire point of the name.</li>
+      </ul>
+    </div>
+
+    <div class="q">
+      <div class="stem">Q. The image is $416\times 416$ and the grid is $13\times 13$. An object's centre is at pixel $(100, 80)$. Which cell is responsible?</div>
+      <details class="reveal"><summary>Answer</summary>Each cell is $416/13 = 32$ px wide. The responsible cell is $(\lfloor 100/32 \rfloor,\ \lfloor 80/32 \rfloor) = (3, 2)$ (column 3, row 2, zero-indexed).</details>
+    </div>
+    <div class="q">
+      <div class="stem">Q. Two objects' centres fall into the same cell (e.g. a tall person in front of a wide car). Without anchor boxes, how many can YOLO predict?</div>
+      <details class="reveal"><summary>Answer</summary>Only one — the cell stores a single $[p_c, b_x, b_y, b_w, b_h, c_1,\dots]$ vector. This is exactly the motivation for anchor boxes (s7.3).</details>
+    </div>
+  </div>
+</section>
+
+<!-- =========================================== s7.2 =========================================== -->
+<section id="s7.2" class="mt-12">
+  <h2 class="text-2xl font-bold border-b pb-1 mb-3">s7.2 — Cell-based vs Image-based encoding of $(b_x,b_y,b_w,b_h)$</h2>
+
+  <p class="why">Why it matters: two conventions appear in textbooks and slides. They predict the <em>same</em> box but the numbers look different. Pick the wrong one on the exam and your value of $b_x$ is wrong.</p>
+
+  <div class="concept">
+    <h3>[1] Cell-based encoding (the one the YOLO paper uses)</h3>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L07/page-025.png" alt="Cell-based encoding: (0,0) top-left of CELL, x,y in [0,1]">
+      <figcaption>L07 · slide 25 — cell-based encoding.</figcaption>
+    </figure>
+    <ul class="list-disc ml-6">
+      <li><strong>$(0,0)$</strong> = top-left corner of the <em>cell</em>.</li>
+      <li><strong>$(1,1)$</strong> = bottom-right corner of the <em>cell</em>.</li>
+      <li>$b_x, b_y \in [0,1]$ — fraction of the cell width/height.</li>
+      <li>$b_w, b_h$ — measured <strong>relative to the whole image</strong>; may exceed 1 (large objects are bigger than one cell). On the slide: <code>Plane: 0.4, 0.7, 1.9, 0.6</code> → centre at 40% of cell width, 70% of cell height; width = 1.9 cells; height = 0.6 cells.</li>
+    </ul>
+  </div>
+
+  <div class="concept">
+    <h3>[2] Image-based encoding (alternative)</h3>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L07/page-026.png" alt="Image-based encoding: (0,0) top-left of IMAGE, units of CELLS">
+      <figcaption>L07 · slide 26 — image-based encoding (units = cell widths).</figcaption>
+    </figure>
+    <ul class="list-disc ml-6">
+      <li><strong>$(0,0)$</strong> = top-left of the <em>image</em>; $(S,S)$ = bottom-right of the image.</li>
+      <li>$b_x, b_y$ are measured from image origin, in cell-width units → range $[0,S)$.</li>
+      <li>$b_w, b_h$ also in cell-width units → range $[0,S)$.</li>
+      <li>Slide example: <code>Plane: 1.8, 0.7, 1.9, 0.6</code> — same object, different units (cell column 1.8, row 0.7).</li>
+    </ul>
+  </div>
+
+  <div class="concept">
+    <h3>Reconciling the two — same object, two number sets</h3>
+    <details class="reveal">
+      <summary>Worked example — image 416×416, grid 13×13, object centre at pixel (100, 80), object size 50×80 px</summary>
+      Cell side = $416/13 = 32$ px.<br>
+      Responsible cell index $(c_x, c_y) = (\lfloor 100/32 \rfloor, \lfloor 80/32 \rfloor) = (3, 2)$.<br>
+      <strong>Cell-based:</strong><br>
+      &nbsp;&nbsp;$b_x = (100 \bmod 32)/32 = 4/32 = 0.125$<br>
+      &nbsp;&nbsp;$b_y = (80 \bmod 32)/32 = 16/32 = 0.5$<br>
+      &nbsp;&nbsp;$b_w = 50/416 \approx 0.120$ (fraction of image)<br>
+      &nbsp;&nbsp;$b_h = 80/416 \approx 0.192$<br>
+      <strong>Image-based (cell units):</strong><br>
+      &nbsp;&nbsp;$b_x = 100/32 = 3.125$<br>
+      &nbsp;&nbsp;$b_y = 80/32 = 2.5$<br>
+      &nbsp;&nbsp;$b_w = 50/32 \approx 1.5625$<br>
+      &nbsp;&nbsp;$b_h = 80/32 = 2.5$
+    </details>
+
+    <div class="callout trap">
+      <h4>Trap</h4>
+      <ul class="list-disc ml-6">
+        <li>Mixing the two encodings on the same exam question. Read the question: <em>"relative to cell"</em> = encoding 1; <em>"in cell units, from image top-left"</em> = encoding 2.</li>
+        <li>"$b_w$ is always &lt; 1." — <strong>False</strong>. The width is relative to the image (or in cell units); large objects can exceed 1 cell.</li>
+      </ul>
+    </div>
+
+    <div class="q">
+      <div class="stem">Q. Cell-based encoding: an object centre is at $(b_x, b_y) = (0.9, 0.05)$ inside cell $(c_x, c_y) = (4, 2)$. Where is the centre in the image, with a $32$-px cell?</div>
+      <details class="reveal"><summary>Answer</summary>Image x = $(4 + 0.9) \cdot 32 = 156.8$ px. Image y = $(2 + 0.05) \cdot 32 = 65.6$ px.</details>
+    </div>
+  </div>
+</section>
+
+<!-- =========================================== s7.3 =========================================== -->
+<section id="s7.3" class="mt-12">
+  <h2 class="text-2xl font-bold border-b pb-1 mb-3">s7.3 — Anchor Boxes</h2>
+
+  <div class="concept">
+    <h3>Why anchors? (the two failure cases of one-anchor YOLO)</h3>
+    <p class="why">Why it matters: with one anchor per cell, the max number of detected objects = number of cells <em>and</em> you cannot disambiguate two overlapping objects with the same centre. Anchors fix both.</p>
+
+    <figure class="slide-figure">
+      <img src="../assets/slides/L07/page-028.png" alt="One anchor box — limitations">
+      <figcaption>L07 · slide 28 — with one anchor per cell, max detected objects = cell count, and overlapping centres collide.</figcaption>
+    </figure>
+
+    <p>Two situations break a one-anchor cell:</p>
+    <ol class="list-decimal ml-6">
+      <li><strong>Overlapping objects</strong> whose centres fall into the same cell (the classic "person standing in front of a car" picture).</li>
+      <li><strong>Many small objects</strong> when the grid is coarse — many objects per cell.</li>
+    </ol>
+
+    <figure class="slide-figure">
+      <img src="../assets/slides/L07/page-029.png" alt="Multiple anchor boxes — two objects, two anchors">
+      <figcaption>L07 · slide 29 — tall <em>person</em> matches anchor box 1 (vertical); wide <em>car</em> matches anchor box 2 (horizontal).</figcaption>
+    </figure>
+  </div>
+
+  <div class="concept">
+    <h3>Definition — anchor box</h3>
+    <p>An <strong>anchor box</strong> is a pre-defined template (width, height, aspect ratio). Each cell predicts a <em>set of</em> $M$ anchors, and for each anchor it emits an output vector $[p_c, b_x, b_y, b_w, b_h, c_1,\dots,c_N]$.</p>
+    <p>The network's $b_x, b_y, b_w, b_h$ are interpreted as <strong>offsets / refinements</strong> from the anchor's prior shape rather than absolute coordinates — this gives the network a head start ("you only need to learn the <em>residual</em>") and naturally specialises each anchor to one aspect ratio.</p>
+
+    <figure class="slide-figure">
+      <img src="../assets/slides/L07/page-030.png" alt="Multiple anchor boxes — for small objects">
+      <figcaption>L07 · slide 30 — anchor templates are chosen to look like the kinds of objects you expect.</figcaption>
+    </figure>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L07/page-031.png" alt="Output tensor with 2 anchor boxes, 3 classes">
+      <figcaption>L07 · slide 31 — output for a $3\times 3$ grid, 2 anchors, 3 classes → tensor shape $3\times 3\times 2\times 8$.</figcaption>
+    </figure>
+  </div>
+
+  <div class="concept">
+    <h3>Assigning the ground truth to the right anchor</h3>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L07/page-040.png" alt="Assigning anchor box: highest IoU between GT and anchor wins">
+      <figcaption>L07 · slide 40 — compute IoU between the GT box and every anchor; assign the GT to the anchor with the highest IoU.</figcaption>
+    </figure>
+    <p>Procedure (per ground-truth box):</p>
+    <ol class="list-decimal ml-6">
+      <li>Compute IoU($\text{GT}$, $\text{anchor}_k$) for $k = 1\dots M$.</li>
+      <li>Pick the anchor $k^* = \arg\max_k \text{IoU}(\text{GT}, \text{anchor}_k)$.</li>
+      <li>Fill that anchor's slot in the responsible cell's label with $p_c = 1$ and the box coords; all other anchors in the same cell get $p_c = 0$.</li>
+    </ol>
+
+    <figure class="slide-figure">
+      <img src="../assets/slides/L07/page-032.png" alt="Wrong anchor → inconsistent training data">
+      <figcaption>L07 · slide 32 — wrong anchor → inconsistent labels (e.g. a $2.8\times 0.25$ box gets shoved into a tall anchor) → low accuracy.</figcaption>
+    </figure>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L07/page-033.png" alt="Proper anchor → consistent labels">
+      <figcaption>L07 · slide 33 — proper anchor → wide boxes go to the wide anchor → consistent labels → high accuracy.</figcaption>
+    </figure>
+  </div>
+
+  <div class="concept">
+    <h3>Picking anchor sizes — k-means on the training boxes</h3>
+    <p class="why">Why it matters: hand-picking $M$ anchor sizes is brittle. YOLOv2 introduced clustering ground-truth boxes to learn good priors.</p>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L07/page-036.png" alt="Define anchor sizes — objects with ground truth boxes">
+      <figcaption>L07 · slide 36 — collect ground-truth bounding boxes from training images.</figcaption>
+    </figure>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L07/page-037.png" alt="K-means clustering of bounding boxes with k=4">
+      <figcaption>L07 · slide 37 — k-means clustering with $K=4$, distance = squared distance <em>or</em> $1-\text{IoU}$.</figcaption>
+    </figure>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L07/page-038.png" alt="Best anchor size = average or median of each cluster">
+      <figcaption>L07 · slide 38 — anchor for cluster = mean (or median) box of that cluster.</figcaption>
+    </figure>
+  </div>
+
+  <div class="concept">
+    <h3>Picking the <em>number</em> of anchors $K$</h3>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L07/page-042.png" alt="How to pick number of anchors — sweep K, plot mean IoU">
+      <figcaption>L07 · slide 42 — algorithm to choose $K$.</figcaption>
+    </figure>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L07/page-043.png" alt="Mean IoU vs #centroids (elbow plot)">
+      <figcaption>L07 · slide 43 — sweep $K=2,3,\dots$; plot mean IoU; pick the smallest $K$ that crosses the acceptance threshold (e.g. 0.6).</figcaption>
+    </figure>
+    <ol class="list-decimal ml-6">
+      <li>Run k-means for $K = 2, 3, 4, \dots$ on training ground-truth boxes.</li>
+      <li>Assign each GT box to its nearest anchor (highest IoU).</li>
+      <li>Compute the mean IoU between every GT box and its assigned anchor.</li>
+      <li>Plot mean IoU vs $K$; pick the smallest $K$ giving "acceptable" IoU (e.g. $\geq 0.6$).</li>
+    </ol>
+
+    <div class="callout">
+      <h4>Why "smallest K"?</h4>
+      <p>More anchors → more output channels → more compute, more parameters, more chance of overfitting. So we want just enough to cover the aspect-ratio diversity of the dataset.</p>
+    </div>
+  </div>
+</section>
+
+<!-- =========================================== s7.4 =========================================== -->
+<section id="s7.4" class="mt-12">
+  <h2 class="text-2xl font-bold border-b pb-1 mb-3">s7.4 — Output Tensor &amp; Post-processing (NMS)</h2>
+
+  <div class="concept">
+    <h3>Per-cell output vector</h3>
+    <p>For <em>one</em> anchor: $[\,p_c,\ b_x,\ b_y,\ b_w,\ b_h,\ c_1,\ c_2,\ \dots,\ c_N\,]$ — length $5+N$.</p>
+    <ul class="list-disc ml-6">
+      <li>$p_c$ — objectness / confidence that an object exists in this {cell, anchor} slot.</li>
+      <li>$b_x, b_y, b_w, b_h$ — bounding-box position/size (cell-based or image-based — see s7.2).</li>
+      <li>$c_1,\dots,c_N$ — per-class probabilities (one-hot for the ground truth).</li>
+    </ul>
+  </div>
+
+  <div class="concept">
+    <h3>Two conventions for the full tensor shape — reconcile them</h3>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L07/page-034.png" alt="Output tensor formulas: shared classes vs per-anchor classes">
+      <figcaption>L07 · slide 34 — both formulas; example $S=13, M=6, N=100$ gives 21,970 vs 106,470 (a 1:4.84 ratio).</figcaption>
+    </figure>
+    <p>Two conventions appear:</p>
+    <ol class="list-decimal ml-6">
+      <li><strong>Shared classes</strong> across anchors per cell — only one class vector per cell, all $M$ anchors share it:
+        $$\text{Tensor shape} = S\times S\times (M\cdot 5 + N).$$
+      </li>
+      <li><strong>Per-anchor classes</strong> — each anchor predicts its own class probabilities:
+        $$\text{Tensor shape} = S\times S\times M\cdot(5 + N).$$
+      </li>
+    </ol>
+
+    <details class="reveal">
+      <summary>Slide's worked example — $S=13, M=6, N=100$</summary>
+      <ul class="ml-5 list-disc">
+        <li>Shared classes: $13\times 13 \times (6\cdot 5 + 100) = 169 \times 130 = \mathbf{21{,}970}$.</li>
+        <li>Per-anchor classes: $13\times 13 \times 6 \cdot (5 + 100) = 169 \times 630 = \mathbf{106{,}470}$.</li>
+        <li>Ratio: $106{,}470 / 21{,}970 \approx 4.84$ — per-anchor classes use ~5× more output values for $N=100$.</li>
+      </ul>
+    </details>
+
+    <div class="callout">
+      <h4>Mini-example matching the slide picture (slide 31)</h4>
+      <p>Grid $3\times 3$, $M=2$ anchors, $N=3$ classes (pedestrian, car, motorcycle). Per-anchor classes:</p>
+      <p>$$3\times 3\times 2\times (5+3) = 3\times 3\times 2\times 8 = 144.$$</p>
+      <p>This matches "$y\ \text{is}\ 3\times 3\times 2\times 8$" on the slide.</p>
+    </div>
+
+    <div class="callout trap">
+      <h4>Trap</h4>
+      <ul class="list-disc ml-6">
+        <li>Confusing the two formulas — always check whether classes are shared or per-anchor.</li>
+        <li>Forgetting the $+5$ comes from $[p_c, b_x, b_y, b_w, b_h]$, <em>not</em> $+4$.</li>
+      </ul>
+    </div>
+
+    <div class="q">
+      <div class="stem">Q. $S=7, M=2, N=20$, per-anchor classes. What is the total tensor size?</div>
+      <details class="reveal"><summary>Answer</summary>$7\times 7\times 2\times(5+20) = 49\times 50 = \mathbf{2{,}450}$.</details>
+    </div>
+    <div class="q">
+      <div class="stem">Q. Same dimensions but classes shared across anchors. Total size?</div>
+      <details class="reveal"><summary>Answer</summary>$7\times 7\times(2\cdot 5 + 20) = 49\times 30 = \mathbf{1{,}470}$.</details>
+    </div>
+  </div>
+
+  <div class="concept">
+    <h3>Reading the output: class-confidence = $p_c \cdot c_i$</h3>
+    <p>The raw $c_i$ is conditional on an object existing (<em>"if an object is here, what is it?"</em>). To rank detections, multiply by $p_c$:</p>
+    <p>$$\text{class\_confidence}_i = p_c \cdot c_i.$$</p>
+    <p>This is the score used to threshold and to break ties in NMS.</p>
+  </div>
+
+  <div class="concept">
+    <h3>Problem: the same object is detected by many boxes</h3>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L07/page-063.png" alt="Overlapped detections — the duplicate-box problem">
+      <figcaption>L07 · slide 63 — multiple windows fire on the same object → duplicate boxes.</figcaption>
+    </figure>
+    <p>Multiple cells / anchors can all believe the same object is theirs. We need to collapse duplicates → <strong>Non-Maximum Suppression (NMS).</strong></p>
+  </div>
+
+  <div class="concept">
+    <h3>Non-Maximum Suppression (NMS) — the algorithm</h3>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L07/page-064.png" alt="Non-Max Suppression algorithm — 6 steps">
+      <figcaption>L07 · slide 64 — the canonical 6-step NMS algorithm.</figcaption>
+    </figure>
+    <ol class="list-decimal ml-6">
+      <li><strong>Filter</strong>: discard all boxes with $p_c &lt; 0.6$ (low-confidence).</li>
+      <li>Pick the box with the <strong>highest $p_c$</strong> as the keeper.</li>
+      <li>Compute IoU between this keeper and every other remaining box.</li>
+      <li><strong>Discard</strong> boxes with IoU $&gt; 0.5$ — too-overlapped duplicates.</li>
+      <li>Repeat 2–4 on what remains (excluding already-kept boxes).</li>
+      <li>Stop when no box can be discarded.</li>
+    </ol>
+    <p>The thresholds $p_c &lt; 0.6$ and IoU $&gt; 0.5$ are <strong>user-defined hyperparameters</strong>.</p>
+
+    <figure class="slide-figure">
+      <img src="../assets/slides/L07/page-065.png" alt="NMS — final cleaned-up detections">
+      <figcaption>L07 · slide 65 — after NMS: one box per object, max-scoring boxes kept.</figcaption>
+    </figure>
+
+    <div class="callout">
+      <h4>Big picture: NMS is a greedy algorithm</h4>
+      <p>At each iteration: pick the highest-scoring remaining box → suppress everything that overlaps it strongly → repeat.</p>
+    </div>
+
+    <div class="callout">
+      <h4>Per-class NMS</h4>
+      <p>When there are $N$ classes, run NMS <strong>separately per class</strong>. Otherwise a "dog" box would suppress a partially overlapping "person" box, which is wrong.</p>
+    </div>
+
+    <div class="callout trap">
+      <h4>Common exam traps</h4>
+      <ul class="list-disc ml-6">
+        <li>Reversing the IoU and $p_c$ thresholds: NMS <em>keeps</em> high-$p_c$ boxes and <em>removes</em> high-IoU duplicates.</li>
+        <li>Forgetting that NMS is run after a confidence pre-filter — Step 1 throws out most low-quality boxes first.</li>
+        <li>"NMS finds the globally optimal subset." — False. It is <em>greedy</em>; it can suppress a box that would have been useful for a near-by smaller object.</li>
+      </ul>
+    </div>
+
+    <div class="q">
+      <div class="stem">Q. Five raw boxes for class "car" with $p_c$ values $[0.95, 0.82, 0.78, 0.55, 0.40]$. After Step 1 (threshold $p_c \geq 0.6$), how many survive?</div>
+      <details class="reveal"><summary>Answer</summary>Three: 0.95, 0.82, 0.78. The 0.55 and 0.40 boxes are dropped before NMS even starts.</details>
+    </div>
+    <div class="q">
+      <div class="stem">Q. The keeper box has IoU 0.7 with box B and IoU 0.3 with box C. Using the standard threshold 0.5, what happens to B and C?</div>
+      <details class="reveal"><summary>Answer</summary>B is discarded (IoU 0.7 &gt; 0.5). C survives the iteration (IoU 0.3 ≤ 0.5) and competes again in the next round.</details>
+    </div>
+  </div>
+
+  <div class="concept">
+    <h3>Full prediction-parsing pipeline (memorise the order)</h3>
+    <ol class="list-decimal ml-6">
+      <li>Forward pass image through CNN → output tensor of shape $S\times S\times M\times(5+N)$.</li>
+      <li>For each (cell, anchor) decode $p_c, b_x, b_y, b_w, b_h, c_1\dots c_N$.</li>
+      <li>Compute class-confidence = $p_c \cdot c_i$ for each class.</li>
+      <li>Threshold: drop boxes with $p_c &lt; 0.6$ (and/or class-confidence too low).</li>
+      <li>Run NMS, separately per class.</li>
+      <li>Output: the surviving (box, class, score) triples.</li>
+    </ol>
+  </div>
+</section>
+
+<!-- =========================================== s7.5 =========================================== -->
+<section id="s7.5" class="mt-12">
+  <h2 class="text-2xl font-bold border-b pb-1 mb-3">s7.5 — IoU, Architecture, Loss, Versions</h2>
+
+  <div class="concept">
+    <h3>Intersection over Union (IoU)</h3>
+    <p class="why">Why it matters: IoU is the universal box-overlap metric — used as quality measure, as a term in the loss, to assign anchors, and inside NMS.</p>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L07/page-017.png" alt="IoU = area of overlap / area of union">
+      <figcaption>L07 · slide 17 — IoU = overlap / union. Acceptance $\text{IoU} \geq 0.6$ is a common heuristic.</figcaption>
+    </figure>
+    <p>$$\text{IoU} = \frac{\text{Area of Overlap}}{\text{Area of Union}}.$$</p>
+    <p>The simplest IoU-based loss:</p>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L07/page-018.png" alt="IoU loss = 1 - IoU">
+      <figcaption>L07 · slide 18 — $\text{Loss}_{\text{IoU}} = 1 - \text{IoU}$. Minimise via gradient descent.</figcaption>
+    </figure>
+    <p>$$\text{Loss}_{\text{IoU}} = 1 - \text{IoU}.$$</p>
+
+    <figure class="slide-figure">
+      <img src="../assets/slides/L07/page-019.png" alt="Variants of IoU: GIoU, DIoU, CIoU, EIoU, SIoU, WIoU">
+      <figcaption>L07 · slide 19 — IoU variants used by different YOLO versions.</figcaption>
+    </figure>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L07/page-020.png" alt="Uses of IoU in YOLO">
+      <figcaption>L07 · slide 20 — five places IoU is used in YOLO.</figcaption>
+    </figure>
+    <p>IoU is used in YOLO as: (1) quality measure of predicted boxes, (2) inside the loss, (3) to assign anchor → GT box, (4) to discard duplicates in NMS, (5) as the k-means distance ($1-\text{IoU}$) for choosing anchor priors.</p>
+  </div>
+
+  <div class="concept">
+    <h3>Reference architecture (example: 4 anchors, 20 classes, image 416×416)</h3>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L07/page-053.png" alt="YOLO architecture diagram: 13×13 grid, 25 values per anchor">
+      <figcaption>L07 · slide 49 — labels and model output tensors both shape $13\times 13\times \text{(per-anchor depth)}$.</figcaption>
+    </figure>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L07/page-054.png" alt="YOLO architecture: layers 1–7">
+      <figcaption>L07 · slide 50 — layers 1–7: image 416 → … → 52×52.</figcaption>
+    </figure>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L07/page-055.png" alt="YOLO architecture: layers 8–15">
+      <figcaption>L07 · slide 51 — layers 8–15: spatial size reduced to $S\times S = 13\times 13$ at maxpool; no further pooling after that.</figcaption>
+    </figure>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L07/page-056.png" alt="YOLO architecture: filter counts and kernel sizes, all 23 layers">
+      <figcaption>L07 · slide 52 — every layer's filter count + kernel size; last layer has 100 filters = $4\times(5+20)$.</figcaption>
+    </figure>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L07/page-057.png" alt="Convolution layers extract features + encode the S×S vectors; no FC, no Softmax">
+      <figcaption>L07 · slide 53 — design notes: no fully-connected layer, no softmax; transfer-learning recipe.</figcaption>
+    </figure>
+
+    <p>Key architectural points:</p>
+    <ul class="list-disc ml-6">
+      <li>Backbone is fully convolutional (e.g. DarkNet-style in YOLOv2/v3). It <strong>extracts features</strong> for layers $1\dots N{-}1$, then the last conv <strong>encodes</strong> the image into $S\times S$ vectors.</li>
+      <li>The required <strong>length of the last layer's feature vector</strong> = number of filters in the final conv layer = $M\cdot(5+N)$ (per-anchor classes) or $M\cdot 5 + N$ (shared classes).</li>
+      <li>For the example $M=4, N=20$: final layer has $4\cdot(5+20) = 100$ filters.</li>
+      <li>$13\times 13$ comes from $416/32 = 13$ — five $2\times$ max-pools reduce 416 → 208 → 104 → 52 → 26 → 13.</li>
+      <li><strong>No fully-connected layers</strong>, <strong>no softmax</strong>. (Independent logistic per class — enables multi-label.)</li>
+      <li><strong>Transfer learning</strong>: freeze every conv layer except the last; adjust the last layer's filter count to $M\cdot(5+N)$ for your problem; fine-tune that last layer.</li>
+    </ul>
+  </div>
+
+  <div class="concept">
+    <h3>YOLO loss function</h3>
+    <p class="why">Why it matters: the loss is a regression+classification hybrid that simultaneously optimises box location, objectness and class. It has three additive parts.</p>
+
+    <figure class="slide-figure">
+      <img src="../assets/slides/L07/page-059.png" alt="Original YOLO loss function (three terms: coordinate, confidence, class)">
+      <figcaption>L07 · slide 55 — original three-part YOLO loss.</figcaption>
+    </figure>
+
+    <p>$$\text{loss}_{i,j} = \underbrace{\text{loss}_{i,j}^{xywh}}_{\text{coord}} + \underbrace{\text{loss}_{i,j}^{p}}_{\text{class prob}} + \underbrace{\text{loss}_{i,j}^{c}}_{\text{object confidence}}.$$</p>
+
+    <h4 class="font-bold mt-3">Coordinate loss (regression)</h4>
+    <p>$$\text{loss}^{xywh}_{i,j} = \tfrac{\lambda_{\text{coord}}}{N_{L^{obj}}} \sum_{i=0}^{S^2}\sum_{j=0}^{B} L^{\text{obj}}_{i,j}\Big[(x_{i,j} - \hat{x}_{i,j})^2 + (y_{i,j} - \hat{y}_{i,j})^2 + (\sqrt{w_{i,j}} - \sqrt{\hat{w}_{i,j}})^2 + (\sqrt{h_{i,j}} - \sqrt{\hat{h}_{i,j}})^2\Big].$$</p>
+    <p>Use the <em>square root</em> of $w,h$ so a fixed error on a small box hurts more than the same error on a large box. ($\sqrt{}$ expands $[0,0.25]\to[0,0.5]$ — small numbers get magnified.)</p>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L07/page-061.png" alt="Coordinates loss — annotated">
+      <figcaption>L07 · slide 57 — annotated coordinate-loss breakdown.</figcaption>
+    </figure>
+
+    <h4 class="font-bold mt-3">Class-probability loss (cross-entropy)</h4>
+    <p>$$\text{loss}^{p}_{i,j} = -\tfrac{\lambda_{\text{class}}}{N_{L^{obj}}}\sum_{i=0}^{S^2}\sum_{j=0}^{B} L^{\text{obj}}_{i,j}\sum_{c\in\text{class}} p^{c}_{i,j}\log(\hat p^{c}_{i,j}).$$</p>
+    <p>Only counted on {cell, anchor} pairs that actually contain an object ($L^{\text{obj}}_{i,j}=1$).</p>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L07/page-063.png" alt="Class-probability loss using cross-entropy">
+      <figcaption>L07 · slide 59 — class-probability loss = cross-entropy, masked by $L^{\text{obj}}$.</figcaption>
+    </figure>
+
+    <h4 class="font-bold mt-3">Object-confidence loss</h4>
+    <p>$$\text{loss}^{c}_{i,j} = \tfrac{\lambda_{\text{obj}}}{N^{conf}}\sum_{i,j} L^{\text{obj}}_{i,j}\Big(\text{IoU}^{\text{gt}}_{\text{pred}} - \hat C_{i,j}\Big)^2 \;+\; \tfrac{\lambda_{\text{noobj}}}{N^{conf}}\sum_{i,j} L^{\text{noobj}}_{i,j}\Big(0 - \hat C_{i,j}\Big)^2.$$</p>
+    <p>Trains $\hat C_{i,j}$ to match the IoU with the ground-truth box when an object exists, or to be 0 when no object exists.</p>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L07/page-064.png" alt="Object-confidence loss — two terms for object / no-object">
+      <figcaption>L07 · slide 60 — object-confidence loss has separate weights for object-present and object-absent {cell, anchor} pairs.</figcaption>
+    </figure>
+
+    <h4 class="font-bold mt-3">Weights, normalisation, indicators</h4>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L07/page-065.png" alt="Weights, normalisation, indicators (hyperparameters)">
+      <figcaption>L07 · slide 61 — suggested hyperparameter values.</figcaption>
+    </figure>
+    <ul class="list-disc ml-6">
+      <li>$L^{\text{obj}}_{i,j} = 1$ if {cell $i$, anchor $j$} contains an object, else 0.</li>
+      <li>$L^{\text{noobj}}_{i,j} = 1$ if $\max\text{IoU} &lt; 0.6$ and $C_{i,j} = 0$ (truly empty), else 0.</li>
+      <li>Suggested hyperparameters: $\lambda_{\text{coord}} = 5,\ \lambda_{\text{obj}} = 1,\ \lambda_{\text{noobj}} = 0.5,\ \lambda_{\text{class}} = 1$.</li>
+      <li>$\lambda_{\text{noobj}} &lt; \lambda_{\text{obj}}$ because the vast majority of cells contain no object — without down-weighting, the empty cells would dominate the gradient.</li>
+      <li>$\lambda_{\text{coord}} = 5$ boosts the localisation signal because there are far fewer object-containing cells than empty ones.</li>
+    </ul>
+  </div>
+
+  <div class="concept">
+    <h3>Versions &amp; loss-type evolution (quick reference)</h3>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L07/page-048.png" alt="YOLO versions list till March 2026">
+      <figcaption>L07 · slide 44 — versions till 2026: YOLOv1 → v12 + YOLO-NAS, YOLO-World.</figcaption>
+    </figure>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L07/page-050.png" alt="YOLO version timeline">
+      <figcaption>L07 · slide 46 — version timeline.</figcaption>
+    </figure>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L07/page-051.png" alt="Loss types of YOLO versions">
+      <figcaption>L07 · slide 47 — loss type per version (sum-squared error → CIoU → SIoU → EIoU → DFL → …).</figcaption>
+    </figure>
+  </div>
+</section>
+
+<!-- =========================================== Practice =========================================== -->
+<section id="practice" class="mt-12">
+  <h2 class="text-2xl font-bold border-b pb-1 mb-3">Practice quiz — Lecture 7</h2>
+
+  <div class="q">
+    <div class="stem">1 (Short). Define the "responsible cell" for an object in YOLO.</div>
+    <details class="reveal"><summary>Answer</summary>The single grid cell that contains the <strong>centre (midpoint)</strong> of the object's ground-truth bounding box. All other cells output $p_c=0$ for that object.</details>
+  </div>
+
+  <div class="q">
+    <div class="stem">2 (Numerical, tensor size). For $S = 19,\ M = 5,\ N = 80$ (MS COCO-ish), give the output tensor sizes under both conventions.</div>
+    <details class="reveal"><summary>Answer</summary>
+      <ul class="ml-5 list-disc">
+        <li>Shared classes: $19\times 19\times (5\cdot 5 + 80) = 361\times 105 = \mathbf{37{,}905}$.</li>
+        <li>Per-anchor classes: $19\times 19\times 5\cdot(5 + 80) = 361\times 425 = \mathbf{153{,}425}$.</li>
+      </ul>
+    </details>
+  </div>
+
+  <div class="q">
+    <div class="stem">3 (Numerical, anchor assignment). A ground-truth box for a wide car has IoU $\{0.18, 0.41, 0.63, 0.55\}$ with anchors 1–4 in its cell. Which anchor is assigned, and what is the value of $p_c$ in its slot?</div>
+    <details class="reveal"><summary>Answer</summary>Anchor 3 (highest IoU 0.63). Its $p_c$ is set to 1; the other three anchors' $p_c$ slots stay 0.</details>
+  </div>
+
+  <div class="q">
+    <div class="stem">4 (Numerical, cell coordinates). Image 416×416, grid 13×13. Object centre at $(x,y) = (200, 145)$ px. Give the responsible cell and the cell-based $(b_x, b_y)$.</div>
+    <details class="reveal"><summary>Answer</summary>Cell side = 32 px. Cell = $(\lfloor 200/32\rfloor, \lfloor 145/32\rfloor) = (6, 4)$.<br>$b_x = (200\bmod 32)/32 = 8/32 = 0.25$. $b_y = (145\bmod 32)/32 = 17/32 \approx 0.531$.</details>
+  </div>
+
+  <div class="q">
+    <div class="stem">5 (MCQ). The class-confidence score used to rank a detection in NMS equals:</div>
+    <div>a) $p_c$ alone &nbsp; b) $c_i$ alone &nbsp; c) $p_c \cdot c_i$ &nbsp; d) $p_c + c_i$</div>
+    <details class="reveal"><summary>Answer</summary>c) $p_c \cdot c_i$ — objectness times the class probability.</details>
+  </div>
+
+  <div class="q">
+    <div class="stem">6 (T/F). NMS is run jointly over all classes — i.e. a high-confidence "dog" can suppress an overlapping "person".</div>
+    <details class="reveal"><summary>Answer</summary>False. NMS is run <strong>per class</strong>. Otherwise overlapping objects of different classes would wrongly suppress each other.</details>
+  </div>
+
+  <div class="q">
+    <div class="stem">7 (Short, architecture). For the slide's reference architecture ($M=4$ anchors, $N=20$ classes, per-anchor classes), how many filters must the <em>last</em> convolutional layer have?</div>
+    <details class="reveal"><summary>Answer</summary>$M\cdot(5+N) = 4\cdot(5+20) = \mathbf{100}$ filters — exactly the slide's "filters:100, #23".</details>
+  </div>
+
+  <div class="q">
+    <div class="stem">8 (Scenario). You sweep $K$ in k-means on your training boxes; the mean-IoU table is $\{2:0.40, 3:0.55, 4:0.60, 5:0.65, 6:0.70, 7:0.75\}$ and the acceptance threshold is 0.6. Which $K$ do you pick and why?</div>
+    <details class="reveal"><summary>Answer</summary>$K = 4$ — the <strong>smallest</strong> $K$ whose mean IoU reaches the acceptance threshold (0.60). Bigger $K$ would also work but wastes parameters / inference time.</details>
+  </div>
+</section>
+
+<footer class="mt-16 pt-6 border-t text-sm text-slate-500 dark:text-slate-400 no-print">
+  Lecture 7 complete. <a href="./L08.html">Next → L08</a>
+</footer>
+</main>
+
+<script>
+document.getElementById('themeToggle').addEventListener('click', () => {
+  const cur = document.documentElement.getAttribute('data-theme');
+  const next = cur === 'dark' ? 'light' : 'dark';
+  document.documentElement.setAttribute('data-theme', next);
+  localStorage.setItem('theme', next);
+});
+// Mark lecture 7 as visited
+try { localStorage.setItem('lecture-L07-visited', '1'); } catch(e){}
+</script>
+</body>
+</html>

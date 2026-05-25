@@ -1,0 +1,601 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>L09 — Landmark Detection, R-CNN &amp; Fast R-CNN</title>
+<meta name="description" content="Full revision notes for Lecture 9: landmark detection, sliding window review, R-CNN, Fast R-CNN, motivation for Faster R-CNN." />
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/katex.min.css">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/katex.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/contrib/auto-render.min.js"
+        onload="renderMathInElement(document.body,{delimiters:[{left:'$$',right:'$$',display:true},{left:'$',right:'$',display:false}]});"></script>
+<link rel="stylesheet" href="../assets/css/styles.css">
+<script>
+  (function(){
+    const saved = localStorage.getItem('theme') || 'light';
+    document.documentElement.setAttribute('data-theme', saved);
+  })();
+</script>
+</head>
+<body class="max-w-5xl mx-auto px-4 pb-24">
+
+<header class="flex items-center justify-between py-4 border-b border-slate-200 dark:border-slate-700 no-print">
+  <a href="../index.html" class="text-sm">← Back to index</a>
+  <div class="flex items-center gap-3">
+    <span class="text-xs opacity-70">Lecture 9 of 12</span>
+    <button id="themeToggle" class="text-sm border rounded px-2 py-1">🌓 Theme</button>
+  </div>
+</header>
+
+<nav class="section-jump no-print" aria-label="Sections in this lecture">
+  <a href="#s9.1">s9.1 Landmark detection</a>
+  <a href="#s9.2">s9.2 R-CNN</a>
+  <a href="#s9.3">s9.3 Fast R-CNN</a>
+  <a href="#s9.4">s9.4 Why Faster R-CNN?</a>
+  <a href="#practice">Practice quiz</a>
+</nav>
+
+<main>
+<h1 class="text-3xl font-extrabold mt-4 mb-2">Lecture 9 — Landmark Detection, R-CNN &amp; Fast R-CNN</h1>
+<p class="text-slate-500 dark:text-slate-400 mb-6">Slides © Dr. Khaled M. ElSayed, Zewail City. 38 slides.</p>
+
+<!-- =========================================== s9.1 =========================================== -->
+<section id="s9.1" class="mt-10">
+  <h2 class="text-2xl font-bold border-b pb-1 mb-3">s9.1 — Landmark Detection &amp; Pose Estimation</h2>
+
+  <div class="concept">
+    <h3>What is landmark detection?</h3>
+    <p class="why">Why it matters: landmark detection is the foundation for facial-recognition, emotion detection, AR filters (Snapchat-style hats / glasses), and human-pose estimation. It is also the gentlest entry point into "predict coordinates with a CNN" — every later detector (R-CNN, YOLO) reuses the same idea of regressing $(x,y)$ pairs.</p>
+    <p><strong>Landmark detection</strong> = given an image of an object (face, body, hand…), output a fixed-length vector of $(x,y)$ coordinates that mark anatomically meaningful points on that object.</p>
+    <p>It is a <em>regression</em> problem (continuous outputs) — not a classification problem.</p>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L09/page-001.png" alt="Lecture 9 — title slide, page 1">
+      <figcaption>L09 · slide 1 — title.</figcaption>
+    </figure>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L09/page-002.png" alt="Lecture 9 — Landmark detection and pose estimation, page 2">
+      <figcaption>L09 · slide 2 — Landmark detection &amp; Pose Estimation.</figcaption>
+    </figure>
+  </div>
+
+  <div class="concept">
+    <h3>The output vector $Y$ — coordinates only</h3>
+    <p class="why">Why it matters: this exact vector shape comes back in every keypoint network. Memorise the layout.</p>
+    <p>For an object with $n$ landmarks, the network outputs a vector with $2n$ numbers — the $x$ and $y$ of each landmark, stacked:</p>
+    <p>$$Y \;=\; [\,L_{1x},\; L_{1y},\; L_{2x},\; L_{2y},\; \dots,\; L_{nx},\; L_{ny}\,]$$</p>
+    <p>Symbols: $L_{ix}$ = x-coordinate of landmark $i$, $L_{iy}$ = y-coordinate of landmark $i$, $n$ = number of landmarks (fixed per task: e.g. 32 for the slide example, 68 for dlib face, 17 for COCO pose).</p>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L09/page-003.png" alt="Lecture 9 — 32-face-landmark output vector, page 3">
+      <figcaption>L09 · slide 3 — 32 landmarks of face → output length 64.</figcaption>
+    </figure>
+  </div>
+
+  <div class="concept">
+    <h3>The output vector $Y$ — with the "object present" flag $p_c$</h3>
+    <p class="why">Why it matters: the network must also tell us "is there even a face/person here?" before its coordinate predictions can be trusted. So we prepend a binary flag $p_c$ (probability the class is present).</p>
+    <p>$$Y \;=\; [\,p_c,\; L_{1x},\; L_{1y},\; L_{2x},\; L_{2y},\; \dots,\; L_{nx},\; L_{ny}\,]$$</p>
+    <p>Length is $1 + 2n$. If $p_c \approx 0$, you ignore the coordinate part (it's garbage); if $p_c \approx 1$, the coordinates are meaningful.</p>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L09/page-004.png" alt="Lecture 9 — output vector with Pc flag, page 4">
+      <figcaption>L09 · slide 4 — $p_c$ = "Is it a Face or NOT".</figcaption>
+    </figure>
+
+    <details class="reveal">
+      <summary>Worked example — 68-landmark face detector</summary>
+      A 68-point face model outputs $p_c$ + 68 $\times$ $(x,y)$ pairs:<br>
+      length = $1 + 2 \cdot 68 = 1 + 136 = \mathbf{137}$.<br>
+      For a 32-landmark face: $1 + 64 = 65$.<br>
+      For a 17-keypoint pose: $1 + 34 = 35$.
+    </details>
+
+    <div class="callout trap">
+      <h4>Common exam traps</h4>
+      <ul class="list-disc ml-6">
+        <li>"68 landmarks → output length 68." — <strong>False</strong>. Each landmark is 2 numbers, so 136, plus $p_c$ = 137.</li>
+        <li>"$p_c$ is the class label." — No. It is a presence/objectness probability for a single class; multiclass landmarks need separate detectors per class.</li>
+        <li>"Landmark detection is classification." — No, it is <em>regression</em> on the coordinates (with one optional classification head for $p_c$).</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="concept">
+    <h3>Pose estimation — same idea, body keypoints</h3>
+    <p class="why">Why it matters: human-pose estimation is just landmark detection where the object is a person and the landmarks are joints. Same vector layout.</p>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L09/page-005.png" alt="Lecture 9 — 17 landmarks of pose on Messi photo, page 5">
+      <figcaption>L09 · slide 5 — 17 pose landmarks → output length $1+34=35$.</figcaption>
+    </figure>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L09/page-006.png" alt="Lecture 9 — Applications of landmark detection, page 6">
+      <figcaption>L09 · slide 6 — applications: emotion detection, AR, adding graphical objects (hats), pose detection.</figcaption>
+    </figure>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L09/page-007.png" alt="Lecture 9 — Human pose keypoint diagram, page 7">
+      <figcaption>L09 · slide 7 — typical human-pose keypoints (Nose, Neck, R/L Shoulder, Elbow, Wrist, Hip, Knee, Ankle, Eyes, Ears).</figcaption>
+    </figure>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L09/page-008.png" alt="Lecture 9 — Face keypoints for emotion detection, page 8">
+      <figcaption>L09 · slide 8 — dense face keypoints for emotion detection.</figcaption>
+    </figure>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L09/page-009.png" alt="Lecture 9 — OpenPose example, page 9">
+      <figcaption>L09 · slide 9 — Open Pose library, MS COCO dataset.</figcaption>
+    </figure>
+  </div>
+
+  <div class="concept">
+    <h3>OpenPose library &amp; datasets</h3>
+    <p class="why">Why it matters: the exam may ask which library / dataset is canonical for human-pose estimation.</p>
+    <p><strong>OpenPose</strong> — real-time, multi-person 2D keypoints (15 / 18 / 27 body+foot variants, 21 hand keypoints, 70 face keypoints), 3D from multi-view triangulation, single-person tracking, camera calibration toolbox. License free for non-commercial use; commercial fee USD 25 000/year.</p>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L09/page-010.png" alt="Lecture 9 — OpenPose features, page 10">
+      <figcaption>L09 · slide 10 — OpenPose feature list.</figcaption>
+    </figure>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L09/page-011.png" alt="Lecture 9 — OpenPose examples on hand, sports, suit, page 11">
+      <figcaption>L09 · slide 11 — OpenPose visual examples.</figcaption>
+    </figure>
+    <p><strong>Pose datasets to know:</strong> MPII Human Pose, 3DPW, LSPe (Leeds Sports Pose Extended), DensePose-COCO, AMASS, VGG Human Pose, SURREAL, CMU Panoptic, <strong>COCO</strong> (the canonical one), HumanEva, Human3.6M, FLIC, 300-W, Labeled Face Parts in the Wild.</p>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L09/page-012.png" alt="Lecture 9 — list of pose datasets, page 12">
+      <figcaption>L09 · slide 12 — pose-estimation dataset menu (COCO is the canonical benchmark).</figcaption>
+    </figure>
+
+    <div class="q">
+      <div class="stem">Q. A network is trained on 21 hand keypoints with a presence flag. What is the output dimensionality?</div>
+      <details class="reveal"><summary>Answer</summary>$1 + 2\cdot 21 = 43$.</details>
+    </div>
+    <div class="q">
+      <div class="stem">Q. The 70-face-keypoint OpenPose model outputs how many numbers per face (no $p_c$ assumed)?</div>
+      <details class="reveal"><summary>Answer</summary>$2\cdot 70 = 140$.</details>
+    </div>
+  </div>
+</section>
+
+<!-- =========================================== s9.2 =========================================== -->
+<section id="s9.2" class="mt-12">
+  <h2 class="text-2xl font-bold border-b pb-1 mb-3">s9.2 — R-CNN (Region-based CNN)</h2>
+
+  <div class="concept">
+    <h3>Quick review — sliding window detection</h3>
+    <p class="why">Why it matters: R-CNN exists to fix the sliding-window bottleneck. You have to understand the problem to see why R-CNN is better.</p>
+    <p>Classical detection: slide a window of size 1 across the image, then a window of size 2, then size 3… extract the sub-image under each window, feed it to a classifier (SVM, CNN), and remember the windows that fire.</p>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L09/page-013.png" alt="Lecture 9 — R-CNN section title, page 13">
+      <figcaption>L09 · slide 13 — Region Convolution Neural Network family.</figcaption>
+    </figure>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L09/page-014.png" alt="Lecture 9 — sliding window review title, page 14">
+      <figcaption>L09 · slide 14 — review of the sliding window technique.</figcaption>
+    </figure>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L09/page-015.png" alt="Lecture 9 — traffic input image, page 15">
+      <figcaption>L09 · slide 15 — input image, scan using MULTIPLE window sizes.</figcaption>
+    </figure>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L09/page-016.png" alt="Lecture 9 — window of size 1, page 16">
+      <figcaption>L09 · slide 16 — window size 1 generates dozens of sub-images.</figcaption>
+    </figure>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L09/page-017.png" alt="Lecture 9 — window of size 2, page 17">
+      <figcaption>L09 · slide 17 — window size 2.</figcaption>
+    </figure>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L09/page-018.png" alt="Lecture 9 — window of size 3, page 18">
+      <figcaption>L09 · slide 18 — window size 3.</figcaption>
+    </figure>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L09/page-019.png" alt="Lecture 9 — many sliding windows overlaid, page 19">
+      <figcaption>L09 · slide 19 — multi-scale sliding windows produce hundreds of crops per image.</figcaption>
+    </figure>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L09/page-020.png" alt="Lecture 9 — each crop fed to a classifier, page 20">
+      <figcaption>L09 · slide 20 — every crop goes through a classifier (SVM / CNN); the bounding box has the size of the window.</figcaption>
+    </figure>
+
+    <p><strong>Main disadvantage: very slow.</strong> Two reasons (slide 21):</p>
+    <ol class="list-decimal ml-6">
+      <li>The number of picked windows is huge (multi-scale × multi-position ⇒ thousands to tens-of-thousands per image).</li>
+      <li>For a CNN classifier you must run a full convolution on every window's content.</li>
+    </ol>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L09/page-021.png" alt="Lecture 9 — disadvantages of sliding window, page 21">
+      <figcaption>L09 · slide 21 — sliding window is very slow because of huge window count + per-window convolution.</figcaption>
+    </figure>
+  </div>
+
+  <div class="concept">
+    <h3>R-CNN core idea — propose, then classify</h3>
+    <p class="why">Why it matters: R-CNN was the 2014 paper that brought CNNs to object detection. Replacing brute-force sliding-window with a smart region proposer reduced the candidate count from ~tens of thousands to <strong>~2000</strong>.</p>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L09/page-022.png" alt="Lecture 9 — Region Based CNN family title, page 22">
+      <figcaption>L09 · slide 22 — RCNN family: RCNN, Fast RCNN, Faster RCNN.</figcaption>
+    </figure>
+    <p><strong>Main idea</strong>: instead of feeding every possible sliding window to a detector, first <em>propose</em> a small set of candidate regions that are likely to contain an object — then run the detector only on those.</p>
+    <p>Pipeline (slide 23):</p>
+    <ol class="list-decimal ml-6">
+      <li>Input image.</li>
+      <li>Region-proposal algorithm produces <strong>up to ~2000</strong> candidate boxes (each described by $x, y, W, H$).</li>
+      <li>Each candidate is fed to an Object Detector.</li>
+      <li>Detector outputs: <strong>refined bounding box</strong> (a regressor adjusts $x,y,W,H$) and <strong>object class</strong>.</li>
+    </ol>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L09/page-023.png" alt="Lecture 9 — main idea of region-based CNN, page 23">
+      <figcaption>L09 · slide 23 — main idea: propose ~2000 regions, then detect.</figcaption>
+    </figure>
+  </div>
+
+  <div class="concept">
+    <h3>Region proposal — Selective Search &amp; Edge Boxes</h3>
+    <p class="why">Why it matters: the proposal step is where R-CNN diverges from sliding window. The exam loves "name two region-proposal techniques".</p>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L09/page-024.png" alt="Lecture 9 — Region Proposal title slide, page 24">
+      <figcaption>L09 · slide 24 — Region Proposal.</figcaption>
+    </figure>
+    <p>The two most common <strong>hand-crafted</strong> region-proposal techniques are:</p>
+    <ol class="list-decimal ml-6">
+      <li><strong>Selective Search</strong> — hierarchical merging of small image segments based on similarity of <em>colour, intensity, texture, size and fill</em>. Start from super-pixels (small uniform regions) and greedily merge the most similar neighbouring regions, recording each merged region as a proposal at every scale.</li>
+      <li><strong>Edge Boxes</strong> — uses edge maps; a box scores high when many edges are <em>fully enclosed</em> by it (closed contours = candidate objects), and low when edges leave the box. Fast and complementary to selective search.</li>
+    </ol>
+    <p>In R-CNN, each proposed region is then <strong>cropped from the input image and warped</strong> to a fixed size (e.g. 224×224) before being passed through the CNN — every region must produce a same-size feature map so the FC head accepts it.</p>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L09/page-025.png" alt="Lecture 9 — region proposal techniques: selective search and edge boxes, page 25">
+      <figcaption>L09 · slide 25 — Selective Search + Edge Boxes; regions clipped to the same size before CNN.</figcaption>
+    </figure>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L09/page-026.png" alt="Lecture 9 — Selective Search by colour / texture / curves, page 26">
+      <figcaption>L09 · slide 26 — Selective Search merges by colour, texture, circles and curves.</figcaption>
+    </figure>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L09/page-027.png" alt="Lecture 9 — Edge Boxes scoring on edge maps, page 27">
+      <figcaption>L09 · slide 27 — Edge Boxes (the tick on the slide is the lecturer's preference).</figcaption>
+    </figure>
+
+    <details class="reveal">
+      <summary>Selective Search — the four similarity measures (mnemonic)</summary>
+      <ol class="ml-5 list-decimal">
+        <li><strong>Colour</strong> similarity (histogram intersection in RGB or HSV).</li>
+        <li><strong>Texture</strong> similarity (gradient histograms — like SIFT/HOG-style).</li>
+        <li><strong>Size</strong> similarity (prefer merging small regions first → balanced hierarchy).</li>
+        <li><strong>Fill</strong> similarity (regions that, when merged, leave little empty space inside their bounding box).</li>
+      </ol>
+      Combine $s = a_1 s_\text{colour} + a_2 s_\text{texture} + a_3 s_\text{size} + a_4 s_\text{fill}$.
+    </details>
+  </div>
+
+  <div class="concept">
+    <h3>The full R-CNN pipeline (the iconic 4-step diagram)</h3>
+    <p class="why">Why it matters: this is the diagram you should be able to draw on the exam from memory.</p>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L09/page-028.png" alt="Lecture 9 — R-CNN 4-step pipeline diagram, page 28">
+      <figcaption>L09 · slide 28 — R-CNN: regions with CNN features.</figcaption>
+    </figure>
+
+    <ol class="list-decimal ml-6">
+      <li><strong>Input image.</strong></li>
+      <li><strong>Extract ~2000 region proposals</strong> with Selective Search (or Edge Boxes).</li>
+      <li><strong>Warp</strong> each region to a fixed input size and <strong>compute CNN features</strong> by running the full CNN on it. This step is the bottleneck — you run the CNN ~2000 times <em>per image</em>.</li>
+      <li><strong>Classify regions</strong> — one class-specific linear SVM per class scores the CNN feature (aeroplane? no … person? yes … tv-monitor? no …). A separate bounding-box <em>regressor</em> refines the box.</li>
+    </ol>
+
+    <details class="reveal">
+      <summary>What gets trained in R-CNN (multi-stage!)</summary>
+      <ol class="ml-5 list-decimal">
+        <li>Pre-train the CNN backbone on ImageNet classification.</li>
+        <li>Fine-tune the CNN on warped region crops (object vs background).</li>
+        <li>Train one <strong>linear SVM per class</strong> on the CNN features (object class vs not-that-class).</li>
+        <li>Train a per-class <strong>bounding-box regressor</strong> (linear regression on $x,y,W,H$ refinements).</li>
+      </ol>
+      Four separate training stages → ugly to engineer, easy to mis-tune. Fast R-CNN fixes this.
+    </details>
+  </div>
+
+  <div class="concept">
+    <h3>Disadvantages of R-CNN — and the path forward</h3>
+    <p class="why">Why it matters: each disadvantage points directly at a fix in Fast / Faster R-CNN.</p>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L09/page-029.png" alt="Lecture 9 — R-CNN disadvantages and the path to Fast R-CNN, page 29">
+      <figcaption>L09 · slide 29 — main disadvantages of selective search + R-CNN.</figcaption>
+    </figure>
+    <ol class="list-decimal ml-6">
+      <li><strong>Cropping</strong> the ~2000 proposed regions is itself slow.</li>
+      <li><strong>Multiple convolutions</strong> — convolution must be applied to every proposed image (~2000 forward passes per training/inference image).</li>
+      <li>The same object will be detected in <strong>multiple overlapping windows</strong> because proposals are not optimised; we need Non-Max Suppression to clean up.</li>
+    </ol>
+    <p><strong>Solution to reason #2 (the biggest cost):</strong> save time by running the CNN <strong>one time only</strong> on the whole input image, then reuse that single feature map for every proposed region. That insight is exactly Fast R-CNN.</p>
+
+    <div class="callout trap">
+      <h4>Common exam traps</h4>
+      <ul class="list-disc ml-6">
+        <li>"R-CNN uses softmax classification." — <strong>False</strong>. R-CNN uses a separate <strong>SVM per class</strong> on top of CNN features. (Fast R-CNN is the one that uses softmax.)</li>
+        <li>"R-CNN has end-to-end training." — <strong>False</strong>. R-CNN training is <strong>multi-stage</strong> (CNN fine-tune, SVMs, bbox regressors trained separately).</li>
+        <li>"R-CNN proposes ~2k regions per object." — No, ~2000 <em>per image</em> total.</li>
+        <li>"Selective Search runs on a GPU." — No. Classical Selective Search runs on <strong>CPU</strong>; that's why it remains a bottleneck even after Fast R-CNN.</li>
+      </ul>
+    </div>
+
+    <div class="q">
+      <div class="stem">Q. Why does R-CNN need to warp every proposal to a fixed size before the CNN?</div>
+      <details class="reveal"><summary>Answer</summary>Because the FC head of the CNN expects a fixed-length feature vector. Different region sizes would produce different feature-map sizes, which the FC layer cannot accept.</details>
+    </div>
+    <div class="q">
+      <div class="stem">Q. R-CNN runs the CNN forward pass roughly how many times per image at inference?</div>
+      <details class="reveal"><summary>Answer</summary>~2000 — once per proposed region.</details>
+    </div>
+  </div>
+</section>
+
+<!-- =========================================== s9.3 =========================================== -->
+<section id="s9.3" class="mt-12">
+  <h2 class="text-2xl font-bold border-b pb-1 mb-3">s9.3 — Fast R-CNN (Extract Regions from Feature-Map Domain)</h2>
+
+  <div class="concept">
+    <h3>Core trick — one CNN pass on the whole image</h3>
+    <p class="why">Why it matters: Fast R-CNN is roughly an order of magnitude faster than R-CNN <em>at inference</em>, with comparable accuracy. The trick — share computation across proposals — is the most important architectural idea in modern detection.</p>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L09/page-030.png" alt="Lecture 9 — Fast R-CNN bullet list, page 30">
+      <figcaption>L09 · slide 30 — Fast R-CNN bullet list.</figcaption>
+    </figure>
+
+    <ul class="list-disc ml-6">
+      <li>Region proposals still come from <strong>Selective Search</strong> (same as R-CNN — this is the bit that Faster R-CNN will replace later).</li>
+      <li>The <strong>whole image</strong> is passed through the CNN <strong>once</strong> to get a feature map of the whole image.</li>
+      <li>Each region is then <strong>extracted from the feature map</strong>, not from the original image — i.e. the proposal's bounding box is <em>projected</em> onto the feature map.</li>
+      <li>Different proposals → different-sized feature-map slices, which is incompatible with the fixed-size FC head. The fix is <strong>RoI pooling</strong>: a special pooling layer that takes any input size and produces a fixed-size output (e.g. 7×7).</li>
+      <li>The fixed-length RoI features feed an FC network that produces both <strong>classification</strong> (softmax over classes) and <strong>bounding-box regression</strong>.</li>
+    </ul>
+  </div>
+
+  <div class="concept">
+    <h3>The Fast R-CNN diagram — RoI projection &amp; RoI pooling</h3>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L09/page-031.png" alt="Lecture 9 — Fast R-CNN diagram with RoI projection, page 31">
+      <figcaption>L09 · slide 31 — pixels → Deep ConvNet → feature of whole image; the RoI box projects to feature of the region of interest; RoI pooling → FC.</figcaption>
+    </figure>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L09/page-032.png" alt="Lecture 9 — Fast R-CNN flow with puppy/kitten, page 32">
+      <figcaption>L09 · slide 32 — flow: CNN feature computation (once) ← image ← selective search proposals projected → RoI pooling → classification network. RoI pool yields the same size for different object sizes (FC-compatible).</figcaption>
+    </figure>
+
+    <details class="reveal">
+      <summary>RoI pooling — concretely, what does it do?</summary>
+      Given a proposed region projected onto the feature map (say a $14\!\times\!21$ patch) and a target size (say $7\!\times\!7$), RoI pooling splits the patch into a $7\!\times\!7$ grid of <em>roughly equal</em> sub-windows and applies max-pool inside each sub-window. The result is a $7\!\times\!7$ feature for <em>every</em> proposal, regardless of input size. (Conceptually: "adaptive max pool to a fixed grid".)
+    </details>
+
+    <details class="reveal">
+      <summary>Worked example — projecting an RoI onto the feature map</summary>
+      Suppose the backbone has cumulative stride <strong>16</strong> (e.g. VGG-16 conv5). The image is 800×800, so the feature map is 50×50. A selective-search proposal at image coords $(x_1, y_1, x_2, y_2) = (160, 320, 480, 480)$ projects to feature-map coords $(\lfloor 160/16 \rfloor, \lfloor 320/16 \rfloor, \lfloor 480/16 \rfloor, \lfloor 480/16 \rfloor) = (10, 20, 30, 30)$ — i.e. a 20×10 patch on the feature map. RoI pool then squashes that 20×10 patch into 7×7 by max-pooling.
+    </details>
+  </div>
+
+  <div class="concept">
+    <h3>Multi-task loss — classification + smooth-L1 box</h3>
+    <p class="why">Why it matters: Fast R-CNN trains in a <strong>single stage</strong> with one loss. That single-stage training (vs R-CNN's 4 stages) is half the speed-up story.</p>
+    <p>For each RoI, the FC head produces (a) a softmax distribution $p$ over $K+1$ classes (the +1 is "background"), and (b) a bounding-box refinement $t = (t_x, t_y, t_w, t_h)$.</p>
+    <p>Multi-task loss:</p>
+    <p>$$L \;=\; L_\text{cls} \;+\; \lambda\, L_\text{box}$$</p>
+    <p>where</p>
+    <ul class="list-disc ml-6">
+      <li>$L_\text{cls} = -\log p_{u}$ — log-loss for the true class $u$ (standard softmax cross-entropy).</li>
+      <li>$L_\text{box} = \sum_{i\in\{x,y,w,h\}} \text{smooth}_{L_1}(t_i - t_i^\ast)$ — sum of smooth-$L_1$ on the four box offsets, computed <em>only when</em> $u\ge 1$ (i.e. the RoI is not background; for background the box loss is gated to zero).</li>
+      <li>$\lambda$ balances the two terms (typically 1).</li>
+    </ul>
+    <p>Smooth-L1 is the Huber-style robust loss:</p>
+    <p>$$\text{smooth}_{L_1}(x)=\begin{cases}0.5\,x^2 & |x|<1 \\ |x|-0.5 & \text{otherwise}\end{cases}$$</p>
+    <p>It is less sensitive to outliers than plain $L_2$ — large box mistakes don't dominate the gradient.</p>
+  </div>
+
+  <div class="concept">
+    <h3>R-CNN vs Fast R-CNN — what actually changed?</h3>
+    <details class="reveal" open>
+      <summary>The comparison you should memorise</summary>
+      <table class="text-sm mt-2 w-full">
+        <thead><tr><th class="text-left">Aspect</th><th class="text-left">R-CNN</th><th class="text-left">Fast R-CNN</th></tr></thead>
+        <tbody class="align-top">
+          <tr><td>CNN runs</td><td><strong>per proposal</strong> (~2000 ×/image)</td><td><strong>per image</strong> (1 ×/image)</td></tr>
+          <tr><td>Region cropping</td><td>crop &amp; warp the <em>image</em></td><td>project box onto <em>feature map</em></td></tr>
+          <tr><td>Fix variable region size</td><td>warp to fixed pixel size</td><td><strong>RoI pooling</strong> to fixed grid</td></tr>
+          <tr><td>Classifier</td><td><strong>per-class SVM</strong></td><td><strong>softmax</strong> head (FC)</td></tr>
+          <tr><td>Bounding-box regressor</td><td>separate, per-class</td><td>joint FC head, smooth-L1</td></tr>
+          <tr><td>Training</td><td><strong>multi-stage</strong> (CNN, SVMs, bbox reg)</td><td><strong>single-stage</strong>, one multi-task loss</td></tr>
+          <tr><td>Inference speed</td><td>~47 s/image (VGG16)</td><td>~0.3 s/image (≈ ~150× faster, no proposal time counted)</td></tr>
+        </tbody>
+      </table>
+    </details>
+
+    <div class="callout trap">
+      <h4>Common exam traps</h4>
+      <ul class="list-disc ml-6">
+        <li>"Fast R-CNN runs Selective Search on the GPU." — <strong>False</strong>. Selective Search is still a CPU algorithm; this is exactly why Fast R-CNN is still proposal-bound (next section).</li>
+        <li>"RoI pooling crops the input image." — <strong>False</strong>. It crops a region from the <em>feature map</em>, then pools to a fixed size.</li>
+        <li>"Fast R-CNN uses an SVM." — False. It uses softmax.</li>
+        <li>"Fast R-CNN trains in 4 stages." — False. <strong>One</strong> stage, one multi-task loss.</li>
+      </ul>
+    </div>
+
+    <div class="q">
+      <div class="stem">Q. Two Fast R-CNN proposals on the same image have different sizes (200×100 px vs 80×80 px). After RoI pooling (target 7×7), what are the two output feature shapes?</div>
+      <details class="reveal"><summary>Answer</summary>Both are $7\!\times\!7\!\times C$ (same shape) — that's the whole point of RoI pooling.</details>
+    </div>
+    <div class="q">
+      <div class="stem">Q. Fast R-CNN's loss is $L = L_\text{cls} + \lambda L_\text{box}$. For a background RoI ($u=0$), what is $L$?</div>
+      <details class="reveal"><summary>Answer</summary>Only the classification term — the box loss is gated to zero when the class is background, because background has no meaningful box.</details>
+    </div>
+  </div>
+</section>
+
+<!-- =========================================== s9.4 =========================================== -->
+<section id="s9.4" class="mt-12">
+  <h2 class="text-2xl font-bold border-b pb-1 mb-3">s9.4 — Why Faster R-CNN? (motivation for L10)</h2>
+
+  <div class="concept">
+    <h3>The remaining bottleneck — Selective Search</h3>
+    <p class="why">Why it matters: Fast R-CNN sped up the detector, but Selective Search itself still runs on the CPU and now <strong>dominates</strong> the inference time. If we can make the proposal step learnable and GPU-friendly, the whole pipeline becomes ≈ real-time.</p>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L09/page-033.png" alt="Lecture 9 — Disadvantages of Fast R-CNN, page 33">
+      <figcaption>L09 · slide 33 — Fast R-CNN is still slow because of Selective Search; still many proposals; still multiple boxes per object.</figcaption>
+    </figure>
+
+    <p><strong>Disadvantages of Fast R-CNN</strong>:</p>
+    <ol class="list-decimal ml-6">
+      <li><strong>Slow</strong> — because Selective Search runs on the CPU and produces ~2000 proposals per image; the proposal step is now the bottleneck (the CNN step is fast).</li>
+      <li>Still a <strong>large number</strong> of proposed regions.</li>
+      <li>The <strong>same object is still detected in multiple boxes</strong> — needs NMS post-processing.</li>
+    </ol>
+
+    <p><strong>Solution</strong>:</p>
+    <ul class="list-disc ml-6">
+      <li><strong>Automate region proposal using a trained network</strong> (instead of hand-crafted Selective Search / Edge Boxes). This is the <strong>Region Proposal Network (RPN)</strong> introduced in Faster R-CNN.</li>
+      <li><strong>Optimise the number</strong> of proposed regions (only ~300 from the RPN vs ~2000 from Selective Search) — fewer regions, higher recall.</li>
+    </ul>
+  </div>
+
+  <div class="concept">
+    <h3>Faster R-CNN — preview</h3>
+    <p class="why">Why it matters: L10 is dedicated to Faster R-CNN; here we only motivate it.</p>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L09/page-034.png" alt="Lecture 9 — Faster R-CNN bullet list, page 34">
+      <figcaption>L09 · slide 34 — Faster R-CNN bullets: same Fast R-CNN structure, but proposals come from the trained RPN, not Selective Search.</figcaption>
+    </figure>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L09/page-035.png" alt="Lecture 9 — Faster R-CNN architecture, page 35">
+      <figcaption>L09 · slide 35 — Faster R-CNN architecture: input → CONV layers → feature map → (RPN: objectness + bbox regressor) → projected proposals → RoI pooling → FC head (multiclass classification + bbox regression).</figcaption>
+    </figure>
+
+    <p>Read the architecture diagram (slide 35) left → right:</p>
+    <ol class="list-decimal ml-6">
+      <li><strong>Input image</strong> → CONV backbone → <strong>feature maps</strong> (shared with both the RPN and the detector head — note the red ✗ on Selective Search, the lecturer's own annotation).</li>
+      <li>The shared feature map feeds the <strong>RPN</strong> — for each spatial location it outputs (a) <em>objectness</em> classification (object vs background) and (b) a <em>bounding-box regressor</em>.</li>
+      <li>RPN proposals (now learned, only ~300 of them) are projected back onto the feature map.</li>
+      <li><strong>RoI pooling</strong> as in Fast R-CNN.</li>
+      <li>FC detector head: <strong>multiclass classification</strong> + <strong>bbox regressor</strong> per RoI.</li>
+    </ol>
+
+    <figure class="slide-figure">
+      <img src="../assets/slides/L09/page-036.png" alt="Lecture 9 — topics to be covered in L10, page 36">
+      <figcaption>L09 · slide 36 — L10 covers: RPN architecture, training data &amp; loss for RPN, how RoI pooling is achieved, detector network, Mask R-CNN.</figcaption>
+    </figure>
+  </div>
+
+  <div class="concept">
+    <h3>The three detectors at a glance — memorise this table</h3>
+    <details class="reveal" open>
+      <summary>R-CNN vs Fast R-CNN vs Faster R-CNN</summary>
+      <table class="text-sm mt-2 w-full">
+        <thead><tr><th class="text-left">Aspect</th><th class="text-left">R-CNN</th><th class="text-left">Fast R-CNN</th><th class="text-left">Faster R-CNN</th></tr></thead>
+        <tbody class="align-top">
+          <tr><td>Feature extraction</td><td><strong>per proposal</strong> (~2000 ×)</td><td><strong>per image</strong> (1 ×)</td><td><strong>per image</strong> (1 ×)</td></tr>
+          <tr><td>Proposal source</td><td>Selective Search (CPU)</td><td>Selective Search (CPU)</td><td><strong>RPN</strong> — learned, GPU</td></tr>
+          <tr><td>Typical # proposals</td><td>~2000</td><td>~2000</td><td>~300</td></tr>
+          <tr><td>Region cropping domain</td><td>image (warp pixels)</td><td>feature map (RoI pool)</td><td>feature map (RoI pool)</td></tr>
+          <tr><td>Classifier</td><td><strong>SVM</strong> per class</td><td><strong>softmax</strong> head</td><td><strong>softmax</strong> head</td></tr>
+          <tr><td>Bbox regressor</td><td>separate, per class</td><td>joint FC, smooth-L1</td><td>joint FC, smooth-L1</td></tr>
+          <tr><td>Training stages</td><td><strong>multi-stage</strong> (4)</td><td><strong>single-stage</strong></td><td>single-stage (approx.) or 4-step alt training</td></tr>
+          <tr><td>Inference time (typical, VGG16)</td><td>~47 s/image</td><td>~2 s (with SS) — &lt; 0.3 s w/o</td><td>~0.2 s — near real-time</td></tr>
+          <tr><td>Bottleneck</td><td>per-proposal CNN</td><td><strong>Selective Search</strong></td><td>backbone itself</td></tr>
+        </tbody>
+      </table>
+    </details>
+
+    <div class="callout trap">
+      <h4>Common exam traps</h4>
+      <ul class="list-disc ml-6">
+        <li>"Faster R-CNN replaces Fast R-CNN's RoI pooling." — <strong>False</strong>. Faster R-CNN keeps RoI pooling unchanged; it replaces only the <em>proposal step</em> (Selective Search → RPN).</li>
+        <li>"Faster R-CNN does not need a region proposal step." — False. It still has region proposals; they just come from a <em>trained network</em>.</li>
+        <li>"Faster R-CNN's RPN replaces the backbone CNN." — False. The RPN <em>shares</em> the backbone with the detector head.</li>
+        <li>"R-CNN and Fast R-CNN both use softmax." — False. R-CNN uses SVMs; Fast R-CNN was the first to switch to softmax.</li>
+      </ul>
+    </div>
+
+    <div class="q">
+      <div class="stem">Q. Why is Fast R-CNN still slow even though it runs the CNN only once per image?</div>
+      <details class="reveal"><summary>Answer</summary>Because Selective Search (which generates the ~2000 proposals) is a CPU algorithm and now dominates the per-image latency — the proposal step is the new bottleneck.</details>
+    </div>
+    <div class="q">
+      <div class="stem">Q. In one sentence, what is the single key idea of Faster R-CNN that makes it faster than Fast R-CNN?</div>
+      <details class="reveal"><summary>Answer</summary>Replace the hand-crafted Selective Search proposal step with a small CNN (the Region Proposal Network) that shares features with the detector backbone, so proposals are learned on the GPU.</details>
+    </div>
+  </div>
+
+  <div class="concept">
+    <h3>Lecturer's whiteboard notes (slides 37–38)</h3>
+    <p class="why">Slides 37 and 38 are course-administration whiteboard sketches (project deadlines, bonus mobile-app project). They are not technical content for the exam, but included here for completeness.</p>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L09/page-037.png" alt="Lecture 9 — whiteboard course project notes, page 37">
+      <figcaption>L09 · slide 37 — course-project notes (2-student groups, deadlines).</figcaption>
+    </figure>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L09/page-038.png" alt="Lecture 9 — whiteboard bonus project notes, page 38">
+      <figcaption>L09 · slide 38 — bonus mobile-app project (+5% on midterm, deadline 7 May).</figcaption>
+    </figure>
+  </div>
+</section>
+
+<!-- =========================================== Practice =========================================== -->
+<section id="practice" class="mt-12">
+  <h2 class="text-2xl font-bold border-b pb-1 mb-3">Practice quiz — Lecture 9</h2>
+
+  <div class="q">
+    <div class="stem">1 (Numerical). A landmark-detection network is trained for a face with 68 landmarks and includes the object-presence flag $p_c$. What is the dimensionality of its output vector $Y$?</div>
+    <details class="reveal"><summary>Answer</summary>$1 + 2\cdot 68 = \mathbf{137}$. Layout: $Y=[p_c, L_{1x}, L_{1y}, \dots, L_{68x}, L_{68y}]$.</details>
+  </div>
+
+  <div class="q">
+    <div class="stem">2 (MCQ). Which of the following is <em>not</em> a similarity used by Selective Search?</div>
+    <div>a) colour &nbsp; b) texture &nbsp; c) size &nbsp; d) optical flow</div>
+    <details class="reveal"><summary>Answer</summary>d) optical flow. Selective Search uses colour, texture, size and fill.</details>
+  </div>
+
+  <div class="q">
+    <div class="stem">3 (MCQ — the big comparison). Which row is wrong?</div>
+    <div>a) R-CNN runs the CNN once per proposal.<br>
+         b) Fast R-CNN crops regions from the feature map, not the image.<br>
+         c) Fast R-CNN uses an SVM per class.<br>
+         d) Faster R-CNN uses an RPN instead of Selective Search.</div>
+    <details class="reveal"><summary>Answer</summary>c) is wrong. Fast R-CNN uses a <strong>softmax</strong> head; the SVM-per-class is R-CNN.</details>
+  </div>
+
+  <div class="q">
+    <div class="stem">4 (T/F). Faster R-CNN no longer needs a region proposal step.</div>
+    <details class="reveal"><summary>Answer</summary>False. It still proposes regions — but with a trained Region Proposal Network (RPN) sharing features with the detector backbone.</details>
+  </div>
+
+  <div class="q">
+    <div class="stem">5 (Short). Write the Fast R-CNN multi-task loss and name each term.</div>
+    <details class="reveal"><summary>Answer</summary>$L = L_\text{cls} + \lambda L_\text{box}$, where $L_\text{cls}$ is softmax cross-entropy over $K+1$ classes (the +1 is background) and $L_\text{box}$ is the sum of smooth-$L_1$ losses on $(t_x,t_y,t_w,t_h)$, active only when the RoI is not background.</details>
+  </div>
+
+  <div class="q">
+    <div class="stem">6 (Short). In one sentence, why is Fast R-CNN faster than R-CNN at inference?</div>
+    <details class="reveal"><summary>Answer</summary>Because the heavy convolutional backbone runs <strong>once per image</strong> on the whole image (proposals are projected onto the shared feature map) instead of once per ~2000 proposals.</details>
+  </div>
+
+  <div class="q">
+    <div class="stem">7 (Scenario). You are building a real-time pedestrian detector on a phone. R-CNN gives you ~47 s/image; Fast R-CNN ~2 s; Faster R-CNN ~0.2 s. Which step makes Faster R-CNN faster than Fast R-CNN, and why does it work?</div>
+    <details class="reveal"><summary>Answer</summary>The Region Proposal Network. It is a small fully-convolutional network that <em>shares</em> the backbone feature map with the detector — so generating ~300 high-quality proposals costs only a few milliseconds on the GPU, whereas Selective Search costs ~2 s on the CPU.</details>
+  </div>
+
+  <div class="q">
+    <div class="stem">8 (T/F). RoI pooling crops a region directly from the input image and resizes it to a fixed pixel size.</div>
+    <details class="reveal"><summary>Answer</summary>False. RoI pooling operates on the <strong>feature map</strong> (after the backbone CNN). It projects the proposal onto the feature map and pools that variable-size patch into a fixed-size grid (e.g. 7×7) so the FC head can consume it.</details>
+  </div>
+</section>
+
+<footer class="mt-16 pt-6 border-t text-sm text-slate-500 dark:text-slate-400 no-print">
+  Lecture 9 complete. <a href="./L10.html">Next → L10 — Faster R-CNN &amp; Mask R-CNN</a>
+</footer>
+</main>
+
+<script>
+document.getElementById('themeToggle').addEventListener('click', () => {
+  const cur = document.documentElement.getAttribute('data-theme');
+  const next = cur === 'dark' ? 'light' : 'dark';
+  document.documentElement.setAttribute('data-theme', next);
+  localStorage.setItem('theme', next);
+});
+// Mark lecture 9 as visited
+try { localStorage.setItem('lecture-L09-visited', '1'); } catch(e){}
+</script>
+</body>
+</html>

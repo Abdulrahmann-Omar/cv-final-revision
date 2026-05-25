@@ -1,0 +1,195 @@
+/* CV-Final-Revision — shared styles. Tailwind via CDN handles most of the
+   layout; this file holds the bits Tailwind can't express cleanly (KaTeX
+   sizing, slide captions, exam UI, print rules). */
+
+:root {
+  --bg: #ffffff;
+  --bg-soft: #f8fafc;
+  --bg-elev: #ffffff;
+  --fg: #0f172a;
+  --fg-soft: #475569;
+  --accent: #2563eb;
+  --accent-soft: #dbeafe;
+  --ok: #16a34a;
+  --warn: #d97706;
+  --bad: #dc2626;
+  --border: #e2e8f0;
+  --code-bg: #f1f5f9;
+}
+
+html[data-theme="dark"] {
+  --bg: #0b1220;
+  --bg-soft: #111827;
+  --bg-elev: #1f2937;
+  --fg: #e5e7eb;
+  --fg-soft: #94a3b8;
+  --accent: #60a5fa;
+  --accent-soft: #1e3a8a;
+  --ok: #4ade80;
+  --warn: #fbbf24;
+  --bad: #f87171;
+  --border: #334155;
+  --code-bg: #1e293b;
+}
+
+html, body { background: var(--bg); color: var(--fg); }
+body { font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; line-height: 1.65; }
+
+a { color: var(--accent); text-decoration: none; }
+a:hover { text-decoration: underline; }
+
+.slide-figure {
+  margin: 1.25rem 0;
+  border: 1px solid var(--border);
+  border-radius: 0.75rem;
+  background: var(--bg-elev);
+  overflow: hidden;
+}
+.slide-figure img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  background: #fff;
+}
+.slide-figure figcaption {
+  padding: 0.5rem 0.85rem;
+  font-size: 0.85rem;
+  color: var(--fg-soft);
+  border-top: 1px solid var(--border);
+  background: var(--bg-soft);
+}
+
+.concept {
+  margin: 1.5rem 0;
+  padding: 1.25rem 1.25rem 0.5rem;
+  border: 1px solid var(--border);
+  border-radius: 0.75rem;
+  background: var(--bg-elev);
+}
+.concept h3 { font-size: 1.2rem; font-weight: 700; margin-bottom: 0.5rem; }
+.concept .why { color: var(--fg-soft); font-style: italic; margin-bottom: 0.75rem; }
+
+.callout {
+  margin: 1rem 0;
+  padding: 0.85rem 1rem;
+  border-left: 4px solid var(--accent);
+  background: var(--bg-soft);
+  border-radius: 0.5rem;
+}
+.callout.trap { border-left-color: var(--warn); }
+.callout.tip  { border-left-color: var(--ok); }
+.callout h4 { font-weight: 700; margin-bottom: 0.25rem; }
+
+details.reveal {
+  margin: 0.5rem 0;
+  padding: 0.5rem 0.85rem;
+  border: 1px dashed var(--border);
+  border-radius: 0.5rem;
+  background: var(--bg-soft);
+}
+details.reveal summary {
+  cursor: pointer;
+  font-weight: 600;
+  color: var(--accent);
+}
+details.reveal[open] summary { color: var(--ok); }
+
+.q {
+  margin: 1rem 0;
+  padding: 0.9rem 1rem;
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+  background: var(--bg-soft);
+}
+.q .stem { font-weight: 600; margin-bottom: 0.4rem; }
+.q .meta { font-size: 0.8rem; color: var(--fg-soft); }
+
+code, pre, .mono { font-family: ui-monospace, "JetBrains Mono", Menlo, Consolas, monospace; }
+pre { background: var(--code-bg); padding: 0.75rem 1rem; border-radius: 0.5rem; overflow-x: auto; }
+
+.toc-card {
+  display: block;
+  padding: 1rem 1.1rem;
+  border: 1px solid var(--border);
+  border-radius: 0.75rem;
+  background: var(--bg-elev);
+  transition: transform 120ms ease, border-color 120ms ease;
+}
+.toc-card:hover { transform: translateY(-2px); border-color: var(--accent); text-decoration: none; }
+.toc-card h3 { font-weight: 700; }
+
+.progress-pill {
+  display: inline-block;
+  padding: 0.15rem 0.5rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+.progress-pill.done { background: var(--ok); color: #fff; }
+.progress-pill.todo { background: var(--border); color: var(--fg-soft); }
+
+.katex { font-size: 1.05em !important; }
+.katex-display { overflow-x: auto; overflow-y: hidden; }
+
+.exam-q {
+  margin: 1.25rem 0;
+  padding: 1rem 1.1rem;
+  border: 1px solid var(--border);
+  border-radius: 0.75rem;
+  background: var(--bg-elev);
+}
+.exam-q .stem { font-weight: 600; margin-bottom: 0.5rem; }
+.exam-q .choice {
+  display: block;
+  padding: 0.4rem 0.6rem;
+  margin: 0.2rem 0;
+  border: 1px solid var(--border);
+  border-radius: 0.4rem;
+  cursor: pointer;
+}
+.exam-q .choice:hover { border-color: var(--accent); }
+.exam-q .choice.selected { background: var(--accent-soft); border-color: var(--accent); }
+.exam-q .choice.correct { background: rgba(22,163,74,0.15); border-color: var(--ok); }
+.exam-q .choice.wrong   { background: rgba(220,38,38,0.12); border-color: var(--bad); }
+.exam-q .feedback {
+  margin-top: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  border-radius: 0.4rem;
+  background: var(--bg-soft);
+  border: 1px solid var(--border);
+  font-size: 0.9rem;
+}
+.exam-q textarea {
+  width: 100%;
+  min-height: 70px;
+  background: var(--bg-soft);
+  color: var(--fg);
+  border: 1px solid var(--border);
+  border-radius: 0.4rem;
+  padding: 0.5rem;
+  font-family: inherit;
+}
+
+.section-jump {
+  position: sticky; top: 0; z-index: 30;
+  background: var(--bg-elev);
+  border-bottom: 1px solid var(--border);
+  padding: 0.5rem 1rem;
+  font-size: 0.9rem;
+  overflow-x: auto;
+  white-space: nowrap;
+}
+.section-jump a {
+  display: inline-block;
+  margin-right: 0.75rem;
+  padding: 0.1rem 0.4rem;
+  border-radius: 0.3rem;
+}
+.section-jump a:hover { background: var(--accent-soft); text-decoration: none; }
+
+@media print {
+  .no-print, .section-jump, header nav { display: none !important; }
+  .slide-figure { break-inside: avoid; }
+  details.reveal[open] summary { display: none; }
+  details.reveal { border: none; padding: 0; }
+}

@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>CV Mock Final Exam</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/katex.min.css">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/katex.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/contrib/auto-render.min.js"
+        onload="renderMathInElement(document.body,{delimiters:[{left:'$$',right:'$$',display:true},{left:'$',right:'$',display:false}]});"></script>
+<link rel="stylesheet" href="../assets/css/styles.css">
+<script>
+  (function(){
+    const saved = localStorage.getItem('theme') || 'light';
+    document.documentElement.setAttribute('data-theme', saved);
+  })();
+</script>
+</head>
+<body class="max-w-5xl mx-auto px-4 pb-24">
+
+<header class="flex items-center justify-between py-4 border-b border-slate-200 dark:border-slate-700 no-print">
+  <a href="../index.html" class="text-sm">← Back to index</a>
+  <div class="flex items-center gap-3">
+    <span id="timer" class="text-sm font-mono">--:--:--</span>
+    <button id="themeToggle" class="text-sm border rounded px-2 py-1">🌓 Theme</button>
+  </div>
+</header>
+
+<main>
+  <h1 class="text-3xl font-extrabold mt-4 mb-2">CV — Mock Final Exam</h1>
+  <p class="text-slate-500 dark:text-slate-400 mb-6">65 questions across all 12 lectures. Auto-saves to your browser.</p>
+
+  <!-- Controls -->
+  <section id="controls" class="mb-6 flex flex-wrap items-center gap-3">
+    <label class="text-sm">Mode:
+      <select id="modeSel" class="border rounded px-2 py-1 ml-1">
+        <option value="exam">Exam (feedback at end)</option>
+        <option value="practice">Practice (instant feedback)</option>
+      </select>
+    </label>
+    <label class="text-sm">Timer (min):
+      <input id="timerMin" type="number" value="180" min="0" max="480" class="border rounded w-20 px-2 py-1 ml-1">
+    </label>
+    <button id="startBtn" class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded">Start / Reset</button>
+    <button id="shuffleBtn" class="border px-3 py-1.5 rounded">🔀 Shuffle</button>
+    <button id="submitBtn" class="bg-green-600 hover:bg-green-700 text-white px-3 py-1.5 rounded">Submit</button>
+    <button id="clearBtn" class="border px-3 py-1.5 rounded">Clear answers</button>
+  </section>
+
+  <!-- Where questions render -->
+  <section id="exam"></section>
+
+  <!-- Where the result panel renders -->
+  <section id="result" class="mt-8"></section>
+</main>
+
+<script src="exam.js"></script>
+<script>
+document.getElementById('themeToggle').addEventListener('click', () => {
+  const cur = document.documentElement.getAttribute('data-theme');
+  const next = cur === 'dark' ? 'light' : 'dark';
+  document.documentElement.setAttribute('data-theme', next);
+  localStorage.setItem('theme', next);
+});
+</script>
+</body>
+</html>

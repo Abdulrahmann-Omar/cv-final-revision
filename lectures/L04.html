@@ -1,0 +1,682 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>L04 — SIFT: Scale-Invariant Feature Transform</title>
+<meta name="description" content="Full revision notes for Lecture 4: SIFT — scale space, DoG, keypoint detection, orientation, 128-D descriptor." />
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/katex.min.css">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/katex.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/contrib/auto-render.min.js"
+        onload="renderMathInElement(document.body,{delimiters:[{left:'$$',right:'$$',display:true},{left:'$',right:'$',display:false}]});"></script>
+<link rel="stylesheet" href="../assets/css/styles.css">
+<script>
+  (function(){
+    const saved = localStorage.getItem('theme') || 'light';
+    document.documentElement.setAttribute('data-theme', saved);
+  })();
+</script>
+</head>
+<body class="max-w-5xl mx-auto px-4 pb-24">
+
+<header class="flex items-center justify-between py-4 border-b border-slate-200 dark:border-slate-700 no-print">
+  <a href="../index.html" class="text-sm">← Back to index</a>
+  <div class="flex items-center gap-3">
+    <span class="text-xs opacity-70">Lecture 4 of 12</span>
+    <button id="themeToggle" class="text-sm border rounded px-2 py-1">🌓 Theme</button>
+  </div>
+</header>
+
+<nav class="section-jump no-print" aria-label="Sections in this lecture">
+  <a href="#s4.1">s4.1 Overview &amp; invariances</a>
+  <a href="#s4.2">s4.2 Scale space + DoG</a>
+  <a href="#s4.3">s4.3 Keypoint localisation</a>
+  <a href="#s4.4">s4.4 Orientation + 128-D descriptor</a>
+  <a href="#practice">Practice quiz</a>
+</nav>
+
+<main>
+<h1 class="text-3xl font-extrabold mt-4 mb-2">Lecture 4 — Scale-Invariant Feature Transform (SIFT)</h1>
+<p class="text-slate-500 dark:text-slate-400 mb-6">Slides © Dr. Khaled M. ElSayed, Zewail City. 67 slides.</p>
+
+<!-- =========================================== s4.1 =========================================== -->
+<section id="s4.1" class="mt-10">
+  <h2 class="text-2xl font-bold border-b pb-1 mb-3">s4.1 — SIFT Overview &amp; Invariances</h2>
+
+  <div class="concept">
+    <h3>What is SIFT?</h3>
+    <p class="why">Why it matters: SIFT is the canonical classical-CV feature pipeline. Almost every "match these two photos" task in classical CV (panorama stitching, object recognition, 3-D reconstruction, tracking) sits on top of it.</p>
+    <p><strong>SIFT</strong> (Scale-Invariant Feature Transform) is a <em>feature detection &amp; description</em> algorithm introduced by <strong>David G. Lowe in 1999</strong> and refined in <strong>2004</strong>. It detects distinctive "keypoints" in an image and produces a vector <em>descriptor</em> for each so that the same physical point on an object can be re-identified in a different photo of the same scene.</p>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L04/page-002.png" alt="L04 — Introduction to SIFT, page 2">
+      <figcaption>L04 · slide 2 — SIFT introduction (Lowe 1999 / 2004).</figcaption>
+    </figure>
+    <p class="mt-2"><em>Two-step slogan to memorise:</em> <strong>[1] Detect keypoints → [2] Describe them.</strong></p>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L04/page-007.png" alt="L04 — Main idea of SIFT, two steps, page 7">
+      <figcaption>L04 · slide 7 — main idea: detect keypoints, then build a descriptor.</figcaption>
+    </figure>
+  </div>
+
+  <div class="concept">
+    <h3>What is a "keypoint" / "interesting point"?</h3>
+    <p class="why">Why it matters: every subsequent step in SIFT is built to deliver one good keypoint type — a <em>blob</em> — rather than corners or pure edges.</p>
+    <p>A <strong>keypoint</strong> is just a point in the image that we can find again later. Corners and points on edges are <em>okay</em> points but not very distinctive (corners look like every other corner). What we really want is a <strong>blob</strong>: a small region with some <em>local appearance</em> — a bright spot, dark spot, or textured patch — that is unique enough to match.</p>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L04/page-007.png" alt="L04 — What is a Key Point (blob), page 7">
+      <figcaption>L04 · slide 7 — blobs (local-appearance regions) are good keypoints.</figcaption>
+    </figure>
+    <details class="reveal">
+      <summary>Interpret this image — why a blob beats a corner</summary>
+      A corner in a grid of corners is non-unique: hundreds of corners look identical. A blob has texture and intensity contrast in <em>all</em> directions inside its support region, so its 128-D descriptor (s4.4) is much more distinctive — far easier to match across two photos.
+    </details>
+  </div>
+
+  <div class="concept">
+    <h3>SIFT properties — the six invariances</h3>
+    <p class="why">Why it matters: exam loves "list the four/six invariances and explain how SIFT achieves each one". You can lose easy marks here.</p>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L04/page-003.png" alt="L04 — SIFT properties (six invariances), page 3">
+      <figcaption>L04 · slide 3 — the six properties of SIFT.</figcaption>
+    </figure>
+    <ol class="list-decimal ml-6">
+      <li><strong>Scale invariance</strong> — detects the same feature at different image scales (sizes). Achieved by searching for extrema in <em>scale-space</em> (s4.2).</li>
+      <li><strong>Rotation invariance</strong> — features are detected independently of image orientation. Achieved by assigning a <em>dominant orientation</em> to each keypoint and rotating the descriptor window to that orientation (s4.4).</li>
+      <li><strong>Affine-transform invariance (partial)</strong> — handles scaling + rotation simultaneously, plus small shears.</li>
+      <li><strong>3-D viewpoint invariance</strong> — features stay stable under small changes in 3-D viewpoint, because they describe local image patches that vary slowly with viewpoint.</li>
+      <li><strong>Illumination invariance</strong> — uniform changes in lighting don't break matching, because the descriptor is built from <em>gradients</em> (differences) which are unaffected by adding a constant brightness, then <em>normalised</em>.</li>
+      <li><strong>Occlusion invariance</strong> — partial occlusion is fine, because each keypoint is <em>local</em> and does not depend on the global image.</li>
+    </ol>
+
+    <figure class="slide-figure">
+      <img src="../assets/slides/L04/page-050.png" alt="L04 — How SIFT achieves scale and rotation invariance, page 50">
+      <figcaption>L04 · slide 50 — scale &amp; rotation invariance: scale-space + dominant-orientation alignment.</figcaption>
+    </figure>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L04/page-051.png" alt="L04 — Affine, viewpoint and illumination invariance explained, page 51">
+      <figcaption>L04 · slide 51 — affine, viewpoint, illumination invariance.</figcaption>
+    </figure>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L04/page-052.png" alt="L04 — Occlusion invariance, page 52">
+      <figcaption>L04 · slide 52 — occlusion invariance from locality.</figcaption>
+    </figure>
+
+    <div class="callout">
+      <h4>One-liner per invariance — memorise</h4>
+      <ul class="list-disc ml-6">
+        <li>Scale → scale-space (Gaussian pyramid + DoG).</li>
+        <li>Rotation → dominant orientation from 36-bin gradient histogram.</li>
+        <li>Affine → both above simultaneously.</li>
+        <li>Viewpoint → local patches change slowly with small viewpoint moves.</li>
+        <li>Illumination → gradients (immune to additive lighting) + descriptor normalisation.</li>
+        <li>Occlusion → each keypoint is local; lose some, keep the rest.</li>
+      </ul>
+    </div>
+
+    <div class="callout trap">
+      <h4>Common exam traps</h4>
+      <ul class="list-disc ml-6">
+        <li>"SIFT is fully affine invariant." — <strong>False</strong>. Partial affine only (scale + rotation, small shears). Fully affine is ASIFT / Affine-SIFT.</li>
+        <li>"SIFT works on rotated images because the keypoint detector is rotation-symmetric." — partly: the DoG detector is roughly isotropic, but the real rotation invariance comes from <em>rotating the descriptor</em> to the dominant orientation.</li>
+        <li>"Illumination invariance means SIFT survives any lighting change." — only uniform additive / multiplicative changes; harsh shadows, specular highlights and saturation can still kill matches.</li>
+      </ul>
+    </div>
+
+    <div class="q">
+      <div class="stem">Q. Which two invariances combined explain SIFT's <em>affine</em> robustness?</div>
+      <details class="reveal"><summary>Answer</summary>Scale invariance and rotation invariance, handled at the same time.</details>
+    </div>
+  </div>
+
+  <div class="concept">
+    <h3>Applications of SIFT</h3>
+    <p class="why">Why it matters: exam regularly asks "name 3 applications of SIFT".</p>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L04/page-006.png" alt="L04 — Applications utilizing SIFT, page 6">
+      <figcaption>L04 · slide 6 — SIFT applications menu.</figcaption>
+    </figure>
+    <ul class="list-disc ml-6">
+      <li><strong>Image matching</strong> — find corresponding points between two photos.</li>
+      <li><strong>Image alignment &amp; stitching</strong> — used for panorama creation.</li>
+      <li><strong>Object / scene recognition</strong> — recognise by unique feature points.</li>
+      <li><strong>3-D structure recovery</strong> — multi-view geometry.</li>
+      <li><strong>Stereo correspondence</strong> — match left/right image points.</li>
+      <li><strong>Motion tracking</strong> — keep features across video frames.</li>
+    </ul>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L04/page-004.png" alt="L04 — SIFT demo on chair at 45 and 90 degrees, page 4">
+      <figcaption>L04 · slide 4 — SIFT finds the same points on a chair seen from 45° and 90°.</figcaption>
+    </figure>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L04/page-005.png" alt="L04 — SIFT demo, matching keypoints, page 5">
+      <figcaption>L04 · slide 5 — descriptor matching connects keypoint pairs in the two views.</figcaption>
+    </figure>
+  </div>
+
+  <div class="concept">
+    <h3>The 5-step SIFT pipeline at a glance</h3>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L04/page-008.png" alt="L04 — SIFT five-step pipeline graphic, page 8">
+      <figcaption>L04 · slide 8 — five-step SIFT pipeline.</figcaption>
+    </figure>
+    <ol class="list-decimal ml-6">
+      <li><strong>Generate octaves</strong> of the input image (different image sizes).</li>
+      <li><strong>Keypoint detection</strong> at different scales (DoG extrema).</li>
+      <li><strong>Refinement</strong> of detected keypoints (sub-pixel localisation + low-contrast / edge rejection).</li>
+      <li><strong>Keypoint</strong> attributes: (position, scale, orientation).</li>
+      <li><strong>Build the descriptor</strong> (128-D vector) for each keypoint.</li>
+    </ol>
+  </div>
+</section>
+
+<!-- =========================================== s4.2 =========================================== -->
+<section id="s4.2" class="mt-12">
+  <h2 class="text-2xl font-bold border-b pb-1 mb-3">s4.2 — Scale space + Difference of Gaussians (DoG)</h2>
+
+  <div class="concept">
+    <h3>Motivation — why we need a scale space</h3>
+    <p class="why">Why it matters: an object can appear at <em>any</em> size depending on its distance from the camera. A feature detector that works at one scale will miss the same feature at another. We need to "deal with scale".</p>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L04/page-009.png" alt="L04 — Detection of keypoints (blobs), page 9">
+      <figcaption>L04 · slide 9 — blobs at different magnifications; the detector must "deal with scale".</figcaption>
+    </figure>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L04/page-010.png" alt="L04 — Three steps to detect key points: scale space, localization, orientation, page 10">
+      <figcaption>L04 · slide 10 — the three sub-steps inside keypoint detection.</figcaption>
+    </figure>
+  </div>
+
+  <div class="concept">
+    <h3>Quick review — edges, derivatives, and why we smooth first</h3>
+    <p class="why">Why it matters: SIFT's blob detector is built on derivatives of a smoothed image. Without smoothing, derivatives just amplify noise.</p>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L04/page-011.png" alt="L04 — Review: edge detection with gradients, page 11">
+      <figcaption>L04 · slide 11 — 1st derivative peaks at an edge, 2nd derivative crosses zero at an edge.</figcaption>
+    </figure>
+    <p>1-D derivatives of an image function:</p>
+    <p>$$\frac{\partial f}{\partial x},\qquad \frac{\partial^2 f}{\partial x^2}$$</p>
+    <p><strong>1st-derivative peaks</strong> indicate an edge; <strong>2nd-derivative zero-crossings</strong> indicate an edge.</p>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L04/page-013.png" alt="L04 — Effect of noise on gradient, page 13">
+      <figcaption>L04 · slide 13 — derivative of a noisy signal is dominated by noise; smooth first.</figcaption>
+    </figure>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L04/page-014.png" alt="L04 — Smooth then derive: peak detection, page 14">
+      <figcaption>L04 · slide 14 — smooth → first derivative → detect peak.</figcaption>
+    </figure>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L04/page-015.png" alt="L04 — Smooth then second derivative: zero-crossing, page 15">
+      <figcaption>L04 · slide 15 — smooth → second derivative → detect zero-crossing.</figcaption>
+    </figure>
+  </div>
+
+  <div class="concept">
+    <h3>Gaussian blur and the scale-space image $L(x,y,\sigma)$</h3>
+    <p class="why">Why it matters: the Gaussian is the unique kernel that builds a proper scale-space (no new structure is created as $\sigma$ grows). Everything in SIFT lives in this scale-space.</p>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L04/page-012.png" alt="L04 — Smoothing with average vs Gaussian, page 12">
+      <figcaption>L04 · slide 12 — Gaussian smoothing preserves structure better than a box average.</figcaption>
+    </figure>
+    <p>2-D Gaussian kernel:</p>
+    <p>$$G(x,y,\sigma)=\frac{1}{2\pi\sigma^{2}}\,\exp\!\Big(-\frac{x^2+y^2}{2\sigma^{2}}\Big)$$</p>
+    <p>Scale-space image (Gaussian-blurred version of the input $I$):</p>
+    <p>$$L(x,y,\sigma)=G(x,y,\sigma)\,*\,I(x,y)$$</p>
+    <p>Named symbols: $\sigma$ = standard deviation of the Gaussian (= "scale"); $*$ = 2-D convolution; $L$ = blurred image at scale $\sigma$.</p>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L04/page-016.png" alt="L04 — Convolution N_sigma * f(x), page 16">
+      <figcaption>L04 · slide 16 — convolution of Gaussian filter $N_\sigma$ with signal $f$.</figcaption>
+    </figure>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L04/page-017.png" alt="L04 — Derivative of Gaussian shortcut, page 17">
+      <figcaption>L04 · slide 17 — convolution and derivative are both linear → use derivative-of-Gaussian directly.</figcaption>
+    </figure>
+  </div>
+
+  <div class="concept">
+    <h3>Laplacian of Gaussian (LoG) and its normalised version (NLoG)</h3>
+    <p class="why">Why it matters: LoG is the textbook "blob detector". SIFT uses an <em>approximation</em> of it for speed, but you must know what is being approximated.</p>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L04/page-019.png" alt="L04 — Edge detection using second derivative LoG, page 19">
+      <figcaption>L04 · slide 19 — second derivative of a Gaussian-smoothed signal = LoG response.</figcaption>
+    </figure>
+    <p>Laplacian of Gaussian (2-D, "Mexican hat"):</p>
+    <p>$$\text{LoG}(x,y,\sigma)=-\frac{1}{\pi\sigma^{4}}\Big[1-\frac{x^2+y^2}{2\sigma^{2}}\Big]\exp\!\Big(-\frac{x^2+y^2}{2\sigma^{2}}\Big)$$</p>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L04/page-020.png" alt="L04 — LoG kernel formula and 8x8 mask, page 20">
+      <figcaption>L04 · slide 20 — Gaussian + traditional Laplacian = Laplacian of Gaussian filter.</figcaption>
+    </figure>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L04/page-022.png" alt="L04 — Mexican hat 1-D and 2-D LoG, page 22">
+      <figcaption>L04 · slide 22 — "Mexican-hat" LoG, 1-D and 2-D views.</figcaption>
+    </figure>
+    <p><strong>Problem:</strong> the LoG response shrinks with $\sigma$, so blobs of different sizes give incomparable responses.</p>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L04/page-023.png" alt="L04 — LoG response decreases with width, page 23">
+      <figcaption>L04 · slide 23 — same gradient, different widths → LoG responses decrease as width grows.</figcaption>
+    </figure>
+    <p><strong>Fix:</strong> multiply by $\sigma^{2}$ to get the <em>normalised</em> LoG (NLoG):</p>
+    <p>$$\text{NLoG}=\sigma^{2}\,\nabla^{2}G\,*\,I$$</p>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L04/page-024.png" alt="L04 — Normalized LoG (NLoG), page 24">
+      <figcaption>L04 · slide 24 — multiplying by $\sigma^{2}$ makes responses comparable across scales.</figcaption>
+    </figure>
+  </div>
+
+  <div class="concept">
+    <h3>Difference of Gaussians (DoG) — the SIFT speed trick</h3>
+    <p class="why">Why it matters: NLoG is expensive to compute. SIFT approximates it by simply <em>subtracting two Gaussian-blurred images</em>. This is the single most important shortcut in the algorithm.</p>
+    <p>Definition:</p>
+    <p>$$D(x,y,\sigma)=L(x,y,k\sigma)-L(x,y,\sigma)$$</p>
+    <p>where $k$ is a scale-multiplier between two consecutive blurred images. Named symbols: $D$ = DoG image; $L(\cdot,k\sigma)$ = image blurred at the higher scale; $L(\cdot,\sigma)$ = image blurred at the lower scale.</p>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L04/page-025.png" alt="L04 — DoG = difference of two Gaussians, page 25">
+      <figcaption>L04 · slide 25 — two Gaussians with $\sigma=0.3$ and $\sigma=1.0$ and their difference.</figcaption>
+    </figure>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L04/page-026.png" alt="L04 — DoG approximates NLoG, page 26">
+      <figcaption>L04 · slide 26 — the DoG curve has the same Mexican-hat shape as NLoG.</figcaption>
+    </figure>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L04/page-027.png" alt="L04 — DoG approximation good if k=2, page 27">
+      <figcaption>L04 · slide 27 — DoG approximates NLoG; a good choice is higher$\sigma = 2 \times$ lower$\sigma$.</figcaption>
+    </figure>
+    <p><strong>Why does DoG approximate $\sigma^{2}\nabla^{2}G$?</strong> From the heat equation / scale-space derivative,</p>
+    <p>$$\frac{\partial G}{\partial \sigma}=\sigma\,\nabla^{2}G\quad\Rightarrow\quad G(x,y,k\sigma)-G(x,y,\sigma)\;\approx\;(k-1)\,\sigma^{2}\,\nabla^{2}G$$</p>
+    <p>so</p>
+    <p>$$\boxed{\;\text{DoG}\;\approx\;(k-1)\,\sigma^{2}\nabla^{2}G\;=\;(k-1)\,\text{NLoG}\;}$$</p>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L04/page-028.png" alt="L04 — DoG ≈ (S-1) NLoG formula, page 28">
+      <figcaption>L04 · slide 28 — algebraic derivation: $\text{DoG}\approx(S-1)\,\text{NLoG}$.</figcaption>
+    </figure>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L04/page-029.png" alt="L04 — Conclusion: subtract two Gaussian-blurred images, page 29">
+      <figcaption>L04 · slide 29 — applying NLoG with variance $\sigma$ ≈ subtracting two Gaussian-blurred images at variances $\sigma$ and $2\sigma$.</figcaption>
+    </figure>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L04/page-030.png" alt="L04 — DoG conclusion, page 30">
+      <figcaption>L04 · slide 30 — practical conclusion: build a stack of Gaussian-blurred images, subtract consecutive pairs.</figcaption>
+    </figure>
+    <details class="reveal">
+      <summary>Worked example — why "5 blurred → 4 DoGs → 2 candidate scales" per octave</summary>
+      Slide 31 / 33 / 34 in the deck show the standard SIFT setting with $s=3$ scales per octave, so $k=2^{1/s}=2^{1/3}\approx 1.26$. To search for an extremum at scales $\sigma, k\sigma, k^{2}\sigma$ we need DoG images <em>above</em> and <em>below</em> each of those scales → we need <strong>5 blurred images</strong> per octave (so 4 consecutive differences = 4 DoGs), and the extrema search runs on the middle <strong>2 candidate DoG scales</strong> (the topmost and bottommost DoG have no neighbour above/below). After one octave, downsample the image by 2 and repeat.
+    </details>
+  </div>
+
+  <div class="concept">
+    <h3>Stacking it all together: octaves &amp; scales</h3>
+    <p class="why">Why it matters: this is the "scale space" — a pyramid of <em>octaves</em>, each with <em>multiple Gaussian blurs</em>, and from each octave a stack of DoG images.</p>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L04/page-031.png" alt="L04 — Gaussian scale-space S(x,y,sigma), 5 blurs to 4 DoGs, page 31">
+      <figcaption>L04 · slide 31 — Gaussian scale-space (5 blurs) → 4 DoG images via consecutive subtraction.</figcaption>
+    </figure>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L04/page-033.png" alt="L04 — DoG across multiple octaves, page 33">
+      <figcaption>L04 · slide 33 — each octave repeats: smaller image → blurs → DoGs.</figcaption>
+    </figure>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L04/page-034.png" alt="L04 — DoG over four octaves on Einstein image, page 34">
+      <figcaption>L04 · slide 34 — Einstein image: top = Gaussian-blurred at four octaves; bottom = DoGs at the same four octaves.</figcaption>
+    </figure>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L04/page-032.png" alt="L04 — Effect of different sigma values on Gaussian smoothing, page 32">
+      <figcaption>L04 · slide 32 — small $\sigma$ keeps noise (may detect as edges); large $\sigma$ kills important edges/corners.</figcaption>
+    </figure>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L04/page-035.png" alt="L04 — Cameraman blurred at four scales, page 35">
+      <figcaption>L04 · slide 35 — increasing $\sigma$ blurs more.</figcaption>
+    </figure>
+
+    <div class="callout">
+      <h4>Worked numeric example — octave count for a 512 × 512 image</h4>
+      <p>Each octave halves the image size. From 512 → 256 → 128 → 64 → 32 → 16 → 8 → 4. A typical SIFT pipeline stops before things get tiny (say, when the side is ≤ 32 pixels), giving <strong>5 octaves</strong>: 512, 256, 128, 64, 32. Per octave, $s=3$ scales → 5 Gaussian blurs → 4 DoGs → 2 DoGs available for extrema search.</p>
+    </div>
+
+    <figure class="slide-figure">
+      <img src="../assets/slides/L04/page-036.png" alt="L04 — Selecting best sigma scale per pixel, page 36">
+      <figcaption>L04 · slide 36 — list of $(x,y,\sigma)$ candidate keypoints across the scale-space.</figcaption>
+    </figure>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L04/page-037.png" alt="L04 — Highest-response scale wins, page 37">
+      <figcaption>L04 · slide 37 — for each location pick the scale $\sigma$ with the highest absolute DoG response.</figcaption>
+    </figure>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L04/page-038.png" alt="L04 — Scale-space blob detector summary, page 38">
+      <figcaption>L04 · slide 38 — scale-space blob detector summary.</figcaption>
+    </figure>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L04/page-039.png" alt="L04 — Automatic scale selection: blob size grows with sigma, page 39">
+      <figcaption>L04 · slide 39 — automatic scale selection: bigger blobs respond at bigger $\sigma$.</figcaption>
+    </figure>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L04/page-040.png" alt="L04 — Tower vs castle: chosen scale matches object size, page 40">
+      <figcaption>L04 · slide 40 — the chosen $\sigma$ matches the object's size in the image.</figcaption>
+    </figure>
+
+    <div class="callout trap">
+      <h4>Common exam traps</h4>
+      <ul class="list-disc ml-6">
+        <li>"SIFT uses LoG directly." — <strong>False</strong>. It uses DoG as a cheap approximation of <em>normalised</em> LoG.</li>
+        <li>Forgetting the $\sigma^{2}$ normalisation factor — without it, responses are not comparable across scales.</li>
+        <li>Confusing "octave" (image size) and "scale" (different $\sigma$ within one octave). Octaves are size-halving steps; scales are $\sigma$ steps inside an octave.</li>
+        <li>"DoG = LoG exactly." — No, DoG ≈ $(k-1)\,\sigma^{2}\nabla^{2}G$.</li>
+      </ul>
+    </div>
+
+    <div class="q">
+      <div class="stem">Q. Why do we multiply LoG by $\sigma^{2}$?</div>
+      <details class="reveal"><summary>Answer</summary>So responses at different scales are comparable; otherwise the LoG response shrinks as $\sigma$ grows and small blobs always "win".</details>
+    </div>
+    <div class="q">
+      <div class="stem">Q. If a SIFT implementation uses $s=3$ scales per octave, what is the scale multiplier $k$?</div>
+      <details class="reveal"><summary>Answer</summary>$k=2^{1/s}=2^{1/3}\approx 1.2599$.</details>
+    </div>
+  </div>
+</section>
+
+<!-- =========================================== s4.3 =========================================== -->
+<section id="s4.3" class="mt-12">
+  <h2 class="text-2xl font-bold border-b pb-1 mb-3">s4.3 — Keypoint Localisation</h2>
+
+  <div class="concept">
+    <h3>[1] Detect initial extrema in 3-D scale-space (26 neighbours)</h3>
+    <p class="why">Why it matters: this is the exact criterion that turns a DoG stack into a list of candidate keypoints. It is also the #1 numeric exam question on this topic.</p>
+    <p>For each DoG image, compare every pixel against its <strong>26 neighbours</strong> in the 3-D $(x,y,\sigma)$ scale-space:</p>
+    <ul class="list-disc ml-6">
+      <li><strong>8 neighbours</strong> in the same DoG scale (the 3×3 window around it minus the centre).</li>
+      <li><strong>9 neighbours</strong> in the DoG scale immediately above (a 3×3 patch).</li>
+      <li><strong>9 neighbours</strong> in the DoG scale immediately below (a 3×3 patch).</li>
+    </ul>
+    <p><strong>Total: $8+9+9=26$ comparisons.</strong> If the pixel is <em>greater than all 26</em> (local maximum) or <em>smaller than all 26</em> (local minimum), it becomes a <strong>candidate keypoint</strong>.</p>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L04/page-041.png" alt="L04 — Detecting local extrema in DoG: 26 neighbours, page 41">
+      <figcaption>L04 · slide 41 — 26-neighbour extremum test in 3-D scale-space.</figcaption>
+    </figure>
+    <details class="reveal">
+      <summary>Interpret this image — three DoG levels (L−1, L, L+1)</summary>
+      The pixel marked "×" lies in the target DoG level $L$. We compare it to its 8 neighbours in $L$, then to the 9-pixel 3×3 patch at $L-1$ (above in scale), then to the 9-pixel 3×3 patch at $L+1$ (below in scale). Both upper and lower patches are full 3×3 (they include the pixel directly above/below "×"), so they contribute 9 neighbours each, not 8.
+    </details>
+    <div class="q">
+      <div class="stem">Q. How many neighbours does each pixel compare with in the SIFT extremum test, and why?</div>
+      <details class="reveal"><summary>Answer</summary>26 = 8 in the same DoG scale + 9 in the scale above + 9 in the scale below. The scale-space is 3-D so the 3×3×3 cube around the pixel has $27-1=26$ neighbours.</details>
+    </div>
+  </div>
+
+  <div class="concept">
+    <h3>[2] Sub-pixel / sub-scale refinement via Taylor series</h3>
+    <p class="why">Why it matters: the extremum found in step 1 is only at integer pixel + integer scale; the real extremum lives between samples. The Taylor refinement nudges it to its true location.</p>
+    <p>Expand the DoG function $D$ around the candidate point as a 2-nd-order Taylor series:</p>
+    <p>$$D(\mathbf{x})\;=\;D\;+\;\frac{\partial D}{\partial \mathbf{x}}^{\!\top}\mathbf{x}\;+\;\tfrac{1}{2}\,\mathbf{x}^{\!\top}\frac{\partial^{2}D}{\partial \mathbf{x}^{2}}\mathbf{x}$$</p>
+    <p>Set the gradient to zero to find the offset $\hat{\mathbf{x}}$ of the true extremum from the sampled point:</p>
+    <p>$$\hat{\mathbf{x}}\;=\;-\Big(\frac{\partial^{2}D}{\partial\mathbf{x}^{2}}\Big)^{\!-1}\frac{\partial D}{\partial\mathbf{x}}$$</p>
+    <p>Named symbols: $\mathbf{x}=(x,y,\sigma)$ = offset; $\partial D/\partial\mathbf{x}$ = 3-vector gradient of DoG; $\partial^{2}D/\partial\mathbf{x}^{2}$ = $3\!\times\!3$ Hessian; $\hat{\mathbf{x}}$ = sub-pixel/sub-scale offset.</p>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L04/page-042.png" alt="L04 — Taylor refinement of keypoint location, page 42">
+      <figcaption>L04 · slide 42 — Taylor expansion of DoG; solve for $X = -(\partial^{2}D/\partial x^{2})^{-1}(\partial D/\partial x)$.</figcaption>
+    </figure>
+  </div>
+
+  <div class="concept">
+    <h3>[3] Filtering unstable keypoints — low contrast + edge response</h3>
+    <p class="why">Why it matters: even after refinement, lots of candidates sit on flat noise or along strong edges. Both kinds are unreliable. SIFT throws them away with two thresholds.</p>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L04/page-043.png" alt="L04 — Filtering unstable keypoints: low contrast + edge response, page 43">
+      <figcaption>L04 · slide 43 — two filters: (3-1) low-contrast removal, (3-2) edge-response removal.</figcaption>
+    </figure>
+
+    <h4 class="font-semibold mt-2">(3-1) Low-contrast rejection</h4>
+    <p>Image noise produces spurious DoG extrema with small magnitude. Discard a candidate if</p>
+    <p>$$|D(\hat{\mathbf{x}})|\;<\;C$$</p>
+    <p>where $C$ is a contrast threshold (Lowe's paper uses 0.03 on $[0,1]$-normalised images). Result: more noise-immune keypoints.</p>
+
+    <h4 class="font-semibold mt-2">(3-2) Edge-response rejection (Hessian principal-curvature ratio)</h4>
+    <p>Candidates lying on an <em>edge</em> have high DoG response but slide along the edge — they are not well-localised. The 2-D Hessian of DoG at the keypoint tells us the local curvatures:</p>
+    <p>$$H=\begin{bmatrix}D_{xx} &amp; D_{xy}\\ D_{xy} &amp; D_{yy}\end{bmatrix}$$</p>
+    <p>Its eigenvalues $\alpha,\beta$ are the two principal curvatures. Let $r = \alpha/\beta$ be their ratio. For a true blob both eigenvalues are similar (small $r$). For an edge, one eigenvalue is much larger than the other (large $r$).</p>
+    <p>We don't need the eigenvalues themselves — we can read off the ratio from the trace and determinant:</p>
+    <p>$$\text{tr}\,H=\alpha+\beta,\qquad \det H=\alpha\beta$$</p>
+    <p>$$\frac{(\text{tr}\,H)^{2}}{\det H}=\frac{(r+1)^{2}}{r}$$</p>
+    <p>Keep a candidate iff</p>
+    <p>$$\boxed{\;\frac{(\text{tr}\,H)^{2}}{\det H}\;&lt;\;\frac{(r+1)^{2}}{r}\;}$$</p>
+    <p>Lowe uses $r=10$, giving a threshold of $121/10=12.1$. Symbols: $\alpha,\beta$ = Hessian eigenvalues (principal curvatures); $r$ = max curvature / min curvature ratio.</p>
+    <details class="reveal">
+      <summary>Worked example — does a candidate with $r_{measured}=5$ survive at $r=10$?</summary>
+      $(r+1)^{2}/r$ at $r=10$ is $121/10=12.1$. For a candidate whose measured ratio is 5, the LHS is $(5+1)^{2}/5=36/5=7.2$. Since $7.2&lt;12.1$, the candidate <strong>passes</strong> the edge-response filter. A candidate with measured ratio 20 would give $(21)^{2}/20=22.05&gt;12.1$ and would be <strong>rejected</strong> as edge-like.
+    </details>
+
+    <figure class="slide-figure">
+      <img src="../assets/slides/L04/page-044.png" alt="L04 — Visual effect of filtering low-contrast + edge points, page 44">
+      <figcaption>L04 · slide 44 — left: all initial keypoints; middle: after low-contrast removal; right: after edge-response removal.</figcaption>
+    </figure>
+
+    <div class="callout trap">
+      <h4>Common exam traps</h4>
+      <ul class="list-disc ml-6">
+        <li>Confusing $r$ in the edge filter (ratio of <em>Hessian eigenvalues</em>) with the radius around a keypoint.</li>
+        <li>Forgetting the inequality direction — we <strong>keep</strong> points with $(\text{tr})^{2}/\det &lt; (r+1)^{2}/r$, we <strong>reject</strong> those above.</li>
+        <li>"All edge points are rejected." — only those above the threshold. A weak edge whose curvature ratio &lt; 10 may still pass.</li>
+      </ul>
+    </div>
+
+    <div class="q">
+      <div class="stem">Q. Why does a high $r$ (ratio of curvatures) signal an edge rather than a blob?</div>
+      <details class="reveal"><summary>Answer</summary>A blob has roughly equal curvature in every direction ($\alpha\approx\beta$, $r\approx 1$). An edge curves sharply across the edge but is flat along it, so one principal curvature is much larger than the other → $r$ is large.</details>
+    </div>
+    <div class="q">
+      <div class="stem">Q. Lowe's contrast threshold $C=0.03$ is applied to the DoG value at the <em>refined</em> location. True or false?</div>
+      <details class="reveal"><summary>Answer</summary>True — the refinement step gives the more accurate $|D(\hat{\mathbf{x}})|$, which is then compared with $C$.</details>
+    </div>
+  </div>
+</section>
+
+<!-- =========================================== s4.4 =========================================== -->
+<section id="s4.4" class="mt-12">
+  <h2 class="text-2xl font-bold border-b pb-1 mb-3">s4.4 — Orientation assignment + 128-D descriptor</h2>
+
+  <div class="concept">
+    <h3>[1] Assign a dominant orientation to each keypoint (36-bin histogram)</h3>
+    <p class="why">Why it matters: this is what makes SIFT rotation-invariant. The descriptor window will later be rotated to this canonical direction so that the resulting 128-D vector looks the same regardless of in-plane rotation.</p>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L04/page-045.png" alt="L04 — Compute principal orientation of keypoint, page 45">
+      <figcaption>L04 · slide 45 — orientation assignment, step by step.</figcaption>
+    </figure>
+    <p>For each surviving keypoint at scale $\sigma$:</p>
+    <ol class="list-decimal ml-6">
+      <li>Define a square / circular neighbourhood around the keypoint of radius $3\sigma$ (the "3$\sigma$ region" — covers ~99 % of the Gaussian).</li>
+      <li>At every pixel $(x,y)$ in that neighbourhood compute the gradient magnitude $m$ and orientation $\theta$ from the scale-space image $L$:</li>
+    </ol>
+    <p>$$m(x,y)=\sqrt{\big(L(x+1,y)-L(x-1,y)\big)^{2}+\big(L(x,y+1)-L(x,y-1)\big)^{2}}$$</p>
+    <p>$$\theta(x,y)=\tan^{-1}\!\frac{L(x,y+1)-L(x,y-1)}{L(x+1,y)-L(x-1,y)}$$</p>
+    <ol class="list-decimal ml-6" start="3">
+      <li>Build a <strong>36-bin orientation histogram</strong> (one bin per 10°) of these gradient orientations, where each vote is weighted by:
+        <ul class="list-disc ml-6">
+          <li>the gradient magnitude $m$, and</li>
+          <li>a Gaussian window centred at the keypoint (so pixels far away count less than pixels right at the keypoint).</li>
+        </ul>
+      </li>
+      <li>Find the <strong>peak</strong> bin → this is the dominant orientation of the keypoint. Any other bin within 80 % of the peak height creates a <em>second keypoint</em> at the same $(x,y,\sigma)$ with that alternative orientation.</li>
+    </ol>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L04/page-046.png" alt="L04 — Gradient magnitude/orientation formulas and 36-bin histogram, page 46">
+      <figcaption>L04 · slide 46 — neighbourhood gradients → Gaussian-weighted 36-bin histogram → orientation = peak.</figcaption>
+    </figure>
+    <details class="reveal">
+      <summary>Why radius $3\sigma$? — see slide 46/47 sketch</summary>
+      Because ~99.7 % of a Gaussian's mass lies inside $\pm 3\sigma$. A bigger radius adds almost no information but more computation; a smaller radius cuts off real signal.
+    </details>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L04/page-047.png" alt="L04 — Visualization of keypoints: location, scale, orientation, page 47">
+      <figcaption>L04 · slide 47 — visualisation of keypoints with location, scale (circle size) and orientation (arrow).</figcaption>
+    </figure>
+  </div>
+
+  <div class="concept">
+    <h3>[2] Build the 128-D descriptor (4 × 4 grid × 8 bins)</h3>
+    <p class="why">Why it matters: this 128-number vector <em>is</em> the SIFT feature — everything else (matching, recognition, stitching) reads only these numbers.</p>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L04/page-048.png" alt="L04 — Compute keypoint descriptors: 16x16 window, rotated, page 48">
+      <figcaption>L04 · slide 48 — take a 16 × 16 window around the keypoint and rotate it by the keypoint's angle.</figcaption>
+    </figure>
+    <ol class="list-decimal ml-6">
+      <li>Take a <strong>16 × 16</strong> pixel window centred at the keypoint.</li>
+      <li><strong>Rotate</strong> the window by the keypoint's dominant orientation → makes the descriptor rotation-invariant.</li>
+      <li>Divide the rotated 16 × 16 window into a <strong>4 × 4 grid of 4 × 4 cells</strong> (16 cells, each cell has 16 pixels).</li>
+      <li>In each 4 × 4 cell, compute an <strong>8-bin gradient-orientation histogram</strong> (one bin per 45°), again Gaussian-weighted.</li>
+      <li>Concatenate the 16 histograms × 8 bins each → <strong>$4\times 4\times 8=128$</strong>-dimensional vector.</li>
+      <li><strong>Normalise</strong> the vector to unit length to discount linear contrast changes; clip every component to ≤ 0.2 and re-normalise to discount non-linear illumination (saturation, etc.).</li>
+    </ol>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L04/page-049.png" alt="L04 — 16x16 split into 4x4 sub-blocks, 8-bin histograms, 128-D descriptor, page 49">
+      <figcaption>L04 · slide 49 — 16 × 16 → 4 × 4 sub-blocks → 8-bin histograms → 128-D descriptor vector.</figcaption>
+    </figure>
+
+    <div class="callout">
+      <h4>Why does this give illumination invariance?</h4>
+      <ul class="list-disc ml-6">
+        <li>Adding a constant to every pixel doesn't change <em>gradients</em>, so the histogram is unchanged.</li>
+        <li>Multiplying every pixel by a constant scales the gradient magnitudes uniformly — the L2 normalisation cancels it.</li>
+        <li>Clipping at 0.2 then re-normalising handles non-linear changes (saturation, harsh shadows).</li>
+      </ul>
+    </div>
+
+    <details class="reveal">
+      <summary>Worked numeric example — confirm 128</summary>
+      $4\;\text{rows}\;\times\;4\;\text{cols}\;\times\;8\;\text{orientation bins} = 128$. Each cell is itself $4\times4=16$ pixels, so the descriptor summarises $16\times16=256$ pixels into 128 numbers — roughly a 2:1 compression with a much more invariant representation.
+    </details>
+
+    <div class="callout trap">
+      <h4>Common exam traps</h4>
+      <ul class="list-disc ml-6">
+        <li>"36-bin histogram for descriptors." — <strong>No.</strong> 36 bins are for the orientation-assignment step. The descriptor uses 8 bins per cell.</li>
+        <li>"Window is 4 × 4 pixels." — No: 16 × 16 pixels, <em>divided</em> into 4 × 4 cells.</li>
+        <li>Descriptor dimension is 128, not 16 or 32.</li>
+        <li>Forgetting the normalisation → illumination invariance disappears.</li>
+      </ul>
+    </div>
+
+    <div class="q">
+      <div class="stem">Q (numeric). How many numbers are in a SIFT descriptor vector? Show the arithmetic.</div>
+      <details class="reveal"><summary>Answer</summary>$4\times 4\times 8=128$.</details>
+    </div>
+  </div>
+
+  <div class="concept">
+    <h3>Matching two SIFT descriptors — the nearest-neighbour-ratio test</h3>
+    <p class="why">Why it matters: a SIFT keypoint is only <em>useful</em> if we can decide whether two descriptors come from the same physical point. Lowe's ratio test is the standard rule.</p>
+    <p>Given a descriptor $\mathbf{d}$ in image A, find its two closest descriptors $\mathbf{d}_{1},\mathbf{d}_{2}$ in image B (by Euclidean / L2 distance). Compute:</p>
+    <p>$$\rho=\frac{\|\mathbf{d}-\mathbf{d}_{1}\|}{\|\mathbf{d}-\mathbf{d}_{2}\|}$$</p>
+    <p>Accept the match $(\mathbf{d}\leftrightarrow\mathbf{d}_{1})$ iff $\rho&lt;0.8$. If the nearest neighbour is not clearly better than the second-nearest, the match is ambiguous and is dropped.</p>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L04/page-005.png" alt="L04 — Demo of SIFT: descriptor matching connects keypoint pairs, page 5">
+      <figcaption>L04 · slide 5 — connecting keypoint pairs whose descriptors match.</figcaption>
+    </figure>
+    <details class="reveal">
+      <summary>Worked example — does a match pass the 0.8 ratio test?</summary>
+      Suppose for a keypoint in image A the nearest neighbour in image B is at L2 distance 120, and the second-nearest at 200. Ratio $\rho = 120/200 = 0.6 &lt; 0.8$ → <strong>accept</strong>. If the distances had been 180 and 200, $\rho=0.9&gt;0.8$ → <strong>reject</strong>.
+    </details>
+  </div>
+
+  <div class="concept">
+    <h3>OpenCV one-liner reminder</h3>
+    <p class="why">Why it matters: lectures end with a <em>cv2.SIFT_create()</em> code snippet; expect to see/explain it.</p>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L04/page-054.png" alt="L04 — OpenCV SIFT detectAndCompute example, page 54">
+      <figcaption>L04 · slide 54 — <code>sift = cv2.SIFT_create(); kp, des = sift.detectAndCompute(gray, None)</code>.</figcaption>
+    </figure>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L04/page-058.png" alt="L04 — Matching descriptors with BFMatcher, page 58">
+      <figcaption>L04 · slide 58 — <code>BFMatcher(NORM_L1, crossCheck=True).match(desc1, desc2)</code> + sort by distance.</figcaption>
+    </figure>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L04/page-059.png" alt="L04 — Result: same size, same orientation, same illumination, page 59">
+      <figcaption>L04 · slide 59 — two near-identical chairs match cleanly.</figcaption>
+    </figure>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L04/page-060.png" alt="L04 — Result: different sizes, same orientation, page 60">
+      <figcaption>L04 · slide 60 — different sizes still match — scale invariance in action.</figcaption>
+    </figure>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L04/page-063.png" alt="L04 — Quran cover: same size, different illumination, page 63">
+      <figcaption>L04 · slide 63 — same size, different illumination — still matches → illumination invariance.</figcaption>
+    </figure>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L04/page-066.png" alt="L04 — Quran cover: different sizes, same orientation, page 66">
+      <figcaption>L04 · slide 66 — different sizes still match — scale invariance again.</figcaption>
+    </figure>
+  </div>
+</section>
+
+<!-- =========================================== Practice =========================================== -->
+<section id="practice" class="mt-12">
+  <h2 class="text-2xl font-bold border-b pb-1 mb-3">Practice quiz — Lecture 4</h2>
+
+  <div class="q">
+    <div class="stem">1 (Numeric). Compute the dimensionality of a SIFT descriptor.</div>
+    <details class="reveal"><summary>Answer</summary>$4 \times 4 \times 8 = 128$ (4×4 spatial grid, 8 orientation bins per cell).</details>
+  </div>
+
+  <div class="q">
+    <div class="stem">2 (MCQ). In SIFT's scale-space extremum step, each pixel is compared to how many neighbours?</div>
+    <div>a) 8 &nbsp; b) 9 &nbsp; c) 26 &nbsp; d) 27</div>
+    <details class="reveal"><summary>Answer</summary>c) 26 = 8 (same DoG scale) + 9 (above) + 9 (below).</details>
+  </div>
+
+  <div class="q">
+    <div class="stem">3 (T/F). DoG exactly equals the Laplacian of Gaussian.</div>
+    <details class="reveal"><summary>Answer</summary>False. DoG ≈ $(k-1)\,\sigma^{2}\nabla^{2}G$ — an approximation of the normalised LoG.</details>
+  </div>
+
+  <div class="q">
+    <div class="stem">4 (Short). State Lowe's edge-response rejection inequality (using trace and determinant of the Hessian).</div>
+    <details class="reveal"><summary>Answer</summary>Keep iff $(\text{tr}\,H)^{2}/\det H &lt; (r+1)^{2}/r$ with $r$ typically 10 ⇒ threshold $12.1$.</details>
+  </div>
+
+  <div class="q">
+    <div class="stem">5 (Short). For the orientation-assignment histogram, how many bins are used, what is the bin width, and how are votes weighted?</div>
+    <details class="reveal"><summary>Answer</summary>36 bins, 10° per bin; each vote is weighted by the gradient magnitude <em>and</em> a Gaussian centred at the keypoint.</details>
+  </div>
+
+  <div class="q">
+    <div class="stem">6 (Scenario). You photograph the same book cover twice: once in shadow, once under a lamp. Why does SIFT still match the two?</div>
+    <details class="reveal"><summary>Answer</summary>Descriptors are built from gradients (immune to additive lighting changes) and then L2-normalised (cancels multiplicative changes); clipping at 0.2 and re-normalising handles saturation/non-linear lighting.</details>
+  </div>
+
+  <div class="q">
+    <div class="stem">7 (MCQ). The Lowe nearest-neighbour-ratio test accepts a match if the ratio of the nearest / 2nd-nearest descriptor distance is below:</div>
+    <div>a) 0.2 &nbsp; b) 0.5 &nbsp; c) 0.8 &nbsp; d) 1.0</div>
+    <details class="reveal"><summary>Answer</summary>c) 0.8.</details>
+  </div>
+
+  <div class="q">
+    <div class="stem">8 (Numeric). With $s=3$ scales per octave, how many Gaussian-blurred images and how many DoG images are produced per octave, and on how many DoG scales are extrema actually searched?</div>
+    <details class="reveal"><summary>Answer</summary>5 Gaussian blurs → 4 DoGs → extrema search on the middle 2 DoG scales (top and bottom DoG can't be tested against an above/below scale).</details>
+  </div>
+
+  <div class="q">
+    <div class="stem">9 (Short). List the four "main" invariances of SIFT and, in one phrase, how each is achieved.</div>
+    <details class="reveal"><summary>Answer</summary>Scale — scale-space (Gaussian pyramid + DoG). Rotation — dominant orientation via 36-bin gradient histogram. Illumination — gradient-based + normalised descriptor. Occlusion — keypoints are local, so partial loss is fine. (Also: partial-affine and 3-D viewpoint.)</details>
+  </div>
+
+  <div class="q">
+    <div class="stem">10 (Numeric — edge-response). A candidate keypoint has Hessian trace $\text{tr}\,H=12$ and determinant $\det H=20$. With Lowe's threshold $r=10$, is it kept or rejected?</div>
+    <details class="reveal"><summary>Answer</summary>$(\text{tr}\,H)^{2}/\det H = 144/20 = 7.2$. Threshold $(r+1)^{2}/r = 121/10 = 12.1$. Since $7.2 &lt; 12.1$, the candidate is <strong>kept</strong>.</details>
+  </div>
+</section>
+
+<footer class="mt-16 pt-6 border-t text-sm text-slate-500 dark:text-slate-400 no-print">
+  Lecture 4 complete. <a href="./L05.html">Next → L05 — Object detection: sliding window</a>
+</footer>
+</main>
+
+<script>
+document.getElementById('themeToggle').addEventListener('click', () => {
+  const cur = document.documentElement.getAttribute('data-theme');
+  const next = cur === 'dark' ? 'light' : 'dark';
+  document.documentElement.setAttribute('data-theme', next);
+  localStorage.setItem('theme', next);
+});
+// Mark lecture 4 as visited
+try { localStorage.setItem('lecture-L04-visited', '1'); } catch(e){}
+</script>
+</body>
+</html>

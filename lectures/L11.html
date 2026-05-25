@@ -1,0 +1,683 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>L11 — Faster R-CNN: RoI Pool vs RoI Align & the Detector Head</title>
+<meta name="description" content="Full revision notes for Lecture 11: the complete Faster R-CNN pipeline, RoI Pooling quantisation, RoI Align bilinear interpolation, and the Detector head." />
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/katex.min.css">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/katex.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/contrib/auto-render.min.js"
+        onload="renderMathInElement(document.body,{delimiters:[{left:'$$',right:'$$',display:true},{left:'$',right:'$',display:false}]});"></script>
+<link rel="stylesheet" href="../assets/css/styles.css">
+<script>
+  (function(){
+    const saved = localStorage.getItem('theme') || 'light';
+    document.documentElement.setAttribute('data-theme', saved);
+  })();
+</script>
+</head>
+<body class="max-w-5xl mx-auto px-4 pb-24">
+
+<header class="flex items-center justify-between py-4 border-b border-slate-200 dark:border-slate-700 no-print">
+  <a href="../index.html" class="text-sm">← Back to index</a>
+  <div class="flex items-center gap-3">
+    <span class="text-xs opacity-70">Lecture 11 of 12</span>
+    <button id="themeToggle" class="text-sm border rounded px-2 py-1">🌓 Theme</button>
+  </div>
+</header>
+
+<nav class="section-jump no-print" aria-label="Sections in this lecture">
+  <a href="#s11.1">s11.1 Complete Faster R-CNN pipeline</a>
+  <a href="#s11.2">s11.2 RoI Pooling (quantisation)</a>
+  <a href="#s11.3">s11.3 RoI Align (bilinear)</a>
+  <a href="#s11.4">s11.4 Detector head &amp; training</a>
+  <a href="#practice">Practice quiz</a>
+</nav>
+
+<main>
+<h1 class="text-3xl font-extrabold mt-4 mb-2">Lecture 11 — Faster R-CNN: the Complete Picture (RoI Pooling vs RoI Align and the Detector Head)</h1>
+<p class="text-slate-500 dark:text-slate-400 mb-6">Slides © Dr. Khaled M. ElSayed, Zewail City. 63 slides.</p>
+
+<!-- =========================================== s11.1 =========================================== -->
+<section id="s11.1" class="mt-10">
+  <h2 class="text-2xl font-bold border-b pb-1 mb-3">s11.1 — The complete Faster R-CNN pipeline</h2>
+
+  <div class="concept">
+    <h3>The Region-CNN family at a glance</h3>
+    <p class="why">Why it matters: every "two-stage" detector you will read about later (Mask R-CNN, Cascade R-CNN…) shares this skeleton. Owning the diagram makes everything else trivial.</p>
+    <p><strong>Main idea</strong> of region-based CNNs: instead of brute-force sliding a window across the whole image, <em>propose only a few promising regions</em> and feed those to the detector. The detector returns, for every proposal, a <strong>refined bounding box</strong> $(x,y,w,h)$ and an <strong>object class</strong>.</p>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L11/page-003.png" alt="L11 — Main idea of region-based CNN, page 3">
+      <figcaption>L11 · slide 3 — propose regions, then classify &amp; refine. Up to ~2000 proposals per image.</figcaption>
+    </figure>
+
+    <p>The three generations sit on the same backbone:</p>
+    <ul class="list-disc ml-6">
+      <li><strong>R-CNN</strong> = Region proposal (Selective Search / Edge Boxes) + CNN run <em>once per proposal</em>. Slow.</li>
+      <li><strong>Fast R-CNN</strong> = run the CNN <em>once on the whole image</em>, then <em>project</em> each proposal into the shared feature map and pool it.</li>
+      <li><strong>Faster R-CNN</strong> = Fast R-CNN + a learned <strong>Region Proposal Network</strong> (RPN) that replaces Selective Search. Now everything is one trainable network.</li>
+    </ul>
+
+    <figure class="slide-figure">
+      <img src="../assets/slides/L11/page-008.png" alt="L11 — R-CNN canonical figure, page 8">
+      <figcaption>L11 · slide 8 — original R-CNN: 1) input, 2) ~2k region proposals, 3) CNN features per region, 4) classify.</figcaption>
+    </figure>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L11/page-009.png" alt="L11 — R-CNN block diagram, page 9">
+      <figcaption>L11 · slide 9 — R-CNN: each proposal is cropped from the <em>image</em>, runs through the CNN, then RoI Pool → FC → (class, box).</figcaption>
+    </figure>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L11/page-010.png" alt="L11 — Fast R-CNN: feature-map domain, page 10">
+      <figcaption>L11 · slide 10 — Fast R-CNN: feature map of the <em>whole image</em>, then RoI projection into that map (no per-proposal CNN).</figcaption>
+    </figure>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L11/page-011.png" alt="L11 — Fast R-CNN flow, page 11">
+      <figcaption>L11 · slide 11 — selective search on image + CNN on image → project → RoI pool → classify.</figcaption>
+    </figure>
+  </div>
+
+  <div class="concept">
+    <h3>Region-proposal techniques (recap)</h3>
+    <p class="why">Why it matters: the "front door" of R-CNN and Fast R-CNN; replaced by the RPN in Faster R-CNN. You need to recognise the names on the exam.</p>
+    <ul class="list-disc ml-6">
+      <li><strong>Selective Search</strong> — bottom-up: group pixels by similarity in colour, intensity, texture, …</li>
+      <li><strong>Edge Boxes</strong> — top-down: score boxes by how many edge "contours" they enclose.</li>
+      <li><strong>RPN</strong> (Faster R-CNN, L10) — a small CNN slid over the feature map predicting <em>objectness</em> + <em>box regression</em> from $k$ anchors per location.</li>
+    </ul>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L11/page-005.png" alt="L11 — Region proposal techniques, page 5">
+      <figcaption>L11 · slide 5 — Selective Search and Edge Boxes; each region clipped to the same size before FC.</figcaption>
+    </figure>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L11/page-006.png" alt="L11 — Selective search visual, page 6">
+      <figcaption>L11 · slide 6 — Selective Search merges by colour / texture / curves.</figcaption>
+    </figure>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L11/page-007.png" alt="L11 — Edge boxes visual, page 7">
+      <figcaption>L11 · slide 7 — Edge Boxes scores rectangles by enclosed edges.</figcaption>
+    </figure>
+  </div>
+
+  <div class="concept">
+    <h3>Faster R-CNN — the four shared blocks</h3>
+    <p class="why">Why it matters: the canonical exam diagram. Memorise the boxes and arrows; everything else (training, losses, RoI Pool, RoI Align) hangs off it.</p>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L11/page-012.png" alt="L11 — Faster R-CNN with RPN, page 12">
+      <figcaption>L11 · slide 12 — Faster R-CNN = Fast R-CNN + RPN. <strong>Feature map is computed ONCE</strong> and shared by RPN and detector.</figcaption>
+    </figure>
+
+    <ol class="list-decimal ml-6">
+      <li><strong>Backbone CNN (pre-trained):</strong> input image (e.g. 224×224 or 800×576) → conv + pool stack → <em>feature map</em>. Typical backbone has <strong>5 pooling layers</strong>, so spatial size is divided by $2^5 = 32$.</li>
+      <li><strong>Region Proposal Network (RPN):</strong> slides a small conv on the feature map; for every spatial location and every anchor outputs (a) <em>objectness</em> (object / background) and (b) <em>box regression</em> deltas. After non-max suppression you get a fixed-size list of proposals.</li>
+      <li><strong>RoI Pool / RoI Align:</strong> each proposal box is projected into the shared feature map; the variable-size patch is converted to a <em>fixed</em> $h\times w$ tensor (e.g. 7×7×512 or 3×3×512). This is the bridge that lets variable-size proposals feed a fixed-size FC.</li>
+      <li><strong>Detector head (Fast R-CNN head):</strong> FC layers → <em>softmax</em> over $(K+1)$ classes (K classes + background) and <em>bbox refinement</em> $(d_x,d_y,d_w,d_h)$ for each class.</li>
+    </ol>
+
+    <figure class="slide-figure">
+      <img src="../assets/slides/L11/page-013.png" alt="L11 — Why we need RoI pooling, page 13">
+      <figcaption>L11 · slide 13 — projected feature maps of different objects have different sizes, but FC needs a fixed input → we need RoI Pool/Align.</figcaption>
+    </figure>
+
+    <div class="callout">
+      <h4>Feature-map downscale — the "÷32" rule</h4>
+      <p>After 5 pooling layers, a $224\times 224$ patch is represented by $224/32 = 7$ activations in each direction → $7\times 7\times 512$.</p>
+      <p>Equivalently, <em>each value in the final feature map corresponds to a 32×32 region in the input image</em>.</p>
+      <figure class="slide-figure">
+        <img src="../assets/slides/L11/page-016.png" alt="L11 — 224/32=7 receptive arithmetic, page 16">
+        <figcaption>L11 · slide 16 — 224 → 112 → 56 → 28 → 14 → 7. Each cell of the 7×7 feature map "sees" 32×32 input pixels.</figcaption>
+      </figure>
+      <figure class="slide-figure">
+        <img src="../assets/slides/L11/page-017.png" alt="L11 — boy occupies 10 cells of FM, page 17">
+        <figcaption>L11 · slide 17 — a small object (the boy) is represented by only ~10 feature-map values; sub-cell precision matters.</figcaption>
+      </figure>
+    </div>
+
+    <div class="callout trap">
+      <h4>Common exam traps</h4>
+      <ul class="list-disc ml-6">
+        <li>"Faster R-CNN runs the CNN once per proposal." — False. The CNN runs <strong>once on the whole image</strong>; proposals are <em>projected</em> into the shared feature map. That was R-CNN.</li>
+        <li>"RPN replaces the detector." — False. RPN replaces <em>Selective Search</em>; the detector head (classifier + bbox regressor) is still there.</li>
+        <li>"RPN uses a different backbone from the detector." — False. They share the same backbone feature map (slide 12).</li>
+      </ul>
+    </div>
+
+    <div class="q">
+      <div class="stem">Q. List the four functional blocks of Faster R-CNN in order.</div>
+      <details class="reveal"><summary>Answer</summary>Backbone CNN → RPN (objectness + box regression on anchors) → RoI Pool / RoI Align → Detector head (softmax $K{+}1$ classes + per-class bbox refinement).</details>
+    </div>
+    <div class="q">
+      <div class="stem">Q. Why is the feature map shared between the RPN and the detector?</div>
+      <details class="reveal"><summary>Answer</summary>Computing CNN features is the most expensive step. Running it once and reusing the same feature map for both heads saves time and lets the two heads learn complementary representations.</details>
+    </div>
+  </div>
+</section>
+
+<!-- =========================================== s11.2 =========================================== -->
+<section id="s11.2" class="mt-12">
+  <h2 class="text-2xl font-bold border-b pb-1 mb-3">s11.2 — RoI Pooling (with quantisation)</h2>
+
+  <div class="concept">
+    <h3>What problem does RoI Pooling solve?</h3>
+    <p class="why">Why it matters: FC layers demand a <em>fixed</em> input size, but proposals come in arbitrary sizes/aspect ratios. RoI Pool/Align is the bridge that maps any variable-size projected RoI to a fixed $h\times w \times C$ tensor.</p>
+    <p><strong>Input:</strong> a variable-size feature-map patch (the projected RoI).<br>
+       <strong>Output:</strong> a fixed-size feature map, typically $7\times 7\times C$ (often $3\times 3$ in lecture toy examples).</p>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L11/page-014.png" alt="L11 — RoI Pool/Align role, page 14">
+      <figcaption>L11 · slide 14 — input: different sizes. Output: same size.</figcaption>
+    </figure>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L11/page-023.png" alt="L11 — RoI Pooling problem statement, page 23">
+      <figcaption>L11 · slide 23 — two RoIs of different sizes → both pooled to 3×3 → fed to the FC classifier.</figcaption>
+    </figure>
+  </div>
+
+  <div class="concept">
+    <h3>Step 1 of RoI Pooling — quantise the box origin &amp; size</h3>
+    <p class="why">Why it matters: this is the first place where information is silently lost. Recognising it is half the comparison with RoI Align on the exam.</p>
+    <p>The RPN/Selective-Search returns a proposal in <em>image-space</em>: $(x,y,W,H)$ in pixels. After projection into the feature map we divide by $32$ (for a 5-pool backbone), producing <em>fractional</em> coordinates. RoI Pool <strong>rounds them down (floor)</strong> so the patch aligns with integer feature-map cells.</p>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L11/page-018.png" alt="L11 — shift and crop effects, page 18">
+      <figcaption>L11 · slide 18 — quantising the <em>origin</em> shifts the patch (misses part of the boy, adds part of the father).</figcaption>
+    </figure>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L11/page-019.png" alt="L11 — double quantisation error, page 19">
+      <figcaption>L11 · slide 19 — quantising both origin and (W,H) → <em>double</em> quantisation error.</figcaption>
+    </figure>
+  </div>
+
+  <div class="concept">
+    <h3>Step 2 of RoI Pooling — quantise the bin boundaries</h3>
+    <p class="why">Why it matters: even after step 1 you must split the integer patch into $h \times w$ bins. If $H/h$ is not integral, the bin boundaries themselves get rounded → another loss.</p>
+    <p>The output grid is fixed (say $2\times 2$). Each bin is the feature-map patch of size $H/h \times W/w$. If that ratio is integer, no problem. If not, RoI Pool rounds each bin's size or origin → bins of unequal size, and parts of the patch are <em>repeated</em> or <em>missed</em>.</p>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L11/page-020.png" alt="L11 — pooling W=3,H=6 to 2x2, page 20">
+      <figcaption>L11 · slide 20 — projected RoI of W=3, H=6 pooled to 2×2: width 3/2 = 1.5 needs to be quantised → <strong>width quantisation error</strong>.</figcaption>
+    </figure>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L11/page-021.png" alt="L11 — W=2,H=4 clean case, page 21">
+      <figcaption>L11 · slide 21 — W=2, H=4 → 2/2=1, 4/2=2 → clean, no quantisation error <em>BUT</em>… (see next slide).</figcaption>
+    </figure>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L11/page-022.png" alt="L11 — Ground-truth box misalignment, page 22">
+      <figcaption>L11 · slide 22 — even when the bins are clean, the <em>ground-truth</em> box (blue) and the cells we actually pooled (red) are misaligned because each FM value represents 16×16 (or 32×32) image pixels.</figcaption>
+    </figure>
+  </div>
+
+  <div class="concept">
+    <h3>Worked example A — RoI Pooling, simple case</h3>
+    <p>Feature map 25×25. Proposal in feature-map space is $14\times14$ starting near integer coords; we want a $7\times7$ output.</p>
+    <details class="reveal" open>
+      <summary>Step-by-step</summary>
+      <ol class="list-decimal ml-5">
+        <li>The proposal originally landed at (5.6, 7.2) on the FM, size 14.5×14.5. <strong>Step-1 rounding</strong>: floor origin to (6, 7); round size to 14 → the patch is the integer block from (6,7) to (20,21), i.e. exactly 14×14.</li>
+        <li><strong>Step-2 binning</strong>: target output is 7×7. Bin size = 14/7 = 2 → every bin is exactly 2×2. <em>No quantisation error in step 2</em>.</li>
+        <li>Inside each 2×2 bin take the <strong>max</strong> of the 4 values → one number → write to the 7×7 output.</li>
+      </ol>
+      Information loss came <em>only</em> from step 1 (shift &amp; size rounding); step 2 was clean because 14 is divisible by 7.
+    </details>
+  </div>
+
+  <div class="concept">
+    <h3>Worked example B — RoI Pooling, the ugly case</h3>
+    <p>Same 14×14 patch but now we want a $3\times 3$ output instead of $7\times 7$.</p>
+    <details class="reveal" open>
+      <summary>Where it goes wrong</summary>
+      Bin size would be $14/3 = 4.6\overline{6}$. RoI Pool <strong>rounds</strong> the bin boundaries — typical implementation floors them, so two bins become 4 wide and one bin becomes 6 wide (or some similar split). The "extra" rows/columns inside the wider bins are <em>repeated</em> or simply <em>dropped</em> in the output → genuine <strong>information loss</strong>.<br><br>
+      This is exactly the situation on slides 20 and 47: width 7 split into 3 bins → grid width $7/3 \approx 2.33$ gets floored to 2. Two columns are "missing" from the output and one column is "added" from an adjacent strip.
+    </details>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L11/page-047.png" alt="L11 — Traditional RoI Pool with floor approximation, page 47">
+      <figcaption>L11 · slide 47 — traditional RoI Pool with <em>floor</em> approximation on $X=9.375,Y=6.563,W=7.188,H=5.625$ → coordinates jump to integers, grid widths floored → some FM cells are missing, others added.</figcaption>
+    </figure>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L11/page-048.png" alt="L11 — Traditional RoI Pool with round approximation, page 48">
+      <figcaption>L11 · slide 48 — same with <em>round</em> instead of floor — same kind of error, different boundaries.</figcaption>
+    </figure>
+  </div>
+
+  <div class="concept">
+    <h3>RoI Pooling — algorithm in two lines</h3>
+    <ol class="list-decimal ml-6">
+      <li><strong>Quantise proposal</strong> in feature-map coordinates: $\text{floor}(x/32),\ \text{floor}(y/32),\ \text{round}(W/32),\ \text{round}(H/32)$.</li>
+      <li><strong>Quantise bins</strong>: divide the integer patch into $h\times w$ bins by flooring the bin boundaries; for each bin take the max-pool across its FM values; repeat per channel.</li>
+    </ol>
+    <p>The whole thing is two consecutive roundings — "double quantisation".</p>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L11/page-049.png" alt="L11 — Pooling per channel, page 49">
+      <figcaption>L11 · slide 49 — max-pool is applied <em>per channel</em>; the output is then flattened and fed to the FC detector.</figcaption>
+    </figure>
+
+    <div class="callout trap">
+      <h4>Common exam traps</h4>
+      <ul class="list-disc ml-6">
+        <li>"RoI Pool quantises only the box origin." — Wrong. It quantises <strong>twice</strong>: (1) the proposal box on the feature map, (2) the bin boundaries inside it.</li>
+        <li>"If $H/h$ is integer there is no error." — Step 2 is clean, but step 1 (the projection rounding) still loses information.</li>
+        <li>"Max pooling is applied across channels." — No, <strong>per channel</strong>. The output has the same number of channels as the input feature map.</li>
+      </ul>
+    </div>
+
+    <div class="q">
+      <div class="stem">Q. A proposal lands at (5.6, 7.2) in FM space, size 14.5×14.5; the target output is 7×7. State both quantisation steps and indicate which one is clean here.</div>
+      <details class="reveal"><summary>Answer</summary>Step 1 (origin/size): floors to (6,7) and 14×14 → loses sub-pixel info. Step 2 (binning): 14/7=2 exactly → clean.</details>
+    </div>
+    <div class="q">
+      <div class="stem">Q. Same proposal but target 3×3. What does RoI Pool do with the bin width 14/3 = 4.67?</div>
+      <details class="reveal"><summary>Answer</summary>Rounds the bin boundaries; some bins end up wider than others → some rows/columns are repeated or dropped → second source of information loss.</details>
+    </div>
+  </div>
+</section>
+
+<!-- =========================================== s11.3 =========================================== -->
+<section id="s11.3" class="mt-12">
+  <h2 class="text-2xl font-bold border-b pb-1 mb-3">s11.3 — RoI Align (no quantisation, bilinear interpolation)</h2>
+
+  <div class="concept">
+    <h3>What RoI Align changes</h3>
+    <p class="why">Why it matters: RoI Align fixed the misalignment that hurt Fast/Faster R-CNN on small objects and was the secret sauce of Mask R-CNN. Comparing the two is the highest-yield exam question of this lecture.</p>
+    <p><strong>Key idea:</strong> <em>do not quantise anywhere</em>. Keep the proposal coordinates as floats, split the patch into equal-size bins (also floats), sample a small fixed number of points <em>inside each bin</em>, and read off the feature-map value at each sample point using <strong>bilinear interpolation</strong> of the four neighbouring integer cells. Finally pool (max or average) over the samples to get one number per bin per channel.</p>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L11/page-029.png" alt="L11 — 2x2 sampling points per cell, page 29">
+      <figcaption>L11 · slide 29 — 4 sample points (2×2) per output cell. Calculate the value at each, then max-pool the 4.</figcaption>
+    </figure>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L11/page-030.png" alt="L11 — 3x3 sampling points per cell, page 30">
+      <figcaption>L11 · slide 30 — variant with 3×3 = 9 sample points per cell.</figcaption>
+    </figure>
+  </div>
+
+  <div class="concept">
+    <h3>Bilinear interpolation — the only formula you must memorise</h3>
+    <p>Given the four integer neighbours $f(x_1,y_1)$, $f(x_2,y_1)$, $f(x_1,y_2)$, $f(x_2,y_2)$ (with $x_2 = x_1{+}1$, $y_2 = y_1{+}1$), the value at a fractional sample $(x,y)$ is</p>
+    <p>$$f(x,y) \approx (1-a)(1-b)\,f(x_1,y_1) + a(1-b)\,f(x_2,y_1) + (1-a)\,b\,f(x_1,y_2) + a\,b\,f(x_2,y_2),$$</p>
+    <p>with $a = x - x_1$ (fractional offset in x) and $b = y - y_1$ (fractional offset in y).</p>
+    <p>Equivalent two-step formulation (used in the slides):</p>
+    <ol class="list-decimal ml-6">
+      <li><strong>Horizontal interpolation</strong> on the top edge and bottom edge separately:<br>
+        $f_{\text{top}}(x) = f(x_1,y_1)(x_2-x) + f(x_2,y_1)(x-x_1)$<br>
+        $f_{\text{bot}}(x) = f(x_1,y_2)(x_2-x) + f(x_2,y_2)(x-x_1)$</li>
+      <li><strong>Vertical interpolation</strong> between the two:<br>
+        $f(x,y) = f_{\text{top}}(x)(y_2-y) + f_{\text{bot}}(x)(y-y_1)$</li>
+    </ol>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L11/page-033.png" alt="L11 — 1-D linear interpolation example, page 33">
+      <figcaption>L11 · slide 33 — warm-up: 1-D linear interpolation between $f(3){=}20$ and $f(9){=}70$.</figcaption>
+    </figure>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L11/page-034.png" alt="L11 — Bilinear setup, page 34">
+      <figcaption>L11 · slide 34 — bilinear setup: four corner samples; find $f$ at the orange point.</figcaption>
+    </figure>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L11/page-035.png" alt="L11 — Horizontal pass, page 35">
+      <figcaption>L11 · slide 35 — horizontal pass on each y-row separately.</figcaption>
+    </figure>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L11/page-036.png" alt="L11 — Vertical pass, page 36">
+      <figcaption>L11 · slide 36 — vertical pass on the two interpolated values.</figcaption>
+    </figure>
+
+    <details class="reveal">
+      <summary>Slide 36 worked example by hand</summary>
+      Corners: $f(3,5)=15$, $f(9,5)=35$, $f(3,8)=40$, $f(9,8)=20$. Sample point $(7,6)$.<br>
+      Horizontal (y=5): $35\cdot\tfrac{4}{6} + 15\cdot\tfrac{2}{6} = 28.3$.<br>
+      Horizontal (y=8): $20\cdot\tfrac{4}{6} + 40\cdot\tfrac{2}{6} = 26.6$.<br>
+      Vertical (x=7): $28.3\cdot\tfrac{2}{3} + 26.6\cdot\tfrac{1}{3} = \boxed{27.7}$.
+    </details>
+  </div>
+
+  <div class="concept">
+    <h3>Worked example — RoI Align on the cow/person image</h3>
+    <p class="why">Why it matters: this is the lecture's signature numerical example; expect it back, possibly with different numbers.</p>
+
+    <p>Setup (slide 24–25): image 800×576, ground-truth box for the cow at $(x,y,W,H) = (300, 210, 230, 180)$. The backbone has 5 pool layers → divide every dimension by 32.</p>
+
+    <p>Feature-map coordinates:</p>
+    <ul class="list-disc ml-6">
+      <li>Origin: $(300/32, 210/32) = (9.375, 6.563)$.</li>
+      <li>Width: $230/32 = 7.188$. Height: $180/32 = 5.625$.</li>
+      <li>Bottom-right corner: $(9.375 + 7.188, 6.563 + 5.625) = (16.563, 12.188)$.</li>
+    </ul>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L11/page-024.png" alt="L11 — 800x576 image annotated, page 24">
+      <figcaption>L11 · slide 24 — 800×576 image with cow box (300, 210, 230, 180).</figcaption>
+    </figure>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L11/page-025.png" alt="L11 — 25x18 feature map, page 25">
+      <figcaption>L11 · slide 25 — feature map: 800/32 = 25 wide, 576/32 = 18 tall.</figcaption>
+    </figure>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L11/page-026.png" alt="L11 — fractional RoI on FM, page 26">
+      <figcaption>L11 · slide 26 — fractional projected RoI on the FM: corners (9.375, 6.563) and (16.563, 12.188).</figcaption>
+    </figure>
+
+    <p><strong>Target output</strong>: $3 \times 3$. Cell size = $(7.188/3, 5.625/3) = (2.396, 1.875)$. <em>No rounding.</em></p>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L11/page-027.png" alt="L11 — output 3x3 align, page 27">
+      <figcaption>L11 · slide 27 — output of RoI Align is exactly 3×3 (irrespective of the input size).</figcaption>
+    </figure>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L11/page-028.png" alt="L11 — same output size for different objects, page 28">
+      <figcaption>L11 · slide 28 — both the small cow and the larger person are pooled to the same 3×3 output.</figcaption>
+    </figure>
+
+    <p><strong>Sample points</strong> (4 per cell, 2×2 grid inside): for cell with top-left $(X_c,Y_c)$ and cell size $(w_c, h_c) = (2.396, 1.875)$ the four samples are at offsets $\bigl(w_c\cdot\tfrac{1}{3}, h_c\cdot\tfrac{1}{3}\bigr)$, $\bigl(w_c\cdot\tfrac{2}{3}, h_c\cdot\tfrac{1}{3}\bigr)$, $\bigl(w_c\cdot\tfrac{1}{3}, h_c\cdot\tfrac{2}{3}\bigr)$, $\bigl(w_c\cdot\tfrac{2}{3}, h_c\cdot\tfrac{2}{3}\bigr)$.</p>
+
+    <figure class="slide-figure">
+      <img src="../assets/slides/L11/page-031.png" alt="L11 — Sampling-point coordinates, page 31">
+      <figcaption>L11 · slide 31 — the 4 sample points $S_1\ldots S_4$ in the first cell with their explicit $(X,Y)$.</figcaption>
+    </figure>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L11/page-032.png" alt="L11 — Focus on first cell, page 32">
+      <figcaption>L11 · slide 32 — zoom into the first cell; 4 sample points to compute.</figcaption>
+    </figure>
+
+    <details class="reveal" open>
+      <summary>First cell — all four samples computed</summary>
+      Top-left of first cell: $(9.375, 6.563)$. Cell size $(2.396, 1.875)$. Sample points:
+      <ul class="list-disc ml-6">
+        <li>$S_1 = (9.375 + 2.396\cdot\tfrac{1}{3},\ 6.563 + 1.875\cdot\tfrac{1}{3}) = (10.17, 7.19)$</li>
+        <li>$S_2 = (9.375 + 2.396\cdot\tfrac{2}{3},\ 6.563 + 1.875\cdot\tfrac{1}{3}) = (10.97, 7.19)$</li>
+        <li>$S_3 = (9.375 + 2.396\cdot\tfrac{1}{3},\ 6.563 + 1.875\cdot\tfrac{2}{3}) = (10.17, 7.81)$</li>
+        <li>$S_4 = (9.375 + 2.396\cdot\tfrac{2}{3},\ 6.563 + 1.875\cdot\tfrac{2}{3}) = (10.97, 7.81)$</li>
+      </ul>
+      For $S_1 = (10.17, 7.19)$ the four neighbours on the FM are $f(9.5,6.5)=0.9$, $f(10.5,6.5)=0.8$, $f(9.5,7.5)=0.6$, $f(10.5,7.5)=0.2$ (using cell centres; slides 37–40):<br>
+      Horizontal at y=6.5: $0.9\cdot(10.5-10.17) + 0.8\cdot(10.17-9.5) = 0.833$.<br>
+      Horizontal at y=7.5: $0.6\cdot(10.5-10.17) + 0.2\cdot(10.17-9.5) = 0.332$.<br>
+      Vertical at x=10.17: $0.833\cdot(7.5-7.19) + 0.332\cdot(7.19-6.5) = \boxed{0.487}$.<br><br>
+      Similarly (slides 41–43): $S_2 = 0.436$, $S_3 = 0.332$, $S_4 = 0.281$.
+    </details>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L11/page-037.png" alt="L11 — neighbours of S1, page 37">
+      <figcaption>L11 · slide 37 — the four FM neighbours of $S_1$ on the feature map.</figcaption>
+    </figure>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L11/page-038.png" alt="L11 — generic interpolation formula, page 38">
+      <figcaption>L11 · slide 38 — generic horizontal-then-vertical formula.</figcaption>
+    </figure>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L11/page-039.png" alt="L11 — S1 horizontal pass, page 39">
+      <figcaption>L11 · slide 39 — $S_1$ horizontal pass → 0.833 / 0.332.</figcaption>
+    </figure>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L11/page-040.png" alt="L11 — S1 final value 0.487, page 40">
+      <figcaption>L11 · slide 40 — $S_1$ final value: <strong>0.487</strong>.</figcaption>
+    </figure>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L11/page-041.png" alt="L11 — S2 = 0.436, page 41">
+      <figcaption>L11 · slide 41 — $S_2$ = 0.436.</figcaption>
+    </figure>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L11/page-042.png" alt="L11 — S3 = 0.332, page 42">
+      <figcaption>L11 · slide 42 — $S_3$ = 0.332.</figcaption>
+    </figure>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L11/page-043.png" alt="L11 — S4 = 0.281, page 43">
+      <figcaption>L11 · slide 43 — $S_4$ = 0.281.</figcaption>
+    </figure>
+
+    <p><strong>Pool the 4 samples</strong> (max — what the slides do; some implementations average):</p>
+    <p>$\max(0.487,\ 0.436,\ 0.332,\ 0.281) = 0.487$.</p>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L11/page-044.png" alt="L11 — Max-pool of 4 samples = 0.487, page 44">
+      <figcaption>L11 · slide 44 — max-pool over the 4 calculated samples → 0.487 is the value of the first output cell.</figcaption>
+    </figure>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L11/page-045.png" alt="L11 — repeat for all cells, page 45">
+      <figcaption>L11 · slide 45 — repeat for every cell of the 3×3 output.</figcaption>
+    </figure>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L11/page-046.png" alt="L11 — 3x3 align output, page 46">
+      <figcaption>L11 · slide 46 — first output cell = 0.487; the remaining 8 are filled in the same way.</figcaption>
+    </figure>
+  </div>
+
+  <div class="concept">
+    <h3>RoI Pool vs RoI Align — the table you must own</h3>
+    <details class="reveal" open>
+      <summary>Side by side</summary>
+      <table class="text-sm mt-2 w-full">
+        <thead><tr><th class="text-left">Aspect</th><th class="text-left">RoI Pooling</th><th class="text-left">RoI Align</th></tr></thead>
+        <tbody class="align-top">
+          <tr><td>Quantisation of proposal coords?</td><td><strong>Yes</strong> (floor/round to nearest integer FM cell)</td><td><strong>No</strong> — coordinates stay as floats</td></tr>
+          <tr><td>Quantisation of bin boundaries?</td><td><strong>Yes</strong> (each bin is rounded to integer cells)</td><td><strong>No</strong> — bins are equal-size floats</td></tr>
+          <tr><td>How feature values are read</td><td>Direct read of integer FM cells</td><td><strong>Bilinear interpolation</strong> at sample points</td></tr>
+          <tr><td>Samples per output cell</td><td>All FM cells inside the (quantised) bin</td><td>Small fixed number (typically 4 = 2×2 or 9 = 3×3)</td></tr>
+          <tr><td>Pooling op</td><td>max (or avg) over bin</td><td>max (or avg) over samples</td></tr>
+          <tr><td>Misalignment with ground-truth box</td><td>Yes, on order of $\pm$ one FM cell = $\pm$ 32 image pixels</td><td>Sub-pixel accurate</td></tr>
+          <tr><td>Effect on small objects</td><td>Noticeable accuracy drop</td><td>Substantially better (mAP gain)</td></tr>
+          <tr><td>Introduced in</td><td>Fast R-CNN (Girshick 2015)</td><td>Mask R-CNN (He et al. 2017)</td></tr>
+        </tbody>
+      </table>
+    </details>
+
+    <div class="callout trap">
+      <h4>Common exam traps</h4>
+      <ul class="list-disc ml-6">
+        <li>"RoI Align uses nearest-neighbour interpolation." — False. It uses <strong>bilinear</strong>.</li>
+        <li>"RoI Align needs lots of samples per cell to work." — False; the original paper uses just 4. The wins come from <em>removing quantisation</em>, not from extra samples.</li>
+        <li>"RoI Align is faster than RoI Pool." — False; it does <em>more</em> arithmetic. Its advantage is accuracy.</li>
+        <li>"RoI Align eliminates all rounding errors in detection." — False; it only fixes the pooling step. The RPN's anchor quantisation and the final box decoding still have their own approximations.</li>
+      </ul>
+    </div>
+
+    <div class="q">
+      <div class="stem">Q. Two sources of information loss in RoI Pooling and what RoI Align does about each.</div>
+      <details class="reveal"><summary>Answer</summary>(1) Quantising the proposal's origin + size on the FM — RoI Align keeps them as floats. (2) Quantising the bin boundaries inside the proposal — RoI Align keeps the bins equal-size floats and reads values via bilinear interpolation at sample points.</details>
+    </div>
+    <div class="q">
+      <div class="stem">Q (numeric). Bilinear: $f(3,5)=10$, $f(4,5)=20$, $f(3,6)=30$, $f(4,6)=40$. What is $f(3.25, 5.5)$?</div>
+      <details class="reveal"><summary>Answer</summary>$a=0.25, b=0.5$. $f = 0.75\cdot0.5\cdot10 + 0.25\cdot0.5\cdot20 + 0.75\cdot0.5\cdot30 + 0.25\cdot0.5\cdot40 = 3.75 + 2.5 + 11.25 + 5 = \mathbf{22.5}$.</details>
+    </div>
+    <div class="q">
+      <div class="stem">Q. In the lecture's worked example, why is the cell size $(2.396, 1.875)$ rather than integer?</div>
+      <details class="reveal"><summary>Answer</summary>Because the projected RoI is $7.188\times 5.625$ feature-map cells and the target is $3\times 3$. RoI Align <em>does not</em> round these numbers, so the bins keep the exact float size $7.188/3 = 2.396$, $5.625/3 = 1.875$.</details>
+    </div>
+  </div>
+</section>
+
+<!-- =========================================== s11.4 =========================================== -->
+<section id="s11.4" class="mt-12">
+  <h2 class="text-2xl font-bold border-b pb-1 mb-3">s11.4 — Detector head &amp; training</h2>
+
+  <div class="concept">
+    <h3>Architecture of the Detector head (Fast / Faster R-CNN)</h3>
+    <p class="why">Why it matters: this is the "final mile" — what turns a pooled feature tensor into a class label and a refined box. The output dimensionalities are a classic exam multiplication question.</p>
+
+    <figure class="slide-figure">
+      <img src="../assets/slides/L11/page-050.png" alt="L11 — Architecture of detector head, page 50">
+      <figcaption>L11 · slide 50 — detector head: 3×3×512 input → flatten 4608 → 3 hidden FCs → two heads: regressor (4·K) and softmax classifier ($K{+}1$).</figcaption>
+    </figure>
+
+    <ul class="list-disc ml-6">
+      <li><strong>Input</strong>: one fixed-size RoI tensor (e.g. $3\times3\times512 = 4608$ values) from RoI Pool/Align.</li>
+      <li><strong>Hidden</strong>: a stack of fully-connected layers (in the slide's ImageNet example, 3 hidden FCs).</li>
+      <li><strong>Two output heads</strong>:
+        <ul class="list-disc ml-6">
+          <li><em>Classifier</em>: Softmax over $K+1$ classes (K object classes + 1 background). Example: 1000 classes + bg = <strong>1001 outputs</strong>.</li>
+          <li><em>Regressor</em>: 4 box-refinement values $(d_x, d_y, d_w, d_h)$ <strong>per class</strong>. Example: $1000\times 4 = \mathbf{4000}$ outputs.</li>
+        </ul>
+      </li>
+    </ul>
+  </div>
+
+  <div class="concept">
+    <h3>Box refinement — what those four numbers mean</h3>
+    <p>The regressor does <strong>not</strong> predict an absolute box. It predicts offsets relative to the proposal:</p>
+    <p>$$\hat{x} = x_p + w_p\,d_x,\qquad \hat{y} = y_p + h_p\,d_y,\qquad \hat{w} = w_p\,e^{d_w},\qquad \hat{h} = h_p\,e^{d_h}.$$</p>
+    <p>So $(d_x, d_y)$ are normalised centre shifts and $(d_w, d_h)$ are log-scale size changes. <em>Per class</em> means the network learns class-specific shape priors (a person box prefers a different aspect ratio from a car box).</p>
+  </div>
+
+  <div class="concept">
+    <h3>Loss function — multi-task</h3>
+    <p>For each RoI the loss is a sum of two terms:</p>
+    <p>$$L = L_{\text{cls}}(p, c^*) + \lambda\,\mathbb{1}[c^* \neq \text{bg}]\,L_{\text{box}}(t, t^*),$$</p>
+    <ul class="list-disc ml-6">
+      <li>$L_{\text{cls}}$ = <strong>softmax cross-entropy / log-loss</strong> over the $K+1$ class probabilities.</li>
+      <li>$L_{\text{box}}$ = <strong>Smooth-L1</strong> (a.k.a. Huber) loss between predicted offsets $t = (d_x,d_y,d_w,d_h)$ of the assigned class and the ground-truth offsets $t^*$.</li>
+      <li>Indicator $\mathbb{1}[c^* \neq \text{bg}]$ → <strong>no box loss for background proposals</strong> (you can't "refine" a non-object).</li>
+    </ul>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L11/page-058.png" alt="L11 — Loss function combining log-loss and squared error, page 58">
+      <figcaption>L11 · slide 58 — loss = log-loss (classes) + squared/smooth-L1 distance (box offsets of <em>one</em> class only). No offset loss for the background class.</figcaption>
+    </figure>
+  </div>
+
+  <div class="concept">
+    <h3>Training Faster R-CNN — step-by-step</h3>
+    <p class="why">Why it matters: the training procedure has its own quirks (shared weights, IoU thresholds, two losses, 4-step alternating). All are exam-favourites.</p>
+    <ol class="list-decimal ml-6">
+      <li>Run the RPN on a randomly-selected training image; apply <strong>non-max suppression</strong> and cap the number of proposals (slide 52).</li>
+      <li>For each proposal, pick the corresponding (Regressor, Objectness) vector pair (slide 53).</li>
+      <li><strong>Label assignment</strong> (slide 54): compute IoU of the proposal with every ground-truth box.
+        <ul class="list-disc ml-6">
+          <li>If max IoU $&lt; 0.5$ → label = <strong>Background</strong>.</li>
+          <li>Else label = class of the highest-IoU GT box, and the GT offsets become the regression target.</li>
+        </ul>
+      </li>
+      <li><strong>Feature for the detector</strong> (slide 55): instead of cropping the image and rerunning the CNN (R-CNN style), <em>project</em> the proposal onto the shared feature map.</li>
+      <li>Apply <strong>RoI Pool / RoI Align</strong> on that feature-map patch (slide 56).</li>
+      <li>Feed to the FC detector → two output vectors (classification probs &amp; per-class offsets) (slide 57).</li>
+      <li>Apply the multi-task loss and back-prop (slide 58).</li>
+      <li>Use <strong>shared weights</strong>: the same backbone CNN is used by both RPN and detector — never run the CNN on the same image twice (slides 59–60).</li>
+    </ol>
+
+    <figure class="slide-figure">
+      <img src="../assets/slides/L11/page-052.png" alt="L11 — Step 1 run RPN, page 52">
+      <figcaption>L11 · slide 52 — step 1: run RPN, NMS, cap count.</figcaption>
+    </figure>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L11/page-053.png" alt="L11 — Step 2 pick a proposal, page 53">
+      <figcaption>L11 · slide 53 — step 2: pick proposed regions one-by-one.</figcaption>
+    </figure>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L11/page-054.png" alt="L11 — Step 3 IoU vs GT, page 54">
+      <figcaption>L11 · slide 54 — step 3: IoU with all GT boxes → background or class+offsets.</figcaption>
+    </figure>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L11/page-055.png" alt="L11 — Step 4 project on feature map, page 55">
+      <figcaption>L11 · slide 55 — step 4: project the proposal onto the shared feature map (no re-running CNN on clipped image).</figcaption>
+    </figure>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L11/page-056.png" alt="L11 — Step 5 RoI Pool/Align, page 56">
+      <figcaption>L11 · slide 56 — step 5: apply RoI Pool (with quantisation) or RoI Align (no quantisation).</figcaption>
+    </figure>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L11/page-057.png" alt="L11 — Step 6 Fast RCNN detector, page 57">
+      <figcaption>L11 · slide 57 — step 6: FC detector → classification probs + per-class box offsets.</figcaption>
+    </figure>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L11/page-059.png" alt="L11 — Shared weights between two CNNs, page 59">
+      <figcaption>L11 · slide 59 — the backbone CNN used by the RPN and the one feeding the detector are the <em>same</em> network with shared weights.</figcaption>
+    </figure>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L11/page-060.png" alt="L11 — One feature map shared everywhere, page 60">
+      <figcaption>L11 · slide 60 — therefore the feature map is computed <em>once</em> and reused by both the RPN and the detector.</figcaption>
+    </figure>
+  </div>
+
+  <div class="concept">
+    <h3>End-to-end training options</h3>
+    <p class="why">Why it matters: there are two ways to actually do the optimisation. The original Faster R-CNN paper proposes a 4-step alternating procedure; subsequent work uses end-to-end joint training. Both are fair game.</p>
+    <ul class="list-disc ml-6">
+      <li><strong>4-step alternating training</strong> (original Ren et al. 2015):
+        <ol class="list-decimal ml-6">
+          <li>Train RPN with ImageNet-pretrained backbone.</li>
+          <li>Train Fast R-CNN detector using the RPN's proposals — still its own backbone copy.</li>
+          <li>Fix the shared conv layers, fine-tune only the RPN's RPN-specific layers (so the RPN learns to share the detector's features).</li>
+          <li>Fix the shared conv layers again, fine-tune only the detector's detector-specific layers.</li>
+        </ol>
+        Result: one unified network where RPN and detector share the same backbone.
+      </li>
+      <li><strong>Approximate joint / end-to-end training</strong>: the gradients from both heads back-propagate through the shared backbone in one optimiser step. The "approximate" is because the gradients of the RPN-produced proposal coordinates into RoI Pool are normally ignored. Simpler to implement and now standard.</li>
+    </ul>
+    <div class="callout trap">
+      <h4>Trap</h4>
+      <ul class="list-disc ml-6">
+        <li>"End-to-end training of Faster R-CNN was impossible." — False. End-to-end is the modern default; <em>alternating</em> was just the original recipe.</li>
+        <li>"The detector head computes box loss on background proposals." — False. Background contributes only to the classification loss.</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="concept">
+    <h3>Output sizes recap (Imagenet 1000-class example)</h3>
+    <details class="reveal" open>
+      <summary>Numbers from slide 50</summary>
+      <table class="text-sm mt-2 w-full">
+        <thead><tr><th class="text-left">Quantity</th><th class="text-left">Size</th></tr></thead>
+        <tbody>
+          <tr><td>RoI tensor after Pool/Align</td><td>$3\times 3\times 512$</td></tr>
+          <tr><td>Flattened</td><td>$4608$</td></tr>
+          <tr><td>Hidden FCs</td><td>$3$</td></tr>
+          <tr><td>Classifier output (softmax)</td><td>$K+1 = 1001$ (1000 classes + bg)</td></tr>
+          <tr><td>Regressor output</td><td>$4\cdot K = 4000$ (4 offsets per class, no offsets for bg)</td></tr>
+        </tbody>
+      </table>
+    </details>
+  </div>
+</section>
+
+<!-- =========================================== Practice =========================================== -->
+<section id="practice" class="mt-12">
+  <h2 class="text-2xl font-bold border-b pb-1 mb-3">Practice quiz — Lecture 11</h2>
+
+  <div class="q">
+    <div class="stem">1 (MCQ). Why is the same shared feature map used by both the RPN and the detector in Faster R-CNN?</div>
+    <div>a) Different conv weights for each head waste training time. &nbsp; b) Computing the CNN features is the most expensive step; sharing saves time and lets both heads benefit from the same representation. &nbsp; c) Because the RPN cannot use convolution. &nbsp; d) Because the detector cannot use anchors.</div>
+    <details class="reveal"><summary>Answer</summary>b. CNN features are expensive; running once and reusing avoids duplication, and the shared backbone learns features useful to both tasks.</details>
+  </div>
+
+  <div class="q">
+    <div class="stem">2 (Comparison). Name the two quantisation steps in RoI Pooling that RoI Align eliminates, and how RoI Align reads feature values instead.</div>
+    <details class="reveal"><summary>Answer</summary>(1) Quantisation of the proposal box origin/size on the feature map. (2) Quantisation of the bin boundaries inside the proposal. RoI Align keeps both as floats and uses <strong>bilinear interpolation</strong> at 4 (or 9) sample points per bin, then max- or avg-pools over the samples.</details>
+  </div>
+
+  <div class="q">
+    <div class="stem">3 (Numeric, bilinear). The FM values at four neighbours are $f(9.5,6.5)=0.9$, $f(10.5,6.5)=0.8$, $f(9.5,7.5)=0.6$, $f(10.5,7.5)=0.2$. Find $f(10.17, 7.19)$ by bilinear interpolation.</div>
+    <details class="reveal"><summary>Answer</summary>Horizontal at y=6.5: $0.9\cdot(10.5-10.17)+0.8\cdot(10.17-9.5)= 0.833$. Horizontal at y=7.5: $0.6\cdot0.33+0.2\cdot0.67=0.332$. Vertical at x=10.17: $0.833\cdot(7.5-7.19)+0.332\cdot(7.19-6.5) = \mathbf{0.487}$.</details>
+  </div>
+
+  <div class="q">
+    <div class="stem">4 (Numeric, RoI Pool). FM 25×25, proposal in FM space $14.5\times14.5$ starting at $(5.6, 7.2)$, target $7\times 7$. State both quantisation steps and explain why step 2 is clean here.</div>
+    <details class="reveal"><summary>Answer</summary>Step 1: floor origin to $(6,7)$, size to $14\times 14$. Step 2: bin size $14/7 = 2$ → exactly $2\times 2$ bins, no fractional split → step 2 is clean. Information loss came from step 1.</details>
+  </div>
+
+  <div class="q">
+    <div class="stem">5 (Numeric, detector). Imagenet 1000 classes. How many outputs does the detector head produce in (i) the classifier and (ii) the regressor?</div>
+    <details class="reveal"><summary>Answer</summary>(i) $K+1 = 1001$ softmax outputs (1000 classes + background). (ii) $4\cdot K = 4000$ regression outputs (4 offsets per class; background gets no box loss).</details>
+  </div>
+
+  <div class="q">
+    <div class="stem">6 (T/F). When training, the box-regression loss is computed for every proposal, including background.</div>
+    <details class="reveal"><summary>Answer</summary>False. Background proposals contribute only to the classification log-loss; there is no GT box to regress to so the indicator $\mathbb{1}[c^* \neq \text{bg}]$ zeroes the box loss.</details>
+  </div>
+
+  <div class="q">
+    <div class="stem">7 (Scenario). You train Faster R-CNN with RoI Pool and observe poor mAP on small objects. Suggest one architectural change that should help, and explain why.</div>
+    <details class="reveal"><summary>Answer</summary>Replace RoI Pool with RoI Align. Small objects span only a handful of FM cells, so the $\pm 1$-cell misalignment caused by RoI Pool's double quantisation is a large fraction of the object's footprint. Bilinear-interpolated sampling is sub-pixel accurate and recovers the lost localisation precision.</details>
+  </div>
+
+  <div class="q">
+    <div class="stem">8 (Short). Outline the 4-step alternating training procedure for Faster R-CNN.</div>
+    <details class="reveal"><summary>Answer</summary>(1) Train the RPN with an ImageNet-pretrained backbone. (2) Train the Fast R-CNN detector using the RPN's proposals (its own backbone copy). (3) Freeze the shared conv layers and fine-tune the RPN-specific layers on top of the detector's backbone. (4) Freeze the shared conv layers again and fine-tune only the detector-specific layers. Result: one unified network with a shared backbone.</details>
+  </div>
+</section>
+
+<footer class="mt-16 pt-6 border-t text-sm text-slate-500 dark:text-slate-400 no-print">
+  Lecture 11 complete. <a href="./L12.html">Next → L12</a>
+</footer>
+</main>
+
+<script>
+document.getElementById('themeToggle').addEventListener('click', () => {
+  const cur = document.documentElement.getAttribute('data-theme');
+  const next = cur === 'dark' ? 'light' : 'dark';
+  document.documentElement.setAttribute('data-theme', next);
+  localStorage.setItem('theme', next);
+});
+// Mark lecture 11 as visited
+try { localStorage.setItem('lecture-L11-visited', '1'); } catch(e){}
+</script>
+</body>
+</html>

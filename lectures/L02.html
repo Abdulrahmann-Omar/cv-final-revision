@@ -1,0 +1,702 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>L02 — Filters in the Frequency Domain</title>
+<meta name="description" content="Full revision notes for Lecture 2: Fourier intuition, 2D DFT, low/high/band-pass filters (Ideal, Butterworth, Gaussian)." />
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/katex.min.css">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/katex.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/contrib/auto-render.min.js"
+        onload="renderMathInElement(document.body,{delimiters:[{left:'$$',right:'$$',display:true},{left:'$',right:'$',display:false}]});"></script>
+<link rel="stylesheet" href="../assets/css/styles.css">
+<script>
+  (function(){
+    const saved = localStorage.getItem('theme') || 'light';
+    document.documentElement.setAttribute('data-theme', saved);
+  })();
+</script>
+</head>
+<body class="max-w-5xl mx-auto px-4 pb-24">
+
+<header class="flex items-center justify-between py-4 border-b border-slate-200 dark:border-slate-700 no-print">
+  <a href="../index.html" class="text-sm">← Back to index</a>
+  <div class="flex items-center gap-3">
+    <span class="text-xs opacity-70">Lecture 2 of 12</span>
+    <button id="themeToggle" class="text-sm border rounded px-2 py-1">🌓 Theme</button>
+  </div>
+</header>
+
+<nav class="section-jump no-print" aria-label="Sections in this lecture">
+  <a href="#s2.1">s2.1 Fourier intuition</a>
+  <a href="#s2.2">s2.2 2-D DFT</a>
+  <a href="#s2.3">s2.3 LPF / HPF / BPF</a>
+  <a href="#practice">Practice quiz</a>
+</nav>
+
+<main>
+<h1 class="text-3xl font-extrabold mt-4 mb-2">Lecture 2 — Image Enhancement in the Frequency Domain</h1>
+<p class="text-slate-500 dark:text-slate-400 mb-6">Slides © Dr. Khaled M. ElSayed, Zewail City. 56 slides.</p>
+
+<!-- =========================================== s2.1 =========================================== -->
+<section id="s2.1" class="mt-10">
+  <h2 class="text-2xl font-bold border-b pb-1 mb-3">s2.1 — Fourier intuition: any signal is a sum of sinusoids</h2>
+
+  <div class="concept">
+    <h3>What is a Fourier transform?</h3>
+    <p class="why">Why it matters: every operation in this lecture (smoothing, sharpening, denoising) becomes a one-line multiplication once we move to the frequency domain. You cannot pass the final without this picture in your head.</p>
+    <p><strong>Main idea</strong> (one sentence to memorise):</p>
+    <blockquote class="border-l-4 pl-3 italic my-2">Any function can be described by a <strong>summation of waves</strong> with <em>different amplitudes</em> and <em>different phases</em>.</blockquote>
+    <p>So instead of describing a signal by its values at every position $x$, we describe it by how much of each <em>frequency</em> $\omega$ it contains. Both descriptions hold the same information — they are just two coordinate systems.</p>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L02/page-002.png" alt="Lecture 2 — main idea: signals as sums of waves, page 2">
+      <figcaption>L02 · slide 2 — main idea: signals = summation of waves.</figcaption>
+    </figure>
+  </div>
+
+  <div class="concept">
+    <h3>Building up a square wave one frequency at a time</h3>
+    <p class="why">Why it matters: the classic "square-wave-from-sines" demo gives you the picture every exam question on LPF/HPF leans on. The <em>fundamental</em> (lowest sine) gives the overall shape; each <em>higher harmonic</em> sharpens the corners.</p>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L02/page-003.png" alt="Lecture 2 — square wave approx with 1 base function, page 3">
+      <figcaption>L02 · slide 3 — first base function alone is a rough approximation.</figcaption>
+    </figure>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L02/page-004.png" alt="Lecture 2 — square wave approx with 2 base functions, page 4">
+      <figcaption>L02 · slide 4 — adding a third harmonic improves the approximation.</figcaption>
+    </figure>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L02/page-005.png" alt="Lecture 2 — square wave approx with more harmonics, page 5">
+      <figcaption>L02 · slide 5 — more harmonics, more squareness.</figcaption>
+    </figure>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L02/page-006.png" alt="Lecture 2 — square wave approx near convergence, page 6">
+      <figcaption>L02 · slide 6 — flatter tops, sharper transitions.</figcaption>
+    </figure>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L02/page-007.png" alt="Lecture 2 — square wave approx convergence, page 7">
+      <figcaption>L02 · slide 7 — close to the target square; tiny ripples remain (Gibbs-style).</figcaption>
+    </figure>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L02/page-008.png" alt="Lecture 2 — time/frequency 3D view, page 8">
+      <figcaption>L02 · slide 8 — same signal, two views: time-domain (front) and frequency-domain spectrum (side).</figcaption>
+    </figure>
+
+    <p>The closed-form pattern for a square pulse: $f(t) = A\sum_{k=1}^{\infty}\tfrac{1}{k}\sin(2\pi k t)$. Each $k$ is a frequency; coefficient $\tfrac{1}{k}$ is its amplitude.</p>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L02/page-009.png" alt="Lecture 2 — square wave formula and spectrum bars, page 9">
+      <figcaption>L02 · slide 9 — time-domain pulse $\leftrightarrow$ falling-bars frequency spectrum.</figcaption>
+    </figure>
+
+    <details class="reveal">
+      <summary>Interpret this image — what do the bars on the right mean?</summary>
+      The horizontal axis is <em>frequency</em>; each bar is one harmonic $k$. Its height is the amplitude $A/k$ — that is why the bars fall off as $1/k$. The frequency-domain view stores the same info as the wiggly time signal on the left, but as a small table of (frequency, amplitude, phase) triplets.
+    </details>
+  </div>
+
+  <div class="concept">
+    <h3>Time and Frequency on a small example</h3>
+    <p class="why">A worked, two-frequency example you can reproduce by hand.</p>
+    <p>$$g(t) = \sin(2\pi f t) + \tfrac{1}{3}\sin\big(2\pi (3f) t\big)$$</p>
+    <p>This signal is a mixture of exactly two frequencies, $f$ and $3f$, with amplitudes $1$ and $1/3$.</p>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L02/page-010.png" alt="Lecture 2 — periodic signal made of two sines, page 10">
+      <figcaption>L02 · slide 10 — periodic signal = mixture of two frequencies.</figcaption>
+    </figure>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L02/page-011.png" alt="Lecture 2 — same signal in time vs frequency, page 11">
+      <figcaption>L02 · slide 11 — same signal: time-domain on top, two-spike frequency spectrum on the bottom.</figcaption>
+    </figure>
+    <details class="reveal">
+      <summary>Worked check — read the spectrum</summary>
+      The frequency-domain plot shows two spikes: one of height ~1 at $f$, one of height ~0.3 at $3f$. That matches the coefficients in $g(t)$ exactly. <em>No information is lost</em>; the Fourier transform is invertible.
+    </details>
+  </div>
+
+  <div class="concept">
+    <h3>Frequency, Amplitude, and Phase — three knobs</h3>
+    <p class="why">Why it matters: every sinusoid is fully described by these three numbers. The Fourier transform stores them for <em>every</em> frequency.</p>
+    <p>A general sinusoid: $f(x) = A\cos(kx + \phi)$ &nbsp;or equivalently $A\sin(\omega x + \phi)$.</p>
+    <ul class="list-disc ml-6">
+      <li><strong>Amplitude $A$</strong>: peak height. Doubling $A$ doubles the wave.</li>
+      <li><strong>Frequency $k$ (or $\omega$)</strong>: cycles per unit. Doubling $k$ squeezes the wave to half its period.</li>
+      <li><strong>Phase $\phi$</strong>: horizontal shift. $\phi = -\pi/6$ slides the wave to the right.</li>
+    </ul>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L02/page-012.png" alt="Lecture 2 — amplitude panel, page 12">
+      <figcaption>L02 · slide 12 — amplitude: $y=\sin(2\pi x)$ vs $y=0.5\sin(2\pi x)$.</figcaption>
+    </figure>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L02/page-013.png" alt="Lecture 2 — amplitude & frequency, page 13">
+      <figcaption>L02 · slide 13 — frequency: $\sin(2\pi x)$ vs $\sin(4\pi x)$ (double frequency, half period).</figcaption>
+    </figure>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L02/page-014.png" alt="Lecture 2 — amplitude, frequency, phase, page 14">
+      <figcaption>L02 · slide 14 — phase: $\sin(2\pi x)$ vs $\sin(2\pi x - \pi/6)$ (shifted right).</figcaption>
+    </figure>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L02/page-015.png" alt="Lecture 2 — three knobs combined, page 15">
+      <figcaption>L02 · slide 15 — all three controls combined: $0.5\sin(4\pi x - \pi/6)$.</figcaption>
+    </figure>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L02/page-016.png" alt="Lecture 2 — A sum of sinusoids building up the target, page 16">
+      <figcaption>L02 · slide 16 — building block $A\sin(\omega x + \phi)$; add enough of them and you can hit any target signal $f(x)$.</figcaption>
+    </figure>
+    <details class="reveal">
+      <summary>Which knob encodes the coarse vs fine structure of a signal?</summary>
+      <strong>Frequency.</strong> Low frequencies (small $\omega$) describe the slow, coarse trend (overall brightness, smooth regions). High frequencies (large $\omega$) describe fine detail, edges, and noise.
+    </details>
+  </div>
+
+  <div class="concept">
+    <h3>Math review — complex numbers (why we need them)</h3>
+    <p class="why">Why it matters: a single Fourier coefficient must hold <em>two</em> numbers (amplitude + phase). The easiest container for two numbers is one complex number $a + ib$.</p>
+    <p>General form: $Z = a + bi$ with $\Re(Z)=a$ and $\Im(Z)=b$.</p>
+    <p>Amplitude (magnitude) and phase: $$A = |Z| = \sqrt{a^2 + b^2}, \qquad \phi = \tan^{-1}\!\left(\frac{b}{a}\right).$$</p>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L02/page-017.png" alt="Lecture 2 — complex numbers basics, page 17">
+      <figcaption>L02 · slide 17 — general form $Z = a + bi$.</figcaption>
+    </figure>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L02/page-018.png" alt="Lecture 2 — amplitude and phase formulas, page 18">
+      <figcaption>L02 · slide 18 — amplitude and phase from $a, b$.</figcaption>
+    </figure>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L02/page-019.png" alt="Lecture 2 — Argand diagram, page 19">
+      <figcaption>L02 · slide 19 — polar / Argand picture.</figcaption>
+    </figure>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L02/page-020.png" alt="Lecture 2 — complex numbers represent waves, page 20">
+      <figcaption>L02 · slide 20 — a complex number stores the two unknown wave attributes (amplitude + phase); we use one complex per frequency.</figcaption>
+    </figure>
+
+    <details class="reveal">
+      <summary>Worked example — $Z = 3 + 4i$</summary>
+      $|Z| = \sqrt{9+16} = 5$ (amplitude). $\phi = \tan^{-1}(4/3) \approx 53.13°$ (phase). So the cosine wave it encodes is $5\cos(\omega x + 53.13°)$.
+    </details>
+
+    <div class="callout trap">
+      <h4>Trap</h4>
+      <ul class="list-disc ml-6">
+        <li>"A cosine wave has two properties" — <strong>three</strong>: frequency, amplitude, phase. A complex number stores only the last two; the frequency $\omega$ is the index that points <em>to</em> that complex number.</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="concept">
+    <h3>Math review — periodic functions and the cosine wave model</h3>
+    <p>A function $f(x)$ is <strong>periodic</strong> with period $a$ if $f(x) = f(x + na)$ for every integer $n$.</p>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L02/page-021.png" alt="Lecture 2 — periodicity definition, page 21">
+      <figcaption>L02 · slide 21 — periodic function with period $a$.</figcaption>
+    </figure>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L02/page-022.png" alt="Lecture 2 — cosine attributes amplitude and phase, page 22">
+      <figcaption>L02 · slide 22 — $5\cos(x)$ stretches the amplitude; $5\cos(x + 3.14)$ flips it (phase $\approx \pi$).</figcaption>
+    </figure>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L02/page-023.png" alt="Lecture 2 — full cosine model with three knobs, page 23">
+      <figcaption>L02 · slide 23 — general cosine $f(x) = A\cos(kx + \phi)$ with amplitude $A$, frequency $k$, phase $\phi$.</figcaption>
+    </figure>
+  </div>
+
+  <div class="concept">
+    <h3>Fourier transform idea — re-parameterise from $x$ to $\omega$</h3>
+    <p class="why">Why it matters: this is the one-paragraph definition you need on the exam.</p>
+    <p>For each frequency $\omega$ (from 0 to $\infty$), the Fourier transform $F(\omega)$ stores the amplitude $A$ and phase $\phi$ of the corresponding sinusoid $A\sin(\omega x + \phi)$. To pack two values in one box, $F$ is complex-valued:</p>
+    <p>$$F(\omega) = R(\omega) + iI(\omega),\quad A = \pm\sqrt{R(\omega)^2 + I(\omega)^2},\quad \phi = \tan^{-1}\!\frac{I(\omega)}{R(\omega)}.$$</p>
+    <p>The inverse Fourier transform takes $F(\omega)$ back to $f(x)$ — no information is lost in either direction.</p>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L02/page-024.png" alt="Lecture 2 — Fourier transform idea schematic, page 24">
+      <figcaption>L02 · slide 24 — Fourier transform schematic, forward and inverse.</figcaption>
+    </figure>
+  </div>
+
+  <div class="concept">
+    <h3>1-D Discrete Fourier Transform — formula reference</h3>
+    <p class="why">Why it matters: the 2-D version is just two nested copies of this. Memorise it now.</p>
+    <p>$$F(u)=\sum_{x=0}^{N-1} f(x)\, e^{-j 2\pi u x / N}, \qquad u=0,1,\dots,N-1.$$</p>
+    <p>$$f(x)=\frac{1}{N}\sum_{u=0}^{N-1} F(u)\, e^{+j 2\pi u x / N}, \qquad x=0,1,\dots,N-1.$$</p>
+    <ul class="list-disc ml-6">
+      <li>$f(x)$ — discrete signal of length $N$ (samples at $x=0,1,\dots,N-1$).</li>
+      <li>$F(u)$ — complex amplitude at frequency index $u$.</li>
+      <li>$N$ — number of samples (and of frequency bins).</li>
+      <li>$j$ — imaginary unit, $j^2=-1$ (engineers' "$i$").</li>
+      <li>The minus sign in the forward exponent and the $1/N$ in the inverse are conventions — keep them consistent.</li>
+    </ul>
+
+    <details class="reveal">
+      <summary>Worked example — DFT of the 4-sample signal $f = [1, 2, 3, 4]$</summary>
+      $N = 4$. Use $W_N = e^{-j2\pi/N} = e^{-j\pi/2} = -j$.<br>
+      <strong>$F(0)$</strong> = $\sum f(x) = 1+2+3+4 = 10$ &nbsp; (the DC term).<br>
+      <strong>$F(1)$</strong> = $1\cdot 1 + 2\cdot(-j) + 3\cdot(-1) + 4\cdot j = (1-3) + j(-2+4) = -2 + 2j$.<br>
+      <strong>$F(2)$</strong> = $1 + 2\cdot(-1) + 3\cdot 1 + 4\cdot(-1) = 1-2+3-4 = -2$.<br>
+      <strong>$F(3)$</strong> = $1 + 2\cdot j + 3\cdot(-1) + 4\cdot(-j) = (1-3) + j(2-4) = -2 - 2j$.<br>
+      So $F = [10,\;-2+2j,\;-2,\;-2-2j]$. <em>Sanity:</em> $F(3) = \overline{F(1)}$ — conjugate-symmetric, as expected for a real input.
+    </details>
+
+    <details class="reveal">
+      <summary>What does the "DC term" $F(0)$ equal?</summary>
+      $F(0) = \sum_x f(x)$ — the sum of all samples. If you use the $1/N$-normalised forward transform, $F(0)$ is the <em>average</em> sample value. The DC term carries no frequency, just the overall brightness/level.
+    </details>
+  </div>
+
+  <div class="callout trap">
+    <h4>Common exam traps — Fourier intuition</h4>
+    <ul class="list-disc ml-6">
+      <li>"A signal has either frequency or time information." <strong>False</strong> — both representations carry the same info; the FT just changes coordinates.</li>
+      <li>Confusing $\omega$ (continuous, radians/sample) with $u$ (discrete frequency index 0…N−1). Slides use both.</li>
+      <li>Forgetting that $F(\omega)$ is <em>complex</em>. You report magnitude and phase separately.</li>
+    </ul>
+  </div>
+</section>
+
+<!-- =========================================== s2.2 =========================================== -->
+<section id="s2.2" class="mt-12">
+  <h2 class="text-2xl font-bold border-b pb-1 mb-3">s2.2 — Two-Dimensional DFT (Images)</h2>
+
+  <div class="concept">
+    <h3>Low- and high-frequency content in images</h3>
+    <p class="why">Why it matters: every later filter is just "keep some frequencies, drop the others". You must know which region of the spectrum carries which kind of image content.</p>
+    <ul class="list-disc ml-6">
+      <li><strong>Low-frequency terms</strong> — close to the <strong>origin</strong> $(0,0)$ in Fourier space. Represent <em>smooth areas</em>, gradual changes, overall brightness.</li>
+      <li><strong>High-frequency terms</strong> — close to the <strong>edges</strong> of Fourier space (highest $u,v$). Necessary to represent <em>edges, fine texture, sharp detail, noise</em>.</li>
+    </ul>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L02/page-025.png" alt="Lecture 2 — low vs high frequency content, page 25">
+      <figcaption>L02 · slide 25 — low ↔ smooth, high ↔ edges/detail.</figcaption>
+    </figure>
+
+    <p>Four families of filters arise immediately:</p>
+    <ol class="list-decimal ml-6">
+      <li><strong>Low-pass</strong> (LPF) — keep low freqs → <em>blurs / removes edges</em>.</li>
+      <li><strong>High-pass</strong> (HPF) — keep high freqs → <em>sharpens / emphasises edges</em>.</li>
+      <li><strong>Band-pass</strong> — keep a ring of frequencies.</li>
+      <li><strong>Band-stop</strong> — suppress a ring of frequencies (used for periodic-noise removal).</li>
+    </ol>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L02/page-026.png" alt="Lecture 2 — four filter families, page 26">
+      <figcaption>L02 · slide 26 — the four frequency-based filter families.</figcaption>
+    </figure>
+  </div>
+
+  <div class="concept">
+    <h3>2-D DFT — image $\to$ spectrum</h3>
+    <p class="why">Why it matters: this <em>is</em> the formula sheet for the whole lecture. Every following slide uses $F(u,v)$ or $H(u,v)$.</p>
+    <p>Forward 2-D DFT (with $1/MN$ normalisation, the version on the slide):</p>
+    <p>$$F(u,v) = \frac{1}{MN}\sum_{x=0}^{M-1}\sum_{y=0}^{N-1} f(x,y)\, e^{-j 2\pi (ux/M + vy/N)},$$</p>
+    <p>for $u = 0,1,\dots,M-1$ and $v = 0,1,\dots,N-1$. Inverse:</p>
+    <p>$$f(x,y) = \sum_{u=0}^{M-1}\sum_{v=0}^{N-1} F(u,v)\, e^{+j 2\pi (ux/M + vy/N)},$$</p>
+    <p>for $x = 0,1,\dots,M-1$ and $y = 0,1,\dots,N-1$.</p>
+
+    <p>Symbols (memorise every one):</p>
+    <ul class="list-disc ml-6">
+      <li>$f(x,y)$ — input image in the <em>spatial</em> domain, size $M\times N$.</li>
+      <li>$F(u,v)$ — complex spectrum in the <em>frequency</em> domain, same size.</li>
+      <li>$x,y$ — spatial / image variables (row, column indices).</li>
+      <li>$u,v$ — frequency variables (horizontal and vertical frequency).</li>
+      <li>$M,N$ — image dimensions (height × width).</li>
+      <li>$j$ — imaginary unit; $e^{-j\theta} = \cos\theta - j\sin\theta$ by Euler.</li>
+    </ul>
+
+    <figure class="slide-figure">
+      <img src="../assets/slides/L02/page-027.png" alt="Lecture 2 — image to spectrum picture, page 27">
+      <figcaption>L02 · slide 27 — bridge photo (spatial XY) and its centred magnitude spectrum (frequency UV).</figcaption>
+    </figure>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L02/page-028.png" alt="Lecture 2 — Euler form of complex numbers, page 28">
+      <figcaption>L02 · slide 28 — Euler: $e^{j\theta} = \cos\theta + j\sin\theta$; any $z = |z|e^{j\theta}$.</figcaption>
+    </figure>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L02/page-029.png" alt="Lecture 2 — 2-D DFT forward and inverse formulas, page 29">
+      <figcaption>L02 · slide 29 — forward and inverse 2-D DFT pair, with index ranges.</figcaption>
+    </figure>
+
+    <details class="reveal">
+      <summary>Interpret the bright cross in the centred spectrum (slide 27)</summary>
+      The bright central blob is the low-frequency energy (smooth gradients, overall illumination). The horizontal/vertical streaks are caused by strong horizontal / vertical edges in the bridge (railings, the water line). Each prominent direction of edges produces a bright line <em>perpendicular</em> to that direction in the spectrum.
+    </details>
+  </div>
+
+  <div class="concept">
+    <h3>Spectrum, phase, power spectrum — the three "Fourier readouts"</h3>
+    <p>The complex $F(u,v) = R(u,v) + jI(u,v)$ is reported in three ways:</p>
+    <p>$$|F(u,v)| = \big[R^2(u,v) + I^2(u,v)\big]^{1/2} \quad \text{(magnitude / spectrum)},$$</p>
+    <p>$$\varphi(u,v) = \tan^{-1}\!\left[\frac{I(u,v)}{R(u,v)}\right] \quad \text{(phase angle)},$$</p>
+    <p>$$P(u,v) = |F(u,v)|^2 = R^2(u,v) + I^2(u,v) \quad \text{(power spectrum)}.$$</p>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L02/page-030.png" alt="Lecture 2 — magnitude phase power formulas, page 30">
+      <figcaption>L02 · slide 30 — three readouts: magnitude, phase, power.</figcaption>
+    </figure>
+    <div class="callout">
+      <h4>Remember</h4>
+      <ul class="list-disc ml-6">
+        <li><strong>Magnitude</strong> tells you <em>how much</em> of each frequency is present.</li>
+        <li><strong>Phase</strong> tells you <em>where</em> those waves sit (alignment). For images, phase actually carries most of the perceptual structure.</li>
+        <li><strong>Power</strong> is just $|F|^2$; convenient for energy questions.</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="concept">
+    <h3>Shift property — centring the spectrum with $(-1)^{x+y}$</h3>
+    <p class="why">Why it matters: when you plot $|F(u,v)|$ raw, the DC (zero-frequency) corner sits in the four corners — ugly. Multiplying the input by $(-1)^{x+y}$ before the transform <em>shifts the spectrum so DC lands at the centre</em>. Every filter formula in this lecture assumes a centred spectrum.</p>
+
+    <p>General shift property: if you multiply $f(x,y)$ by $e^{j2\pi(u_0 x/M + v_0 y/N)}$ then transform, the spectrum is shifted to $F(u-u_0, v-v_0)$.</p>
+    <p>$$\mathfrak{F}\!\left[f(x,y)\,e^{j2\pi(u_0 x/M + v_0 y/N)}\right] = F(u-u_0,\, v-v_0).$$</p>
+
+    <p>Pick $u_0 = M/2,\; v_0 = N/2$. Then $e^{j\pi(x+y)} = (-1)^{x+y}$, and the spectrum is shifted by $(M/2, N/2)$ — to the centre.</p>
+    <p>$$\mathfrak{F}\!\left[f(x,y)\,(-1)^{x+y}\right] = F\!\left(u-\tfrac{M}{2},\, v-\tfrac{N}{2}\right).$$</p>
+
+    <figure class="slide-figure">
+      <img src="../assets/slides/L02/page-031.png" alt="Lecture 2 — general shift property derivation, page 31">
+      <figcaption>L02 · slide 31 — multiply by complex exponential → shift in frequency.</figcaption>
+    </figure>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L02/page-032.png" alt="Lecture 2 — shift to centre with (-1)^(x+y), page 32">
+      <figcaption>L02 · slide 32 — special case $u_0=M/2,\,v_0=N/2$ gives the checkerboard $(-1)^{x+y}$ pre-multiplication.</figcaption>
+    </figure>
+
+    <details class="reveal">
+      <summary>Why does $(-1)^{x+y}$ work? (key algebra)</summary>
+      $e^{j\pi(x+y)} = \cos\pi(x+y) + j\sin\pi(x+y)$. The sine of $n\pi$ is 0 for every integer $n$. The cosine of $n\pi$ is $+1$ for even $n$ and $-1$ for odd $n$ — which is just $(-1)^n$. With $n = x+y$ we get $(-1)^{x+y}$, a checkerboard $\pm 1$ pattern.
+    </details>
+
+    <figure class="slide-figure">
+      <img src="../assets/slides/L02/page-033.png" alt="Lecture 2 — other DFT properties summary, page 33">
+      <figcaption>L02 · slide 33 — other useful properties.</figcaption>
+    </figure>
+
+    <p>From slide 33, three more properties you should know:</p>
+    <ul class="list-disc ml-6">
+      <li><strong>DC term / average</strong>: $F(0,0) = \dfrac{1}{MN}\sum_{x=0}^{M-1}\sum_{y=0}^{N-1} f(x,y)$ — the mean pixel value. Often the brightest pixel in the magnitude image.</li>
+      <li><strong>Conjugate symmetry</strong> (real input): $F(u,v) = F^{*}(-u,-v)$.</li>
+      <li><strong>Magnitude symmetry</strong>: $|F(u,v)| = |F(-u,-v)|$ — the spectrum is centro-symmetric.</li>
+    </ul>
+
+    <details class="reveal">
+      <summary>Worked example — DC of a 3×3 image of all 100s</summary>
+      $f(x,y) \equiv 100$, $M = N = 3$. $F(0,0) = \frac{1}{9}\sum 100 = \frac{900}{9} = 100$. The DC term equals the mean. All other $F(u,v) = 0$ because there is no variation — the spectrum is a single spike at the origin.
+    </details>
+  </div>
+
+  <div class="concept">
+    <h3>Convolution theorem — the workhorse</h3>
+    <p class="why">Why it matters: this single equivalence is why we bother going to the frequency domain at all. A heavy 2-D convolution in space becomes a tiny element-wise multiplication in frequency.</p>
+
+    <p>Discrete 2-D convolution of an image $f(x,y)$ with a kernel $h(x,y)$:</p>
+    <p>$$f(x,y)*h(x,y) = \frac{1}{MN}\sum_{m=0}^{M-1}\sum_{n=0}^{N-1} f(m,n)\, h(x-m,\, y-n).$$</p>
+
+    <p>Let $F = \mathfrak{F}\{f\}$ and $H = \mathfrak{F}\{h\}$. Then:</p>
+    <p>$$\boxed{\;f(x,y)*h(x,y) \;\Longleftrightarrow\; F(u,v)\,H(u,v)\;}$$</p>
+    <p>and dually,</p>
+    <p>$$f(x,y)\,h(x,y) \;\Longleftrightarrow\; F(u,v)*H(u,v).$$</p>
+
+    <p>In words: <strong>convolution in spatial = multiplication in frequency</strong>, and <strong>multiplication in spatial = convolution in frequency</strong>.</p>
+
+    <figure class="slide-figure">
+      <img src="../assets/slides/L02/page-034.png" alt="Lecture 2 — convolution theorem statement, page 34">
+      <figcaption>L02 · slide 34 — the convolution theorem.</figcaption>
+    </figure>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L02/page-035.png" alt="Lecture 2 — properties of convolution, page 35">
+      <figcaption>L02 · slide 35 — convolution is commutative and associative; cascaded filters can be merged into one.</figcaption>
+    </figure>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L02/page-036.png" alt="Lecture 2 — two routes to the filtered image, page 36">
+      <figcaption>L02 · slide 36 — two equivalent ways to compute the filtered image $g$: convolve in space or multiply in frequency.</figcaption>
+    </figure>
+
+    <details class="reveal">
+      <summary>Properties of convolution to remember</summary>
+      <ul class="list-disc ml-6">
+        <li><strong>Commutative</strong>: $a*b = b*a$.</li>
+        <li><strong>Associative</strong>: $(a*b)*c = a*(b*c)$.</li>
+        <li><strong>Cascade</strong>: applying $h_1$ then $h_2$ is the same as applying the single kernel $h_1 * h_2$. Filter order does not affect the final output.</li>
+      </ul>
+    </details>
+
+    <div class="callout trap">
+      <h4>Traps</h4>
+      <ul class="list-disc ml-6">
+        <li>"Multiplication in space = multiplication in frequency." <strong>False</strong> — multiplication in space corresponds to <em>convolution</em> in frequency.</li>
+        <li>Forgetting that both $F$ and $H$ must be the same size (zero-pad in spatial if needed).</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="concept">
+    <h3>Basic recipe for frequency-domain filtering</h3>
+    <p>The whole pipeline you should be able to draw on a blank page:</p>
+    <ol class="list-decimal ml-6">
+      <li>Pre-process: multiply $f(x,y)$ by $(-1)^{x+y}$ so the spectrum will be centred.</li>
+      <li>Compute $F(u,v) = \mathfrak{F}\{f(x,y)(-1)^{x+y}\}$.</li>
+      <li>Multiply by a filter transfer function: $G(u,v) = H(u,v)\,F(u,v)$.</li>
+      <li>Inverse transform to get the filtered spatial image.</li>
+      <li>Post-process: multiply by $(-1)^{x+y}$ again (to undo step 1) and take the real part.</li>
+    </ol>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L02/page-037.png" alt="Lecture 2 — frequency-domain filtering pipeline, page 37">
+      <figcaption>L02 · slide 37 — the standard frequency-domain filtering block diagram.</figcaption>
+    </figure>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L02/page-038.png" alt="Lecture 2 — smoothing freq-domain filters intro, page 38">
+      <figcaption>L02 · slide 38 — smoothing in the frequency domain ⇒ low-pass filtering; three standard LPFs to come.</figcaption>
+    </figure>
+  </div>
+</section>
+
+<!-- =========================================== s2.3 =========================================== -->
+<section id="s2.3" class="mt-12">
+  <h2 class="text-2xl font-bold border-b pb-1 mb-3">s2.3 — Frequency-domain LPF / HPF / BPF (Ideal, Butterworth, Gaussian)</h2>
+
+  <p>From now on the spectrum is assumed centred (DC at $(M/2, N/2)$). The distance from any point $(u,v)$ to the centre is</p>
+  <p>$$D(u,v) = \sqrt{(u - M/2)^2 + (v - N/2)^2}.$$</p>
+  <p>$D(u,v)$ is the same for <em>every</em> filter in this section — only the radial profile $H(D)$ changes.</p>
+
+  <!-- LPF -->
+  <div class="concept">
+    <h3>[1] Ideal Low-pass Filter (ILPF)</h3>
+    <p class="why">Why it matters: the simplest LPF — a hard circular cutoff. It blurs perfectly inside the circle but introduces severe <em>ringing</em>, which is the exam's favourite gotcha.</p>
+    <p>Transfer function (one parameter: cutoff radius $D_0$):</p>
+    <p>$$H(u,v) = \begin{cases} 1 & \text{if } D(u,v) \le D_0 \\ 0 & \text{if } D(u,v) > D_0 \end{cases}$$</p>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L02/page-039.png" alt="Lecture 2 — ideal LPF transfer function, page 39">
+      <figcaption>L02 · slide 39 — ILPF transfer function and the distance formula $D(u,v)$.</figcaption>
+    </figure>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L02/page-040.png" alt="Lecture 2 — ideal LPF 3-D and radial cross-section, page 40">
+      <figcaption>L02 · slide 40 — 3-D plot (a cylinder), image (white disc), and radial cross-section (vertical step).</figcaption>
+    </figure>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L02/page-041.png" alt="Lecture 2 — ideal LPF results at radii 5,15,30,80,230, page 41">
+      <figcaption>L02 · slide 41 — ILPF on the "a" test image at $D_0 = 5,15,30,80,230$. Tiny $D_0$ wipes detail; very large $D_0$ barely changes the image.</figcaption>
+    </figure>
+
+    <details class="reveal">
+      <summary>Interpret this image — what is "ringing"?</summary>
+      Look at the $D_0 = 15$ and $D_0 = 30$ panels: you see faint <em>halos / wavy rings</em> around every dark blob and letter. The hard circular cutoff in the frequency domain corresponds to a 2-D sinc-shaped impulse response in the spatial domain, and the sinc's side-lobes create those rings. <em>Ideal cutoff in frequency ⇒ ringing in space.</em>
+    </details>
+
+    <div class="callout trap">
+      <h4>Trap</h4>
+      <ul class="list-disc ml-6">
+        <li>"Ideal LPF is the best low-pass filter because it is ideal." <strong>False</strong> — the hard step causes ringing artifacts; Butterworth/Gaussian are smoother and cleaner.</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="concept">
+    <h3>[2] Butterworth Low-pass Filter (BLPF) of order $n$</h3>
+    <p class="why">Why it matters: a smoothly tapered LPF. Two control knobs: cutoff $D_0$ and order $n$. Higher $n$ → behaviour closer to ideal (more ringing); lower $n$ → smoother (less ringing).</p>
+    <p>$$H(u,v) = \dfrac{1}{1 + \big[D(u,v) / D_0\big]^{2n}}.$$</p>
+    <p>At $D = D_0$ we get $H = 1/(1+1) = 0.5$, regardless of $n$. So $D_0$ is the "half-power" cutoff.</p>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L02/page-042.png" alt="Lecture 2 — Butterworth LPF and radial profile, page 42">
+      <figcaption>L02 · slide 42 — Butterworth LPF: 3-D plot, image, and radial cross-section for $n=1\dots4$.</figcaption>
+    </figure>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L02/page-043.png" alt="Lecture 2 — Butterworth LPF results, page 43">
+      <figcaption>L02 · slide 43 — Butterworth LPF outputs at $D_0 = 5,15,30,80,230$. Compare with the ILPF on slide 41: much less ringing.</figcaption>
+    </figure>
+    <details class="reveal">
+      <summary>Quick check — $H$ at $D = 2D_0$ for $n = 2$</summary>
+      $H = 1/(1 + 2^{4}) = 1/17 \approx 0.059$. So at twice the cutoff the filter has attenuated to under 6%.
+    </details>
+  </div>
+
+  <div class="concept">
+    <h3>[3] Gaussian Low-pass Filter (GLPF)</h3>
+    <p class="why">Why it matters: the smoothest of the three. <em>Never rings.</em> Used whenever you want gentle blurring (e.g. before edge detection).</p>
+    <p>$$H(u,v) = e^{-D^2(u,v) / 2 D_0^2}.$$</p>
+    <p>At $D = D_0$ we get $H = e^{-1/2} \approx 0.607$.</p>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L02/page-044.png" alt="Lecture 2 — Gaussian LPF and radial profile, page 44">
+      <figcaption>L02 · slide 44 — Gaussian LPF: bell-shaped profile, never zero, never ringing.</figcaption>
+    </figure>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L02/page-045.png" alt="Lecture 2 — Gaussian LPF results, page 45">
+      <figcaption>L02 · slide 45 — Gaussian LPF outputs at $D_0 = 5,15,30,80,230$.</figcaption>
+    </figure>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L02/page-046.png" alt="Lecture 2 — Gaussian LPF on OCR text, page 46">
+      <figcaption>L02 · slide 46 — practical use: Gaussian LPF cleans broken characters in a noisy scan so OCR can read them.</figcaption>
+    </figure>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L02/page-047.png" alt="Lecture 2 — three LPFs side-by-side, page 47">
+      <figcaption>L02 · slide 47 — Ideal vs Butterworth vs Gaussian LPF on the same test image. <strong>Look at the red circles in the leftmost column — only the Ideal LPF shows ringing.</strong></figcaption>
+    </figure>
+
+    <details class="reveal">
+      <summary>Compare the three LPFs — what to memorise</summary>
+      <table class="text-sm mt-2 w-full">
+        <thead><tr><th class="text-left">Filter</th><th class="text-left">Shape</th><th class="text-left">Knobs</th><th class="text-left">Ringing?</th><th class="text-left">$H$ at $D=D_0$</th></tr></thead>
+        <tbody class="align-top">
+          <tr><td>Ideal</td><td>step</td><td>$D_0$</td><td><strong>yes (severe)</strong></td><td>1 (just inside) / 0 (just outside)</td></tr>
+          <tr><td>Butterworth (order $n$)</td><td>tapered</td><td>$D_0,\, n$</td><td>small for low $n$, grows with $n$</td><td>$0.5$</td></tr>
+          <tr><td>Gaussian</td><td>bell</td><td>$D_0$</td><td>none</td><td>$\approx 0.607$</td></tr>
+        </tbody>
+      </table>
+    </details>
+  </div>
+
+  <!-- HPFs -->
+  <div class="concept">
+    <h3>High-pass filters — the universal trick $H_\text{hp} = 1 - H_\text{lp}$</h3>
+    <p class="why">Why it matters: every HPF in this lecture is built by subtracting the matching LPF from 1. Memorise that single line and you get all three HPFs for free.</p>
+    <p>$$H_\text{hp}(u,v) = 1 - H_\text{lp}(u,v).$$</p>
+    <p>Effect: keep everything except a disc/blob around the origin → remove the smooth/DC content → only edges and detail survive.</p>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L02/page-048.png" alt="Lecture 2 — ideal HPF, page 48">
+      <figcaption>L02 · slide 48 — Ideal HPF: zero inside the disc of radius $D_0$, one outside. 3-D, image, and radial views.</figcaption>
+    </figure>
+    <p>Ideal HPF transfer function:</p>
+    <p>$$H(u,v) = \begin{cases} 0 & \text{if } D(u,v) \le D_0 \\ 1 & \text{if } D(u,v) > D_0 \end{cases}$$</p>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L02/page-049.png" alt="Lecture 2 — ideal HPF results at D0=15,30,80, page 49">
+      <figcaption>L02 · slide 49 — Ideal HPF at $D_0 = 15, 30, 80$. Notice the visible <strong>ringing</strong> at $D_0 = 15$ and 30 (same artifact as ILPF, by duality).</figcaption>
+    </figure>
+
+    <p>Butterworth HPF (just $1 - H_\text{lp}^\text{Butter}$, simplified):</p>
+    <p>$$H(u,v) = \dfrac{1}{1 + \big[D_0 / D(u,v)\big]^{2n}}.$$</p>
+    <p>Notice the ratio flipped: $D_0/D$ instead of $D/D_0$.</p>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L02/page-050.png" alt="Lecture 2 — Butterworth HPF, page 50">
+      <figcaption>L02 · slide 50 — Butterworth HPF transfer function and shape.</figcaption>
+    </figure>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L02/page-051.png" alt="Lecture 2 — Butterworth HPF results, page 51">
+      <figcaption>L02 · slide 51 — Butterworth HPF at $D_0 = 15, 30, 80$. Much smoother than the Ideal HPF.</figcaption>
+    </figure>
+
+    <p>Gaussian HPF:</p>
+    <p>$$H(u,v) = 1 - e^{-D^2(u,v) / 2 D_0^2}.$$</p>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L02/page-052.png" alt="Lecture 2 — Gaussian HPF, page 52">
+      <figcaption>L02 · slide 52 — Gaussian HPF transfer function.</figcaption>
+    </figure>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L02/page-053.png" alt="Lecture 2 — Gaussian HPF results, page 53">
+      <figcaption>L02 · slide 53 — Gaussian HPF at $D_0 = 15, 30, 80$. No ringing.</figcaption>
+    </figure>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L02/page-054.png" alt="Lecture 2 — sharpening HPF summary, page 54">
+      <figcaption>L02 · slide 54 — sharpening = HPF in the frequency domain. All three HPFs side-by-side.</figcaption>
+    </figure>
+
+    <details class="reveal">
+      <summary>Worked example — $H_\text{hp}$ at $D = D_0$ for each of the three filters</summary>
+      <ul class="list-disc ml-6">
+        <li>Ideal HPF: $H_\text{hp} = 1 - 1 = 0$ at $D = D_0$ (just inside the cutoff), and $1 - 0 = 1$ just outside.</li>
+        <li>Butterworth HPF (any $n$): $H_\text{hp} = 1 - 0.5 = 0.5$.</li>
+        <li>Gaussian HPF: $H_\text{hp} = 1 - e^{-0.5} \approx 1 - 0.607 = 0.393$.</li>
+      </ul>
+    </details>
+
+    <div class="callout trap">
+      <h4>Common exam traps — LPF / HPF</h4>
+      <ul class="list-disc ml-6">
+        <li>"Ideal filters don't cause ringing because they are ideal." <strong>False</strong> — the hard step is exactly what causes ringing (slides 41 and 49).</li>
+        <li>Confusing the Butterworth LPF $\big[D/D_0\big]^{2n}$ with the Butterworth HPF $\big[D_0/D\big]^{2n}$. The ratio flips.</li>
+        <li>Gaussian filters are the only ones in this lecture that <em>never</em> ring — neither LPF nor HPF.</li>
+        <li>"$H_\text{hp} = -H_\text{lp}$" — wrong sign and missing the "1 −". It's $H_\text{hp} = 1 - H_\text{lp}$.</li>
+        <li>Forgetting that $D(u,v)$ is measured from the <strong>centre</strong> $(M/2, N/2)$ — the formulas assume a centred spectrum.</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- BPF / BSF -->
+  <div class="concept">
+    <h3>Band-pass and Band-stop filters</h3>
+    <p class="why">Why it matters: useful for periodic-noise removal (band-stop) and for extracting a narrow scale of features (band-pass).</p>
+    <ul class="list-disc ml-6">
+      <li><strong>Band-pass</strong> — keep frequencies in an annulus $D_1 \le D(u,v) \le D_2$, kill the rest.</li>
+      <li><strong>Band-stop</strong> — kill frequencies in an annulus, keep the rest. Classic use: periodic stripe noise shows as bright dots in the spectrum; punch them out with a band-stop.</li>
+    </ul>
+    <p>You can build them by combining LPF/HPF (e.g. $H_\text{bp} = H_\text{lp}(D_2) - H_\text{lp}(D_1)$, with $D_1 &lt; D_2$).</p>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L02/page-055.png" alt="Lecture 2 — four frequency-based filters summary, page 55">
+      <figcaption>L02 · slide 55 — the four families recap: LPF (blurs), HPF (sharpens), band-pass, band-stop.</figcaption>
+    </figure>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L02/page-056.png" alt="Lecture 2 — closing slide, page 56">
+      <figcaption>L02 · slide 56 — end of Lecture 2.</figcaption>
+    </figure>
+  </div>
+</section>
+
+<!-- =========================================== Practice =========================================== -->
+<section id="practice" class="mt-12">
+  <h2 class="text-2xl font-bold border-b pb-1 mb-3">Practice quiz — Lecture 2</h2>
+
+  <div class="q">
+    <div class="stem">1 (MCQ). Where does the <em>low-frequency</em> content of a centred image spectrum sit?</div>
+    <div>a) at the four corners &nbsp; b) at the centre &nbsp; c) along the diagonals only &nbsp; d) uniformly distributed</div>
+    <details class="reveal"><summary>Answer</summary>b) at the centre. After the $(-1)^{x+y}$ shift, DC and low frequencies sit at $(M/2, N/2)$.</details>
+  </div>
+
+  <div class="q">
+    <div class="stem">2 (T/F). Convolution in the spatial domain is equivalent to <strong>multiplication</strong> in the frequency domain.</div>
+    <details class="reveal"><summary>Answer</summary>True. $f*h \leftrightarrow F\cdot H$ is the convolution theorem.</details>
+  </div>
+
+  <div class="q">
+    <div class="stem">3 (T/F). The Gaussian high-pass filter introduces ringing for small $D_0$.</div>
+    <details class="reveal"><summary>Answer</summary>False. Gaussian filters never ring (no oscillating side-lobes in the spatial-domain kernel).</details>
+  </div>
+
+  <div class="q">
+    <div class="stem">4 (Numerical). For an Ideal LPF with $D_0 = 20$, what is $H(u,v)$ at a point where $D(u,v) = 30$?</div>
+    <details class="reveal"><summary>Answer</summary>$0$. Since $30 > D_0$, the point is outside the pass-disc.</details>
+  </div>
+
+  <div class="q">
+    <div class="stem">5 (Numerical). For a Butterworth LPF of order $n=2$ with $D_0 = 10$, find $H$ at $D = 10$ and at $D = 20$.</div>
+    <details class="reveal"><summary>Answer</summary>At $D = D_0 = 10$: $H = 1/(1+1^{4}) = 0.5$. At $D = 20$: $H = 1/(1+2^{4}) = 1/17 \approx 0.0588$.</details>
+  </div>
+
+  <div class="q">
+    <div class="stem">6 (Short). Write the Gaussian HPF transfer function and its value at $D = D_0$.</div>
+    <details class="reveal"><summary>Answer</summary>$H(u,v) = 1 - e^{-D^2/2D_0^2}$. At $D = D_0$: $H = 1 - e^{-1/2} \approx 0.393$.</details>
+  </div>
+
+  <div class="q">
+    <div class="stem">7 (Numerical / DFT). For the 4-sample signal $f = [1,2,3,4]$, compute $F(0)$ and $F(2)$ using the un-normalised DFT $F(u) = \sum_x f(x) e^{-j2\pi ux/N}$.</div>
+    <details class="reveal"><summary>Answer</summary>$F(0) = 1+2+3+4 = 10$ (the DC term = sum of all samples). For $u=2$: $e^{-j\pi x} = (-1)^x$, so $F(2) = 1-2+3-4 = -2$.</details>
+  </div>
+
+  <div class="q">
+    <div class="stem">8 (Scenario). A scanned page has periodic horizontal stripe noise. Which frequency-domain filter family would you reach for, and why?</div>
+    <details class="reveal"><summary>Answer</summary>A <strong>band-stop</strong> (notch) filter. The stripes show up as bright isolated points along the vertical axis of the magnitude spectrum; zero out those bins (and their conjugate-symmetric partners), inverse-transform, and the stripes are gone.</details>
+  </div>
+
+  <div class="q">
+    <div class="stem">9 (Conceptual). Why do we multiply $f(x,y)$ by $(-1)^{x+y}$ before computing the DFT?</div>
+    <details class="reveal"><summary>Answer</summary>By the shift property with $u_0 = M/2, v_0 = N/2$, multiplication by $(-1)^{x+y}$ shifts the spectrum so that DC lands at the centre. All filter formulas using $D(u,v) = \sqrt{(u-M/2)^2+(v-N/2)^2}$ assume that centred layout.</details>
+  </div>
+
+  <div class="q">
+    <div class="stem">10 (MCQ). Which of the following is <em>not</em> guaranteed by the convolution theorem?</div>
+    <div>a) $f*h = h*f$ &nbsp; b) $(f*g)*h = f*(g*h)$ &nbsp; c) $f*h \leftrightarrow F\cdot H$ &nbsp; d) $f\cdot h \leftrightarrow F\cdot H$</div>
+    <details class="reveal"><summary>Answer</summary>d) — multiplication in space becomes <em>convolution</em> in frequency, not multiplication. (a)–(c) are all valid.</details>
+  </div>
+</section>
+
+<footer class="mt-16 pt-6 border-t text-sm text-slate-500 dark:text-slate-400 no-print">
+  Lecture 2 complete. <a href="./L03.html">Next → L03</a>
+</footer>
+</main>
+
+<script>
+document.getElementById('themeToggle').addEventListener('click', () => {
+  const cur = document.documentElement.getAttribute('data-theme');
+  const next = cur === 'dark' ? 'light' : 'dark';
+  document.documentElement.setAttribute('data-theme', next);
+  localStorage.setItem('theme', next);
+});
+// Mark lecture 2 as visited
+try { localStorage.setItem('lecture-L02-visited', '1'); } catch(e){}
+</script>
+</body>
+</html>

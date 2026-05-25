@@ -1,0 +1,665 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>L06 — IoU & Non-Maximum Suppression</title>
+<meta name="description" content="Full revision notes for Lecture 6: regression losses (MAE/MSE), IoU and its variants (GIoU, DIoU, CIoU), and the Non-Maximum Suppression algorithm." />
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/katex.min.css">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/katex.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/contrib/auto-render.min.js"
+        onload="renderMathInElement(document.body,{delimiters:[{left:'$$',right:'$$',display:true},{left:'$',right:'$',display:false}]});"></script>
+<link rel="stylesheet" href="../assets/css/styles.css">
+<script>
+  (function(){
+    const saved = localStorage.getItem('theme') || 'light';
+    document.documentElement.setAttribute('data-theme', saved);
+  })();
+</script>
+</head>
+<body class="max-w-5xl mx-auto px-4 pb-24">
+
+<header class="flex items-center justify-between py-4 border-b border-slate-200 dark:border-slate-700 no-print">
+  <a href="../index.html" class="text-sm">← Back to index</a>
+  <div class="flex items-center gap-3">
+    <span class="text-xs opacity-70">Lecture 6 of 12</span>
+    <button id="themeToggle" class="text-sm border rounded px-2 py-1">🌓 Theme</button>
+  </div>
+</header>
+
+<nav class="section-jump no-print" aria-label="Sections in this lecture">
+  <a href="#s6.1">s6.1 Regression loss (MAE vs MSE)</a>
+  <a href="#s6.2">s6.2 IoU &amp; IoU loss</a>
+  <a href="#s6.3">s6.3 NMS algorithm</a>
+  <a href="#practice">Practice quiz</a>
+</nav>
+
+<main>
+<h1 class="text-3xl font-extrabold mt-4 mb-2">Lecture 6 — Quality of Object Localization &amp; Detection: IoU and NMS</h1>
+<p class="text-slate-500 dark:text-slate-400 mb-6">Slides © Dr. Khaled M. ElSayed, Zewail City. 41 slides.</p>
+
+<figure class="slide-figure">
+  <img src="../assets/slides/L06/page-001.png" alt="Lecture 6 — Title slide, page 1">
+  <figcaption>L06 · slide 1 — Quality of Object Localization and Detection.</figcaption>
+</figure>
+
+<!-- =========================================== s6.1 =========================================== -->
+<section id="s6.1" class="mt-10">
+  <h2 class="text-2xl font-bold border-b pb-1 mb-3">s6.1 — Regression Loss for Bounding Boxes: MAE vs MSE</h2>
+
+  <div class="concept">
+    <h3>Setting the scene: which detector is best?</h3>
+    <p class="why">Why it matters: every modern detector regresses 4 box coordinates. To <em>train</em> it we need a loss that says how wrong the predicted box is, and to <em>evaluate</em> it we need a metric of geometric closeness. This lecture pins down both.</p>
+    <p>A bounding box is parameterised either as <strong>(x, y, w, h)</strong> (top-left + width &amp; height) or as <strong>(x₁, y₁, x₂, y₂)</strong> (top-left + bottom-right). Both encodings appear all term — switch fluently.</p>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L06/page-002.png" alt="Lecture 6 — Section header: Quality of Object Localization, page 2">
+      <figcaption>L06 · slide 2 — section: Quality of Object Localization.</figcaption>
+    </figure>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L06/page-003.png" alt="Lecture 6 — Which Model is the Best, page 3">
+      <figcaption>L06 · slide 3 — three candidate models vs ground truth. Visually you'd pick Model #2, but we need a number.</figcaption>
+    </figure>
+  </div>
+
+  <div class="concept">
+    <h3>Regression loss — absolute (MAE / L1) vs squared (MSE / L2) distance</h3>
+    <p class="why">Why it matters: this is literally the loss we use on the four corner coordinates before any fancy IoU loss.</p>
+
+    <figure class="slide-figure">
+      <img src="../assets/slides/L06/page-004.png" alt="Lecture 6 — Regression Loss: absolute / squared distance between two boxes, page 4">
+      <figcaption>L06 · slide 4 — sum of corner errors as the regression loss.</figcaption>
+    </figure>
+
+    <p>Let box 1 (ground truth) have corners $(X_{11},Y_{11})$ and $(X_{12},Y_{12})$, and box 2 (prediction) have corners $(X_{21},Y_{21})$ and $(X_{22},Y_{22})$.</p>
+
+    <p><strong>Absolute (L1 / MAE) distance:</strong></p>
+    <p>$$L_{\text{MAE}} = |X_{11}-X_{21}| + |Y_{11}-Y_{21}| + |X_{12}-X_{22}| + |Y_{12}-Y_{22}|$$</p>
+
+    <p><strong>Squared (L2 / MSE) distance:</strong></p>
+    <p>$$L_{\text{MSE}} = (X_{11}-X_{21})^2 + (Y_{11}-Y_{21})^2 + (X_{12}-X_{22})^2 + (Y_{12}-Y_{22})^2$$</p>
+
+    <p>Generically, for any prediction $\hat y$ and target $y$:</p>
+    <p>$$L_{\text{MAE}}=|y-\hat y|, \qquad L_{\text{MSE}}=(y-\hat y)^2$$</p>
+
+    <details class="reveal">
+      <summary>Worked numeric — GT (50,50,150,150), prediction (55,60,140,160)</summary>
+      Corner errors: $|50-55|+|50-60|+|150-140|+|150-160| = 5+10+10+10 = 35$ (MAE).<br>
+      Squared: $25+100+100+100 = 325$ (MSE).
+    </details>
+  </div>
+
+  <div class="concept">
+    <h3>Which is better — MSE or MAE?</h3>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L06/page-005.png" alt="Lecture 6 — Which is better: MSE or MAE, with V-shape and parabola graphs, page 5">
+      <figcaption>L06 · slide 5 — left: $|x_1-x_2|$ is a V (constant gradient ±1). Right: $(x_1-x_2)^2$ is a parabola (gradient grows linearly with the error).</figcaption>
+    </figure>
+
+    <ul class="list-disc ml-6">
+      <li><strong>MAE (L1) — linear penalty</strong>. Gradient is $\pm 1$ everywhere. Robust to outliers: a single huge error doesn't dominate. Slow near the minimum (gradient never shrinks → it can wobble).</li>
+      <li><strong>MSE (L2) — quadratic penalty</strong>. Gradient $= 2(y-\hat y)$, grows linearly with the error → <em>faster convergence</em> when errors are large (which the slide highlights). Heavily punishes outliers: one bad prediction with error 10 contributes 100, vs 10 for MAE.</li>
+    </ul>
+
+    <p>Slide's takeaway: "as the difference increases, the gradient of squared error increases more rapidly than the absolute error → faster convergence" — provided outliers are not pathological.</p>
+
+    <details class="reveal">
+      <summary>Smooth-L1 / Huber loss — the practical compromise (used in Fast R-CNN, SSD…)</summary>
+      Smooth-L1 behaves like MSE near zero (so the gradient shrinks as you approach the optimum, killing the L1 wobble) and like MAE for large errors (so a single bad outlier cannot blow up the gradient):
+      $$\text{Smooth-L1}(x)=\begin{cases}0.5\,x^2 & |x|<1 \\ |x|-0.5 & \text{otherwise}\end{cases}$$
+      Best of both worlds; that's why every classic detector uses it for box regression.
+    </details>
+
+    <div class="callout">
+      <h4>Side-by-side cheat sheet</h4>
+      <table class="text-sm mt-2 w-full">
+        <thead><tr><th class="text-left">Property</th><th class="text-left">MAE (L1)</th><th class="text-left">MSE (L2)</th></tr></thead>
+        <tbody class="align-top">
+          <tr><td>Formula</td><td>$|y-\hat y|$</td><td>$(y-\hat y)^2$</td></tr>
+          <tr><td>Gradient</td><td>$\pm 1$ (constant)</td><td>$2(y-\hat y)$ (grows w/ error)</td></tr>
+          <tr><td>Convergence speed when error is large</td><td>slow</td><td>fast</td></tr>
+          <tr><td>Behaviour near optimum</td><td>can wobble (non-zero gradient)</td><td>fine (vanishing gradient)</td></tr>
+          <tr><td>Outlier sensitivity</td><td>robust</td><td>very sensitive</td></tr>
+          <tr><td>Differentiable at 0?</td><td>no (sub-gradient)</td><td>yes</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="concept">
+    <h3>The hidden flaw — corner regression ignores object scale</h3>
+    <p class="why">Why it matters: this single observation justifies the rest of the lecture (IoU, GIoU, DIoU, CIoU). If you grasp the slide-6 trick, you understand why we abandon raw L1/L2 on coordinates.</p>
+
+    <figure class="slide-figure">
+      <img src="../assets/slides/L06/page-006.png" alt="Lecture 6 — Same coordinate error feels very different for a small vs large object, page 6">
+      <figcaption>L06 · slide 6 — same absolute corner shift looks tiny on a big object, catastrophic on a small one — but L1/L2 give the same loss.</figcaption>
+    </figure>
+
+    <ul class="list-disc ml-6">
+      <li>Left: large object — prediction is "close" to ground truth.</li>
+      <li>Right: small object — same Δ in pixels but the prediction is "far away" visually.</li>
+      <li>L1/L2 loss is <strong>identical</strong> in both cases because it only adds up coordinate differences. The visual quality differs hugely.</li>
+    </ul>
+
+    <p>Conclusion: we need a loss that <em>depends on the geometry of the overlap</em>, not on raw pixel differences. Enter IoU.</p>
+
+    <div class="callout trap">
+      <h4>Common exam traps</h4>
+      <ul class="list-disc ml-6">
+        <li>"MSE is always better than MAE" — only when outliers are rare. With a mislabelled box, MSE can ruin training.</li>
+        <li>"MAE has zero gradient near the minimum" — wrong: gradient is $\pm 1$, never zero. That's why training plateaus need a learning-rate decay or Smooth-L1.</li>
+        <li>"L1/L2 corner regression accounts for object size" — false; it treats a 5-pixel shift on a tiny object the same as on a billboard.</li>
+      </ul>
+    </div>
+
+    <div class="q">
+      <div class="stem">Q. A prediction has corner error 10 px. Compare MSE vs MAE contributions.</div>
+      <details class="reveal"><summary>Answer</summary>MAE contributes $|10|=10$; MSE contributes $10^2=100$. MSE punishes outliers 10× harder here.</details>
+    </div>
+    <div class="q">
+      <div class="stem">Q. Which loss should you reach for if your labels contain a few mis-clicks?</div>
+      <details class="reveal"><summary>Answer</summary>MAE (or Smooth-L1) — robust to a handful of huge outliers.</details>
+    </div>
+  </div>
+</section>
+
+<!-- =========================================== s6.2 =========================================== -->
+<section id="s6.2" class="mt-12">
+  <h2 class="text-2xl font-bold border-b pb-1 mb-3">s6.2 — Intersection over Union (IoU) and IoU-based Losses</h2>
+
+  <figure class="slide-figure">
+    <img src="../assets/slides/L06/page-007.png" alt="Lecture 6 — Section title Intersection over Union, page 7">
+    <figcaption>L06 · slide 7 — section header: Intersection over Union.</figcaption>
+  </figure>
+
+  <div class="concept">
+    <h3>What IoU measures</h3>
+    <p class="why">Why it matters: IoU is the standard <em>evaluation metric</em> for detection accuracy in this course (and across the field — COCO, PASCAL VOC, KITTI…). It also seeds an entire family of <em>losses</em>.</p>
+
+    <figure class="slide-figure">
+      <img src="../assets/slides/L06/page-008.png" alt="Lecture 6 — IoU definition: Area of Overlap / Area of Union, page 8">
+      <figcaption>L06 · slide 8 — IoU = Area of Overlap / Area of Union. Acceptance criterion typically IoU &gt; 0.6 (higher is better).</figcaption>
+    </figure>
+
+    <p><strong>Definition.</strong> For two axis-aligned boxes $A$ and $B$:</p>
+    <p>$$\boxed{\;\mathrm{IoU}(A,B) \;=\; \frac{|A\cap B|}{|A\cup B|}\;}$$</p>
+
+    <p>It is a scalar in $[0,1]$ — 0 means no overlap, 1 means perfect alignment. IoU is a <em>measure of overlap between two bounding boxes</em>.</p>
+  </div>
+
+  <div class="concept">
+    <h3>The closed-form computation with $(x_1,y_1,x_2,y_2)$</h3>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L06/page-009.png" alt="Lecture 6 — IoU formula with explicit corner coordinates, page 9">
+      <figcaption>L06 · slide 9 — width/height of the intersection from min/max of the two boxes' corners.</figcaption>
+    </figure>
+
+    <p>Let box 1 be $(X_{11},Y_{11},X_{12},Y_{12})$ and box 2 be $(X_{21},Y_{21},X_{22},Y_{22})$.</p>
+
+    <p><strong>Intersection rectangle</strong> — clip from both sides:</p>
+    <p>$$\text{Inter}_W=\max\!\left(0,\;\min(X_{12},X_{22})-\max(X_{11},X_{21})\right)$$</p>
+    <p>$$\text{Inter}_H=\max\!\left(0,\;\min(Y_{12},Y_{22})-\max(Y_{11},Y_{21})\right)$$</p>
+    <p>$$\text{Inter area}=\text{Inter}_W \cdot \text{Inter}_H$$</p>
+
+    <p>(The slide writes it without the $\max(0,\cdot)$ — you must add it yourself when the boxes don't overlap, otherwise the formula returns a negative number.)</p>
+
+    <p><strong>Union area</strong> (inclusion–exclusion):</p>
+    <p>$$\text{Union}=(X_{12}-X_{11})(Y_{12}-Y_{11})+(X_{22}-X_{21})(Y_{22}-Y_{21})-\text{Inter area}$$</p>
+
+    <p>Finally:</p>
+    <p>$$\mathrm{IoU}=\frac{\text{Inter area}}{\text{Union area}}$$</p>
+
+    <details class="reveal">
+      <summary>Worked numerical example — A=(50,50,150,150), B=(100,100,200,200)</summary>
+      <p>Both boxes are 100×100, area = 10 000 each.</p>
+      <p>Intersection corners:</p>
+      <ul class="ml-5 list-disc">
+        <li>$\max(50,100)=100,\;\max(50,100)=100$ → top-left of intersection $(100,100)$.</li>
+        <li>$\min(150,200)=150,\;\min(150,200)=150$ → bottom-right $(150,150)$.</li>
+      </ul>
+      <p>Intersection size: $50\times 50 = 2{,}500$.</p>
+      <p>Union: $10{,}000 + 10{,}000 - 2{,}500 = 17{,}500$.</p>
+      <p>$$\mathrm{IoU}=\dfrac{2500}{17500}=\dfrac{1}{7}\approx 0.143.$$</p>
+      <p>Verdict: well below the typical 0.5 threshold → this is <em>not</em> a valid detection match.</p>
+    </details>
+
+    <details class="reveal">
+      <summary>Second worked example — perfect overlap and disjoint cases</summary>
+      <p><strong>Perfect overlap</strong>: A=B=(0,0,100,100). Inter = Union = 10 000. IoU = 1.</p>
+      <p><strong>Disjoint</strong>: A=(0,0,10,10), B=(50,50,60,60). $\min(10,60)-\max(0,50)=10-50=-40$ → clip to 0. Inter = 0, IoU = 0.</p>
+    </details>
+  </div>
+
+  <div class="concept">
+    <h3>Visual catalogue of IoU values</h3>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L06/page-010.png" alt="Lecture 6 — IoU=1, IoU<1, IoU<<1 illustrations, page 10">
+      <figcaption>L06 · slide 10 — top row: small misalignment / perfect match / partial overlap. Bottom row: tiny prediction inside huge GT — IoU ≪ 1 even though the prediction is fully inside.</figcaption>
+    </figure>
+    <p>Key insight from the bottom-left panel: even when one box is entirely <em>inside</em> the other, IoU is <em>only</em> 1 if both have the same area. Containment ≠ match.</p>
+  </div>
+
+  <div class="concept">
+    <h3>Properties of IoU</h3>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L06/page-011.png" alt="Lecture 6 — Properties of IoU: non-negativity, symmetry, scale insensitivity, page 11">
+      <figcaption>L06 · slide 11 — three properties to memorise.</figcaption>
+    </figure>
+    <ul class="list-disc ml-6">
+      <li><strong>Non-negativity:</strong> $\mathrm{IoU}\geq 0$ — areas can't be negative.</li>
+      <li><strong>Symmetry:</strong> $\mathrm{IoU}(A,B)=\mathrm{IoU}(B,A)$ — the metric doesn't care which is "prediction" and which is "GT".</li>
+      <li><strong>Scale insensitivity / invariance:</strong> if you blow up both boxes by the same factor, IoU stays the same. This fixes the headache from slide 6: IoU treats small and large objects fairly.</li>
+    </ul>
+    <p>Bonus property: $\mathrm{IoU}\in[0,1]$. Upper bound comes from $|A\cap B|\leq|A\cup B|$.</p>
+  </div>
+
+  <div class="concept">
+    <h3>IoU-based loss function</h3>
+    <p class="why">Why it matters: the natural way to turn "higher IoU is better" into something a gradient-descent optimiser can minimise.</p>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L06/page-012.png" alt="Lecture 6 — IOU-Based Loss function: Loss = 1 - IoU, page 12">
+      <figcaption>L06 · slide 12 — minimise $1-\mathrm{IoU}$ instead of maximising IoU.</figcaption>
+    </figure>
+    <p>$$\boxed{\;\mathcal{L}_{\mathrm{IoU}} = 1 - \mathrm{IoU}\;}$$</p>
+    <p>Range $[0,1]$ — 0 when boxes coincide, 1 when they are disjoint. Why a direct IoU loss is desirable:</p>
+    <ul class="list-disc ml-6">
+      <li>Independent of box scale — solves the small-object problem from s6.1.</li>
+      <li>Captures geometry (overlap), not raw pixel offsets.</li>
+      <li>Single scalar that already balances $x_1,y_1,x_2,y_2$ contributions automatically.</li>
+    </ul>
+  </div>
+
+  <div class="concept">
+    <h3>The catch — zero overlap kills the gradient</h3>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L06/page-013.png" alt="Lecture 6 — Note: with no overlap the IoU loss has zero gradient, page 13">
+      <figcaption>L06 · slide 13 — IoU loss has no gradient when prediction and GT don't overlap.</figcaption>
+    </figure>
+    <ul class="list-disc ml-6">
+      <li>If $A\cap B=\emptyset$ then $\mathrm{IoU}=0$ and $\mathcal{L}_{\mathrm{IoU}}=1$ — <em>constant</em>.</li>
+      <li>Constant loss ⇒ zero gradient ⇒ no weight update.</li>
+      <li>This is the typical situation early in training when initial predictions miss the object entirely.</li>
+    </ul>
+    <p>Question raised by the slide: <em>how do we enhance the IoU-based loss</em>? Answer: GIoU, DIoU, CIoU.</p>
+  </div>
+
+  <div class="concept">
+    <h3>[2] GIoU — Generalised IoU</h3>
+    <p class="why">Why it matters: gives a useful gradient even when the boxes are disjoint.</p>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L06/page-014.png" alt="Lecture 6 — GIoU definition with smallest enclosing convex box C, page 14">
+      <figcaption>L06 · slide 14 — $C$ = smallest convex box that encloses both $A$ and $B$.</figcaption>
+    </figure>
+    <p>Let $C$ be the <strong>smallest convex (rectangular) box</strong> that contains both $A$ and $B$.</p>
+    <p>$$\mathrm{GIoU} = \mathrm{IoU} - \frac{|C - (A\cup B)|}{|C|}$$</p>
+    <p>$$\mathcal{L}_{\mathrm{GIoU}} = 1 - \mathrm{IoU} + \frac{|C - (A\cup B)|}{|C|}$$</p>
+    <p>Range: $\mathrm{GIoU}\in[-1,1]$, so $\mathcal{L}_{\mathrm{GIoU}}\in[0,2]$.</p>
+
+    <figure class="slide-figure">
+      <img src="../assets/slides/L06/page-015.png" alt="Lecture 6 — GIoU non-overlap case, page 15">
+      <figcaption>L06 · slide 15 — when $A\cap B=0$, IoU=0 but the $|C-(A\cup B)|$ term is still non-zero.</figcaption>
+    </figure>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L06/page-016.png" alt="Lecture 6 — GIoU has a gradient even when IoU=0, page 16">
+      <figcaption>L06 · slide 16 — even when IoU=0, GIoU "has a gradient" to push the box toward the ground truth.</figcaption>
+    </figure>
+
+    <p>Intuition: the extra term penalises empty area inside the smallest enclosing box — minimising it pulls the prediction toward the ground truth even when they don't overlap.</p>
+
+    <figure class="slide-figure">
+      <img src="../assets/slides/L06/page-017.png" alt="Lecture 6 — Problem with GIoU: three boxes share same GIoU but center distance differs, page 17">
+      <figcaption>L06 · slide 17 — three predictions with the <em>same</em> $A$, $B$, IoU, $C$ and GIoU. GIoU can't tell which one has the better centre alignment.</figcaption>
+    </figure>
+    <p><strong>Problem.</strong> GIoU ignores the <em>distance between the centres</em> of the boxes — three different predictions can share the same GIoU even though one is clearly best.</p>
+  </div>
+
+  <div class="concept">
+    <h3>[3] DIoU — Distance IoU</h3>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L06/page-018.png" alt="Lecture 6 — DIoU adds normalized squared distance between centers, page 18">
+      <figcaption>L06 · slide 18 — DIoU adds the normalised squared centre distance.</figcaption>
+    </figure>
+    <p>Let $d$ = distance between centres of the two boxes, and $C$ = the smallest enclosing box (same as in GIoU); its diagonal length is $c$.</p>
+    <p>$$\mathrm{DIoU}=\mathrm{IoU}-\frac{d^2}{c^2}\qquad \mathcal{L}_{\mathrm{DIoU}}=1-\mathrm{IoU}+\frac{d^2}{c^2}$$</p>
+    <p>This punishes predictions whose centres are far from the ground-truth centre, even when IoU and GIoU are unchanged. The normalisation by $c^2$ keeps the penalty scale-invariant.</p>
+
+    <figure class="slide-figure">
+      <img src="../assets/slides/L06/page-019.png" alt="Lecture 6 — Problem with DIoU: two boxes share IoU, d, c but different aspect ratio, page 19">
+      <figcaption>L06 · slide 19 — DIoU still misses one thing: <strong>aspect ratio</strong>. Box (1) and Box (2) share the same IoU, $d$ and $c$ — yet visually (1) is better.</figcaption>
+    </figure>
+  </div>
+
+  <div class="concept">
+    <h3>[4] CIoU — Complete IoU</h3>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L06/page-020.png" alt="Lecture 6 — CIoU: orientation/aspect ratio term via arctan(w/h), page 20">
+      <figcaption>L06 · slide 20 — measure of orientation/aspect-ratio with arctan.</figcaption>
+    </figure>
+    <p>Define the <strong>orientation / aspect-ratio penalty</strong>:</p>
+    <p>$$v = \frac{4}{\pi^2}\left(\arctan\frac{w^{gt}}{h^{gt}} - \arctan\frac{w}{h}\right)^{\!2}$$</p>
+    <p>which lives in $[0,1]$ because the angle range is $[0,\pi/2]$ (we normalise by $(\pi/2)^2$).</p>
+
+    <figure class="slide-figure">
+      <img src="../assets/slides/L06/page-021.png" alt="Lecture 6 — CIoU formula combining IoU, d²/c² and αv, page 21">
+      <figcaption>L06 · slide 21 — CIoU = DIoU − α·v, where α weights orientation by current IoU.</figcaption>
+    </figure>
+
+    <p>$$\mathrm{CIoU}=\mathrm{IoU}-\frac{d^2}{c^2}-\alpha\,v,\qquad \alpha=\frac{v}{(1-\mathrm{IoU})+v}$$</p>
+    <p>$$\mathcal{L}_{\mathrm{CIoU}}=1-\mathrm{IoU}+\frac{d^2}{c^2}+\alpha\,v$$</p>
+
+    <p>So CIoU jointly accounts for <strong>overlap</strong> (IoU), <strong>centre distance</strong> ($d^2/c^2$), and <strong>aspect ratio</strong> ($v$). Used in YOLOv4 onward — empirically the best of this family.</p>
+
+    <details class="reveal">
+      <summary>Family summary table</summary>
+      <table class="text-sm mt-2 w-full">
+        <thead><tr><th class="text-left">Loss</th><th class="text-left">Captures</th><th class="text-left">Fails to capture</th></tr></thead>
+        <tbody class="align-top">
+          <tr><td>$1-\mathrm{IoU}$</td><td>overlap</td><td>no gradient when disjoint, center, aspect ratio</td></tr>
+          <tr><td>$1-\mathrm{GIoU}$</td><td>+ disjoint case via $|C-(A\cup B)|/|C|$</td><td>center distance, aspect ratio</td></tr>
+          <tr><td>$1-\mathrm{DIoU}$</td><td>+ centre distance $d^2/c^2$</td><td>aspect ratio</td></tr>
+          <tr><td>$1-\mathrm{CIoU}$</td><td>+ aspect ratio via $v$ and $\alpha$</td><td>—</td></tr>
+        </tbody>
+      </table>
+    </details>
+  </div>
+
+  <div class="concept">
+    <h3>Other variants (mentioned briefly)</h3>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L06/page-022.png" alt="Lecture 6 — Other variants of IoU: EIoU, Focal-EIoU, SIoU, WIoU, page 22">
+      <figcaption>L06 · slide 22 — research continues beyond CIoU.</figcaption>
+    </figure>
+    <p>The slide lists four further variants — know the names; the details are not examined here:</p>
+    <ul class="list-disc ml-6">
+      <li><strong>EIoU</strong> — Efficient IoU.</li>
+      <li><strong>Focal-EIoU</strong> — adds focal weighting.</li>
+      <li><strong>SIoU</strong> — SCYLLA-IoU, adds an angle term.</li>
+      <li><strong>WIoU</strong> — Wise-IoU.</li>
+    </ul>
+
+    <div class="callout trap">
+      <h4>Common exam traps</h4>
+      <ul class="list-disc ml-6">
+        <li>"IoU loss always has a useful gradient" — false. When boxes are disjoint, IoU = 0 and the loss is constant.</li>
+        <li>Forgetting the $\max(0,\cdot)$ on the intersection width/height — gives negative areas and wrong IoU.</li>
+        <li>"Two boxes with the same IoU are equally good" — GIoU/DIoU/CIoU exist precisely because that's not true.</li>
+        <li>Mixing up $(x,y,w,h)$ with $(x_1,y_1,x_2,y_2)$ — keep a consistent encoding throughout a problem.</li>
+        <li>Claiming IoU is not scale-invariant — it is (multiplicative scaling cancels in numerator and denominator).</li>
+      </ul>
+    </div>
+
+    <div class="q">
+      <div class="stem">Q. Compute IoU between A=(0,0,2,2) and B=(1,1,3,3).</div>
+      <details class="reveal"><summary>Answer</summary>Inter corners $(\max(0,1),\max(0,1),\min(2,3),\min(2,3))=(1,1,2,2)$. Inter area = 1. Each box area = 4. Union = 4+4−1 = 7. IoU = 1/7 ≈ 0.143.</details>
+    </div>
+    <div class="q">
+      <div class="stem">Q. For A=(0,0,4,4) and B=(0,0,2,2), is IoU = 1?</div>
+      <details class="reveal"><summary>Answer</summary>No. Inter = 4, Union = 16+4−4 = 16, IoU = 4/16 = 0.25. Containment ≠ perfect match.</details>
+    </div>
+    <div class="q">
+      <div class="stem">Q. Two boxes are disjoint. What is $\mathcal{L}_{\mathrm{IoU}}$? Is the gradient useful?</div>
+      <details class="reveal"><summary>Answer</summary>Loss = 1 (constant). Gradient = 0 → useless for learning. GIoU/DIoU fix this.</details>
+    </div>
+  </div>
+</section>
+
+<!-- =========================================== s6.3 =========================================== -->
+<section id="s6.3" class="mt-12">
+  <h2 class="text-2xl font-bold border-b pb-1 mb-3">s6.3 — Non-Maximum Suppression (NMS)</h2>
+
+  <figure class="slide-figure">
+    <img src="../assets/slides/L06/page-023.png" alt="Lecture 6 — Section: Selection of the Best Detected Object bounding box, page 23">
+    <figcaption>L06 · slide 23 — section header: selecting the best detection.</figcaption>
+  </figure>
+
+  <div class="concept">
+    <h3>Quick review: a detector's output per box</h3>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L06/page-024.png" alt="Lecture 6 — Review: CNN output vector with P_c, B_x, B_y, B_w, B_h, class probs, page 24">
+      <figcaption>L06 · slide 24 — output $Y = (P_c, B_x, B_y, B_w, B_h, c_1, c_2, c_3)$.</figcaption>
+    </figure>
+    <p>Every predicted box carries an <strong>objectness probability</strong> $P_c$ (also called confidence). Higher $P_c$ ⇒ more confident this box really contains an object. Each class also has its own probability $c_i$.</p>
+  </div>
+
+  <div class="concept">
+    <h3>The problem — overlapping detections of the same object</h3>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L06/page-025.png" alt="Lecture 6 — Problem of overlapped detections, page 25">
+      <figcaption>L06 · slide 25 — sliding-window / anchor-based detectors hit the same car with many overlapping boxes.</figcaption>
+    </figure>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L06/page-026.png" alt="Lecture 6 — Solution: keep box with highest confidence, page 26">
+      <figcaption>L06 · slide 26 — naive solution: keep the highest-confidence box, discard the rest.</figcaption>
+    </figure>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L06/page-027.png" alt="Lecture 6 — Result: one clean box per car, page 27">
+      <figcaption>L06 · slide 27 — exactly the one tight box we wanted.</figcaption>
+    </figure>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L06/page-028.png" alt="Lecture 6 — Multiple objects with multiple overlapping detections, page 28">
+      <figcaption>L06 · slide 28 — but the image actually contains multiple objects with their own overlapping clusters.</figcaption>
+    </figure>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L06/page-029.png" alt="Lecture 6 — Why naive 'keep one' fails when there are multiple objects, page 29">
+      <figcaption>L06 · slide 29 — a global "keep one box" rule wrongly suppresses other valid objects.</figcaption>
+    </figure>
+    <p>So the rule "keep only the most confident box" works for <em>one</em> object but throws away other objects entirely. We need a per-cluster rule. That's NMS.</p>
+  </div>
+
+  <div class="concept">
+    <h3>The NMS algorithm</h3>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L06/page-030.png" alt="Lecture 6 — Section: Non-Maximum Suppression Algorithm, page 30">
+      <figcaption>L06 · slide 30 — section header.</figcaption>
+    </figure>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L06/page-031.png" alt="Lecture 6 — Full NMS algorithm with 6 steps, page 31">
+      <figcaption>L06 · slide 31 — the official 6-step NMS recipe (Dr. ElSayed's version). $P_c$ threshold and IoU threshold are user-defined.</figcaption>
+    </figure>
+
+    <p>Slide's six steps verbatim:</p>
+    <ol class="list-decimal ml-6">
+      <li>Discard all bounding boxes with $P_c &lt; 0.6$ (low probability to be an object).</li>
+      <li>Select the box with the <strong>highest</strong> $P_c$.</li>
+      <li>Calculate IoU between the selected box and <em>all</em> other remaining boxes.</li>
+      <li><strong>Discard</strong> boxes with IoU &gt; 0.5 (heavily overlapping with the selected box).</li>
+      <li>Repeat 2–4 excluding the previously selected predicted box.</li>
+      <li>Stop when there is no box left to discard.</li>
+    </ol>
+
+    <p>Note: $P_c &lt; 0.6$ and $\mathrm{IoU} &gt; 0.5$ are <em>user-defined</em> thresholds — pick them per task.</p>
+
+    <p>Pseudocode equivalent:</p>
+<pre>Input : list of boxes B with scores S, IoU threshold T
+Output: filtered list of detections D
+
+# step 1 — confidence filter
+B = { b in B : score(b) >= P_min }    # e.g. P_min = 0.6
+
+D = [ ]                               # detections kept
+while B is not empty:
+    m = argmax_{b in B} score(b)      # step 2 — highest score
+    D.append(m)
+    B.remove(m)                       # selected boxes are excluded
+    for each remaining b in B:        # step 3 — pairwise IoU
+        if IoU(b, m) >= T:            # step 4 — discard heavy overlaps
+            B.remove(b)               # (e.g. T = 0.5)
+return D                              # step 6 — stop when B empty</pre>
+
+    <details class="reveal">
+      <summary>Why this is "non-<em>maximum</em> suppression"</summary>
+      At each iteration we keep the local <em>maximum</em> of the confidence and suppress (remove) every neighbour that overlaps it heavily. We never suppress the maximum itself — hence "non-maximum suppression".
+    </details>
+  </div>
+
+  <div class="concept">
+    <h3>Worked walk-through from the slides</h3>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L06/page-032.png" alt="Lecture 6 — Original detection output: 3 clusters of overlapping boxes, page 32">
+      <figcaption>L06 · slide 32 — raw output from the detector: three clusters labelled 5, 6, 7 boxes each.</figcaption>
+    </figure>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L06/page-033.png" alt="Lecture 6 — Step 1: discard boxes with P_c < 0.6, page 33">
+      <figcaption>L06 · slide 33 — step 1: low-confidence boxes are dropped (clusters now have 3 boxes each).</figcaption>
+    </figure>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L06/page-034.png" alt="Lecture 6 — Step 2: select highest-Pc box globally, page 34">
+      <figcaption>L06 · slide 34 — step 2: pick the single highest-scoring box across <em>all</em> remaining boxes.</figcaption>
+    </figure>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L06/page-035.png" alt="Lecture 6 — Steps 3 & 4: drop IoU>0.5 neighbours, page 35">
+      <figcaption>L06 · slide 35 — steps 3–4: every box with IoU&gt;0.5 against the selected one is discarded; this cleans up that cluster.</figcaption>
+    </figure>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L06/page-036.png" alt="Lecture 6 — Step 5: pick next highest-Pc among remaining, page 36">
+      <figcaption>L06 · slide 36 — step 5: among <em>remaining</em> boxes, pick the next highest-scoring. (Already-selected boxes are excluded.)</figcaption>
+    </figure>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L06/page-037.png" alt="Lecture 6 — Repeat IoU pass on the new cluster, page 37">
+      <figcaption>L06 · slide 37 — repeat the IoU pass on the new cluster.</figcaption>
+    </figure>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L06/page-038.png" alt="Lecture 6 — Pick the next highest-Pc, page 38">
+      <figcaption>L06 · slide 38 — pick the next survivor.</figcaption>
+    </figure>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L06/page-039.png" alt="Lecture 6 — Suppress its overlapping neighbours, page 39">
+      <figcaption>L06 · slide 39 — suppress its overlapping neighbours.</figcaption>
+    </figure>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L06/page-040.png" alt="Lecture 6 — Step 6: stop, three clean boxes remain, page 40">
+      <figcaption>L06 · slide 40 — step 6: stop. Three clean boxes survive — one per car.</figcaption>
+    </figure>
+
+    <details class="reveal">
+      <summary>Hand trace — 5 boxes, T = 0.5</summary>
+      <p>Boxes (with scores):</p>
+      <ul class="ml-5 list-disc">
+        <li>$b_1$: score 0.9, A=(0,0,10,10)</li>
+        <li>$b_2$: score 0.85, B=(1,1,11,11) — IoU with $b_1$ ≈ 0.68</li>
+        <li>$b_3$: score 0.7, C=(2,2,12,12) — IoU with $b_1$ ≈ 0.47</li>
+        <li>$b_4$: score 0.95, D=(50,50,60,60) — disjoint from cluster</li>
+        <li>$b_5$: score 0.4, E=(51,51,61,61)</li>
+      </ul>
+      <p>With $P_{\min}=0.6$: drop $b_5$. Remaining $\{b_1,b_2,b_3,b_4\}$.</p>
+      <p>Round 1: argmax is $b_4$ (0.95). Keep $b_4$. IoU($b_1$, $b_4$)=0, IoU($b_2$, $b_4$)=0, IoU($b_3$, $b_4$)=0 — none discarded.</p>
+      <p>Round 2: argmax is $b_1$ (0.9). Keep $b_1$. IoU($b_2$, $b_1$)≈0.68 &gt; 0.5 → drop $b_2$. IoU($b_3$, $b_1$)≈0.47 &lt; 0.5 → keep.</p>
+      <p>Round 3: argmax is $b_3$ (0.7). Keep $b_3$. Nothing remains.</p>
+      <p>Output: $\{b_4, b_1, b_3\}$.</p>
+      <p>Notice: $b_3$ survives because its IoU with $b_1$ is below the threshold — that may be a problem when two real cars are parked next to each other (see the trap below).</p>
+    </details>
+  </div>
+
+  <div class="concept">
+    <h3>NMS is greedy — and that has consequences</h3>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L06/page-041.png" alt="Lecture 6 — Summary: NMS is a greedy algorithm, page 41">
+      <figcaption>L06 · slide 41 — summary: "NMS is a greedy algorithm. At each iteration, pick the highest scoring box; remove all boxes that overlap with the selected box."</figcaption>
+    </figure>
+    <ul class="list-disc ml-6">
+      <li><strong>Greedy:</strong> never reconsiders earlier choices. Cheap, $O(n^2)$ in the worst case.</li>
+      <li><strong>Sensitive to threshold T:</strong>
+        <ul class="list-disc ml-6">
+          <li>$T$ too low (e.g. 0.3) → over-suppression: two real adjacent objects whose boxes overlap a lot are merged into one detection (failure case the lecture warns about).</li>
+          <li>$T$ too high (e.g. 0.9) → under-suppression: duplicate boxes survive on the same object.</li>
+          <li>Typical default: $T=0.5$.</li>
+        </ul>
+      </li>
+      <li><strong>Failure case (two nearby objects):</strong> if two real cars are bumper-to-bumper, their best boxes may have IoU above $T$. NMS deletes one of them and you lose a true positive.</li>
+      <li><strong>Soft-NMS</strong> (research variant): instead of removing a heavily-overlapping box, <em>decay</em> its score by a function of the IoU. The slide doesn't cover it explicitly, but it's the standard remedy for the dense-object failure case.</li>
+    </ul>
+
+    <div class="callout trap">
+      <h4>Common exam traps</h4>
+      <ul class="list-disc ml-6">
+        <li>"NMS uses two thresholds." — Yes: the confidence cut $P_{\min}$ (step 1) and the IoU cut $T$ (step 4). Don't conflate them.</li>
+        <li>"NMS picks the box with highest IoU." — No. It picks the box with the highest <em>confidence</em>, then uses IoU only to remove competitors.</li>
+        <li>"NMS is run once per image." — Standardly run <em>per class</em>: a car box and a pedestrian box never compete, even if they overlap.</li>
+        <li>"NMS is differentiable." — No, it's a discrete greedy algorithm; that's why end-to-end detectors (e.g. DETR) try to eliminate it.</li>
+        <li>Forgetting to <em>exclude</em> already-selected boxes in step 5 — the slide highlights "selected boxes are excluded".</li>
+      </ul>
+    </div>
+
+    <div class="q">
+      <div class="stem">Q. Which threshold value of $T$ in NMS would <em>increase</em> false positives (duplicate boxes)?</div>
+      <details class="reveal"><summary>Answer</summary>A high $T$ (close to 1). With $T=0.9$ only nearly-identical boxes get suppressed, so most duplicates survive.</details>
+    </div>
+    <div class="q">
+      <div class="stem">Q. Why is NMS usually run per class?</div>
+      <details class="reveal"><summary>Answer</summary>So an overlapping car box and pedestrian box don't suppress each other — they're different objects.</details>
+    </div>
+    <div class="q">
+      <div class="stem">Q. NMS is "non-maximum suppression". What is being kept, and what is suppressed?</div>
+      <details class="reveal"><summary>Answer</summary>Kept: the local maximum of the confidence. Suppressed: every neighbouring box whose IoU with that maximum exceeds $T$.</details>
+    </div>
+  </div>
+</section>
+
+<!-- =========================================== Practice =========================================== -->
+<section id="practice" class="mt-12">
+  <h2 class="text-2xl font-bold border-b pb-1 mb-3">Practice quiz — Lecture 6</h2>
+
+  <div class="q">
+    <div class="stem">1 (Numerical IoU). Boxes A=(50,50,150,150) and B=(100,100,200,200). Compute IoU.</div>
+    <details class="reveal"><summary>Answer</summary>Inter corners: $(\max(50,100), \max(50,100), \min(150,200), \min(150,200))=(100,100,150,150)$ → 50×50 = 2 500. A area = B area = 100×100 = 10 000. Union = 10 000+10 000−2 500 = 17 500. IoU = 2 500 / 17 500 ≈ <strong>0.143</strong>.</details>
+  </div>
+
+  <div class="q">
+    <div class="stem">2 (Numerical IoU). A = (0, 0, 4, 4), B = (2, 2, 6, 6). IoU = ?</div>
+    <details class="reveal"><summary>Answer</summary>Inter = (2, 2, 4, 4) → 2×2 = 4. Areas 16+16. Union = 32 − 4 = 28. IoU = 4/28 = 1/7 ≈ 0.143.</details>
+  </div>
+
+  <div class="q">
+    <div class="stem">3 (Conceptual MAE/MSE). State one situation where MAE is preferable to MSE and one where MSE wins.</div>
+    <details class="reveal"><summary>Answer</summary>MAE wins when labels contain outliers (MSE would let one bad sample dominate). MSE wins when errors are small and you want fast convergence near the optimum (gradient grows linearly with error, vanishes at the optimum).</details>
+  </div>
+
+  <div class="q">
+    <div class="stem">4 (NMS walk-through). Boxes (score, x1,y1,x2,y2): b1=(0.95, 0,0,10,10); b2=(0.9, 1,1,11,11); b3=(0.5, 2,2,12,12); b4=(0.85, 100,100,110,110). $P_{\min}=0.6$, T=0.5. Run NMS step by step.</div>
+    <details class="reveal"><summary>Answer</summary>
+      Step 1: drop b3 (score 0.5 &lt; 0.6). Remaining {b1, b2, b4}.<br>
+      Round 1: argmax = b1 (0.95). Keep b1. IoU(b1, b2)= 81/(100+100−81)=81/119 ≈ 0.68 &gt; 0.5 → drop b2. IoU(b1, b4)=0 → keep.<br>
+      Round 2: argmax = b4 (0.85). Keep b4. Nothing left.<br>
+      Output: {b1, b4}.
+    </details>
+  </div>
+
+  <div class="q">
+    <div class="stem">5 (T/F). $\mathcal{L}_{\mathrm{IoU}} = 1 - \mathrm{IoU}$ provides a useful gradient even when prediction and ground truth are disjoint.</div>
+    <details class="reveal"><summary>Answer</summary>False. When IoU = 0 the loss is the constant 1, so the gradient vanishes. That's the motivation for GIoU.</details>
+  </div>
+
+  <div class="q">
+    <div class="stem">6 (MCQ). Which of the following IoU variants takes <em>aspect ratio</em> into account?</div>
+    <div>a) IoU &nbsp; b) GIoU &nbsp; c) DIoU &nbsp; d) CIoU</div>
+    <details class="reveal"><summary>Answer</summary>d) CIoU — adds the $\alpha v$ term where $v\propto(\arctan(w^{gt}/h^{gt})-\arctan(w/h))^2$.</details>
+  </div>
+
+  <div class="q">
+    <div class="stem">7 (Scenario). Your detector outputs three heavily-overlapping boxes on the same pedestrian and a single confident box on a separate dog. You run NMS with $T=0.5$ globally over <em>all</em> classes. Why is this a bad idea?</div>
+    <details class="reveal"><summary>Answer</summary>NMS should be applied <em>per class</em>. Running it globally lets the pedestrian box potentially suppress an overlapping dog box (or vice versa), which is wrong: they are different objects and should both be kept.</details>
+  </div>
+
+  <div class="q">
+    <div class="stem">8 (Short). Why is IoU scale-invariant?</div>
+    <details class="reveal"><summary>Answer</summary>If both boxes are scaled by factor $k$, both the intersection area and union area scale by $k^2$, and the ratio is unchanged. So small and large objects are evaluated on the same footing.</details>
+  </div>
+</section>
+
+<footer class="mt-16 pt-6 border-t text-sm text-slate-500 dark:text-slate-400 no-print">
+  Lecture 6 complete. <a href="./L07.html">Next → L07</a>
+</footer>
+</main>
+
+<script>
+document.getElementById('themeToggle').addEventListener('click', () => {
+  const cur = document.documentElement.getAttribute('data-theme');
+  const next = cur === 'dark' ? 'light' : 'dark';
+  document.documentElement.setAttribute('data-theme', next);
+  localStorage.setItem('theme', next);
+});
+// Mark lecture 6 as visited
+try { localStorage.setItem('lecture-L06-visited', '1'); } catch(e){}
+</script>
+</body>
+</html>

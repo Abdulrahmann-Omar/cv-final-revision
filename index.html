@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>CV Final Revision — Spring 2026</title>
+<meta name="description" content="A complete guided revision site for the Spring 2026 Computer Vision course at Zewail City — all 12 lectures, fully worked, plus an interactive mock final exam.">
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="assets/css/styles.css">
+<script>
+  (function(){
+    const saved = localStorage.getItem('theme') || 'light';
+    document.documentElement.setAttribute('data-theme', saved);
+  })();
+</script>
+</head>
+<body class="max-w-5xl mx-auto px-4 pb-20">
+
+<header class="flex items-center justify-between py-5">
+  <div>
+    <h1 class="text-3xl md:text-4xl font-extrabold tracking-tight">CV Final Revision</h1>
+    <p class="text-slate-500 dark:text-slate-400">Spring 2026 — Computer Vision · Zewail City — Dr. Khaled M. ElSayed</p>
+  </div>
+  <button id="themeToggle" class="border rounded px-3 py-1.5 text-sm">🌓 Theme</button>
+</header>
+
+<main>
+  <section class="rounded-xl border p-5 mb-8" style="background:var(--bg-elev); border-color:var(--border);">
+    <h2 class="text-xl font-bold mb-2">What this is</h2>
+    <p class="mb-2">A complete, single-page-per-lecture revision of all 12 lectures. Each page has the original slide images <em>plus</em> plain-English explanations, every formula, worked numerical examples, and practice quizzes. The final stop is an interactive mock final exam with 65 questions that auto-scores and points you back to your weak topics.</p>
+    <p class="text-sm opacity-70">Tip: progress is tracked in your browser. Visiting a lecture marks it complete.</p>
+  </section>
+
+  <!-- Progress summary -->
+  <section class="mb-8">
+    <div class="flex items-center justify-between mb-2">
+      <h2 class="text-xl font-bold">Your progress</h2>
+      <button id="resetProg" class="text-xs underline opacity-70">Reset progress</button>
+    </div>
+    <div class="rounded-full bg-slate-200 dark:bg-slate-700 h-2 overflow-hidden">
+      <div id="progressBar" class="h-2 bg-blue-600" style="width:0%"></div>
+    </div>
+    <p id="progressText" class="text-sm opacity-70 mt-1">0 / 12 lectures visited</p>
+  </section>
+
+  <h2 class="text-xl font-bold mb-3">12 Lectures</h2>
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-4" id="toc"></div>
+
+  <section class="mt-10 rounded-xl border p-5" style="background:var(--bg-elev); border-color:var(--border);">
+    <h2 class="text-xl font-bold mb-2">Mock final exam</h2>
+    <p class="mb-3">65 questions across all lectures: MCQ, T/F, image interpretation, short answer, scenarios and long answer. Timed (default 3 h). Auto-graded with a per-lecture breakdown that links you back to your weakest topics.</p>
+    <a href="exam/exam.html" class="inline-block bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded font-semibold">Start exam →</a>
+  </section>
+
+  <footer class="mt-12 pt-6 border-t text-sm text-slate-500 dark:text-slate-400">
+    Educational use only. All slide images © Dr. Khaled M. ElSayed / Zewail City.
+  </footer>
+</main>
+
+<script>
+const LECTURES = [
+  { id:'L01', title:'Intro to CV & Spatial Image Enhancement', desc:'Classical vs Modern CV · Negative, Gamma, Histogram equalisation · Smoothing, Order-statistics, Sharpening' },
+  { id:'L02', title:'Filters in the Frequency Domain',         desc:'Fourier intuition · 2D DFT · LPF / HPF / BPF · Convolution theorem' },
+  { id:'L03', title:'Image Morphology',                        desc:'Set theory · Dilation / Erosion · Opening / Closing · Hit-or-Miss & derivatives' },
+  { id:'L04', title:'SIFT — Scale-Invariant Feature Transform',desc:'Scale space · DoG · Keypoint localisation · 128-D descriptor' },
+  { id:'L05', title:'Object Detection — Sliding Window',       desc:'Classification vs Localisation vs Detection · Output vector · Sliding window' },
+  { id:'L06', title:'IoU + NMS',                               desc:'MAE / MSE · IoU loss · Non-max suppression algorithm' },
+  { id:'L07', title:'YOLO — You Only Look Once',               desc:'S×S grid · Cell vs image encoding · Anchor boxes · Output tensor' },
+  { id:'L08', title:'YOLO Loss Function',                      desc:'Five-term loss · √w √h trick · λ_coord, λ_noobj · YOLO v1→v5+' },
+  { id:'L09', title:'Landmarks · R-CNN · Fast R-CNN',          desc:'Landmark detection · Selective Search · R-CNN family motivation' },
+  { id:'L10', title:'Region Proposal Network (RPN)',           desc:'Anchor points & boxes · Two heads · RPN multi-task loss' },
+  { id:'L11', title:'Faster R-CNN — Complete Picture',         desc:'RoI Pooling vs RoI Align · Detector head · End-to-end pipeline' },
+  { id:'L12', title:'Detector Training · Mask R-CNN',          desc:'4-step training · Mask branch · Instance segmentation' },
+];
+
+const toc = document.getElementById('toc');
+toc.innerHTML = LECTURES.map((l,i) => {
+  const done = localStorage.getItem(`lecture-${l.id}-visited`) === '1';
+  return `
+    <a href="lectures/${l.id}.html" class="toc-card">
+      <div class="flex items-center justify-between">
+        <h3>${l.id} — ${l.title}</h3>
+        <span class="progress-pill ${done?'done':'todo'}">${done?'visited':'unread'}</span>
+      </div>
+      <p class="text-sm opacity-75 mt-1">${l.desc}</p>
+    </a>`;
+}).join('');
+
+function refreshProgress(){
+  const visited = LECTURES.filter(l => localStorage.getItem(`lecture-${l.id}-visited`) === '1').length;
+  document.getElementById('progressBar').style.width = `${visited/12*100}%`;
+  document.getElementById('progressText').textContent = `${visited} / 12 lectures visited`;
+}
+refreshProgress();
+
+document.getElementById('resetProg').addEventListener('click', () => {
+  if (!confirm('Reset progress tracker?')) return;
+  LECTURES.forEach(l => localStorage.removeItem(`lecture-${l.id}-visited`));
+  location.reload();
+});
+
+document.getElementById('themeToggle').addEventListener('click', () => {
+  const cur = document.documentElement.getAttribute('data-theme');
+  const next = cur === 'dark' ? 'light' : 'dark';
+  document.documentElement.setAttribute('data-theme', next);
+  localStorage.setItem('theme', next);
+});
+</script>
+</body>
+</html>

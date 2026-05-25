@@ -1,0 +1,958 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>L03 — Image Morphology</title>
+<meta name="description" content="Full revision notes for Lecture 3: set theory & logic ops on binary images, dilation, erosion, opening, closing, hit-or-miss, boundary extraction, region filling, connected components, thinning, skeletonisation." />
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/katex.min.css">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/katex.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/contrib/auto-render.min.js"
+        onload="renderMathInElement(document.body,{delimiters:[{left:'$$',right:'$$',display:true},{left:'$',right:'$',display:false}]});"></script>
+<link rel="stylesheet" href="../assets/css/styles.css">
+<script>
+  (function(){
+    const saved = localStorage.getItem('theme') || 'light';
+    document.documentElement.setAttribute('data-theme', saved);
+  })();
+</script>
+</head>
+<body class="max-w-5xl mx-auto px-4 pb-24">
+
+<header class="flex items-center justify-between py-4 border-b border-slate-200 dark:border-slate-700 no-print">
+  <a href="../index.html" class="text-sm">← Back to index</a>
+  <div class="flex items-center gap-3">
+    <span class="text-xs opacity-70">Lecture 3 of 12</span>
+    <button id="themeToggle" class="text-sm border rounded px-2 py-1">🌓 Theme</button>
+  </div>
+</header>
+
+<nav class="section-jump no-print" aria-label="Sections in this lecture">
+  <a href="#s3.1">s3.1 Set theory &amp; logic ops</a>
+  <a href="#s3.2">s3.2 Dilation &amp; Erosion</a>
+  <a href="#s3.3">s3.3 Opening &amp; Closing</a>
+  <a href="#s3.4">s3.4 Hit-or-Miss &amp; derivatives</a>
+  <a href="#practice">Practice quiz</a>
+</nav>
+
+<main>
+<h1 class="text-3xl font-extrabold mt-4 mb-2">Lecture 3 — Image Morphology</h1>
+<p class="text-slate-500 dark:text-slate-400 mb-6">Slides © Dr. Khaled M. ElSayed, Zewail City. 81 slides.</p>
+
+<p>Mathematical morphology is a unified, set-theoretic toolkit for extracting and manipulating shape information in binary images. The two primitive operators are <strong>dilation</strong> (grow the foreground) and <strong>erosion</strong> (shrink the foreground). Everything else in this lecture — opening, closing, hit-or-miss, boundary extraction, region filling, connected-component extraction, thinning, thickening, skeletons, pruning — is built out of those two primitives plus simple set operations (union, intersection, complement, difference).</p>
+
+<figure class="slide-figure">
+  <img src="../assets/slides/L03/page-001.png" alt="Lecture 3 — title page, page 1">
+  <figcaption>L03 · slide 1 — Image Morphology title slide.</figcaption>
+</figure>
+<figure class="slide-figure">
+  <img src="../assets/slides/L03/page-002.png" alt="Lecture 3 — introduction, page 2">
+  <figcaption>L03 · slide 2 — morphology = the form &amp; structure; the language is set theory; binary images live in $\mathbb{Z}^2$.</figcaption>
+</figure>
+
+<!-- =========================================== s3.1 =========================================== -->
+<section id="s3.1" class="mt-10">
+  <h2 class="text-2xl font-bold border-b pb-1 mb-3">s3.1 — Set theory &amp; logic operations on binary images</h2>
+
+  <p>A binary image is a <strong>set</strong> of foreground-pixel coordinates. Every morphological operator is a recipe that combines such sets. Below are the seven set primitives you must know cold, then the four logic operators they correspond to.</p>
+
+  <figure class="slide-figure">
+    <img src="../assets/slides/L03/page-003.png" alt="Lecture 3 — Set Theory section title, page 3">
+    <figcaption>L03 · slide 3 — Set Theory section banner.</figcaption>
+  </figure>
+
+  <div class="concept">
+    <h3>The seven set primitives</h3>
+    <p class="why">Why it matters: every morphological formula is written in this notation. Mis-reading one symbol (e.g. $\hat B$ vs $B$) flips dilation into erosion on the exam.</p>
+
+    <figure class="slide-figure">
+      <img src="../assets/slides/L03/page-004.png" alt="Lecture 3 — table of seven set primitives, page 4">
+      <figcaption>L03 · slide 4 — subset, union, intersection, disjoint, complement, difference, reflection, translation.</figcaption>
+    </figure>
+
+    <ul class="list-disc ml-6">
+      <li><strong>Subset</strong>: $A\subseteq B$ — every pixel of $A$ is also a pixel of $B$.</li>
+      <li><strong>Union</strong>: $A\cup B$ — the OR of two binary images (any pixel that is foreground in either).</li>
+      <li><strong>Intersection</strong>: $A\cap B$ — the AND of two binary images (foreground in both).</li>
+      <li><strong>Disjoint / mutually exclusive</strong>: $A\cap B=\varnothing$ — they share no foreground pixels.</li>
+      <li><strong>Complement</strong>: $A^c\equiv\{w\mid w\notin A\}$ — the NOT image. Foreground and background swap.</li>
+      <li><strong>Difference</strong>: $A-B\equiv\{w\mid w\in A,\,w\notin B\}=A\cap B^c$ — keep pixels of $A$ that are not in $B$.</li>
+      <li><strong>Reflection of $B$</strong>: $\hat B\equiv\{w\mid w=-b,\;\forall b\in B\}$ — flip $B$ through its origin (rotate 180°).</li>
+      <li><strong>Translation of $A$ by $z$</strong>: $(A)_z\equiv\{c\mid c=a+z,\;\forall a\in A\}$ — slide every pixel of $A$ by the vector $z=(z_1,z_2)$.</li>
+    </ul>
+
+    <figure class="slide-figure">
+      <img src="../assets/slides/L03/page-006.png" alt="Lecture 3 — Venn-style picture of set primitives on shapes, page 6">
+      <figcaption>L03 · slide 6 — (a) two sets, (b) union, (c) intersection, (d) complement of $A$, (e) difference $A-B$.</figcaption>
+    </figure>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L03/page-007.png" alt="Lecture 3 — translation and reflection of a shape, page 7">
+      <figcaption>L03 · slide 7 — translation $(A)_z$ shifts $A$ by $z$; reflection $\hat B$ flips $B$ about its origin.</figcaption>
+    </figure>
+
+    <details class="reveal">
+      <summary>Worked example — translation &amp; reflection on a 5-pixel cross</summary>
+      Let $B=\{(0,0),(1,0),(-1,0),(0,1),(0,-1)\}$ (a 5-pixel plus sign).<br>
+      Reflection: $\hat B=\{(0,0),(-1,0),(1,0),(0,-1),(0,1)\}$ — the plus is symmetric, so $\hat B = B$ in this case.<br>
+      Translate by $z=(2,3)$: $(B)_z = \{(2,3),(3,3),(1,3),(2,4),(2,2)\}$.
+    </details>
+
+    <div class="callout trap">
+      <h4>Common exam traps</h4>
+      <ul class="list-disc ml-6">
+        <li>The hat in $\hat B$ is <em>reflection through the origin</em>, not a complement. If $B$ is symmetric about its origin (a square, a plus, a disc) then $\hat B=B$.</li>
+        <li>"Translation of $A$ by $z$" means add $z$ to every element of $A$; the structuring element is what moves around.</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="concept">
+    <h3>Logic operations on binary images = set operations</h3>
+    <p class="why">Why it matters: on a binary image, AND/OR/NOT are literally the set operations intersection/union/complement applied pixel-wise. This is the bridge between set notation and per-pixel boolean code.</p>
+
+    <figure class="slide-figure">
+      <img src="../assets/slides/L03/page-005.png" alt="Lecture 3 — logic operations summary, page 5">
+      <figcaption>L03 · slide 5 — principal ops AND, OR, NOT (and the derived XOR, NAND) are a private case of binary <em>set</em> ops.</figcaption>
+    </figure>
+
+    <ul class="list-disc ml-6">
+      <li><strong>AND</strong> $\equiv$ Intersection $\cap$ — pixel is 1 only if it is 1 in both images.</li>
+      <li><strong>OR</strong> $\equiv$ Union $\cup$ — pixel is 1 if it is 1 in either image.</li>
+      <li><strong>NOT</strong> $\equiv$ Complement — foreground becomes background and vice versa.</li>
+      <li><strong>XOR</strong> = exclusive OR — pixel is 1 only where exactly one image has it. In set form: $(A\cup B)-(A\cap B)$.</li>
+      <li><strong>NAND</strong> = NOT-AND, used in slide 9 as $\text{NOT}(A)\cap B$ to subtract one shape from another.</li>
+    </ul>
+
+    <figure class="slide-figure">
+      <img src="../assets/slides/L03/page-008.png" alt="Lecture 3 — truth table and NOT/AND illustrated on black rectangles, page 8">
+      <figcaption>L03 · slide 8 — truth table for AND/OR/NOT and pictorial NOT, AND. Black = binary "1", white = binary "0" in this slide.</figcaption>
+    </figure>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L03/page-009.png" alt="Lecture 3 — OR / XOR / NOT-AND illustrated, page 9">
+      <figcaption>L03 · slide 9 — OR enlarges the foreground; XOR keeps only the symmetric difference; NOT-AND keeps the part of $B$ that does not overlap $A$.</figcaption>
+    </figure>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L03/page-010.png" alt="Lecture 3 — all logic operations side by side, page 10">
+      <figcaption>L03 · slide 10 — composite summary of NOT, AND, OR, XOR, NOT-AND on two black rectangles.</figcaption>
+    </figure>
+
+    <details class="reveal">
+      <summary>Interpret slide 9 — why is XOR all-black except a small white square?</summary>
+      XOR keeps a pixel only when one of the two images has foreground there and the other does not. The two black rectangles overlap in a small region — there both are "1", so XOR returns 0 (white). Everywhere else only one image is black, so XOR returns 1 (black).
+    </details>
+
+    <div class="q">
+      <div class="stem">Q. Two binary images $A,B$ overlap. Which logical operation gives you "the pixels that are in $B$ but not in $A$"?</div>
+      <details class="reveal"><summary>Answer</summary>$\text{NOT}(A)\text{ AND }B$, i.e. $A^c\cap B = B-A$.</details>
+    </div>
+
+    <div class="callout trap">
+      <h4>Trap</h4>
+      <ul class="list-disc ml-6">
+        <li>The slide deck uses <strong>black = 1, white = 0</strong>. Many textbooks use the opposite. Always state which convention you assume.</li>
+        <li>"NAND" and "NOT-AND" in this lecture do not always mean the same thing — slide 9 actually computes $\text{NOT}(A)\cap B$ (a difference), not the textbook NAND $\overline{A\cdot B}$.</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="concept">
+    <h3>What is a morphological operator?</h3>
+    <p class="why">Why it matters: this is the framing for the rest of the lecture — every operator takes a binary image $A$ and a small <em>structuring element</em> $B$ and returns a new binary image.</p>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L03/page-011.png" alt="Lecture 3 — Introduction to Morphological Operators section title, page 11">
+      <figcaption>L03 · slide 11 — section banner.</figcaption>
+    </figure>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L03/page-012.png" alt="Lecture 3 — properties of morphological operators, page 12">
+      <figcaption>L03 · slide 12 — work on binary images (or on a stack of binary slices of a grey image); useful for noise removal &amp; filling holes.</figcaption>
+    </figure>
+    <p>Inputs always: (i) a binary image $A$, (ii) a small <strong>structuring element</strong> $B$ — a tiny binary template with a marked <em>origin</em>. The SE slides over $A$ and the answer at each location depends on how $B$ overlaps $A$ there.</p>
+  </div>
+</section>
+
+<!-- =========================================== s3.2 =========================================== -->
+<section id="s3.2" class="mt-12">
+  <h2 class="text-2xl font-bold border-b pb-1 mb-3">s3.2 — Dilation $A\oplus B$ and Erosion $A\ominus B$</h2>
+
+  <p>Dilation and erosion are the two primitive morphological operations. Everything else is built from them.</p>
+
+  <figure class="slide-figure">
+    <img src="../assets/slides/L03/page-013.png" alt="Lecture 3 — Dilation & Erosion duality summary, page 13">
+    <figcaption>L03 · slide 13 — erosion shrinks the foreground (enlarges the background); dilation enlarges the foreground (shrinks the background). They are duals.</figcaption>
+  </figure>
+
+  <!-- Dilation -->
+  <div class="concept">
+    <h3>Dilation — "where does the SE <em>touch</em> the foreground?"</h3>
+    <p class="why">Why it matters: dilation is how you <em>grow</em> shapes — fill small gaps, fuse broken letters, thicken thin strokes, bridge across noise.</p>
+
+    <figure class="slide-figure">
+      <img src="../assets/slides/L03/page-014.png" alt="Lecture 3 — Dilation section banner, page 14">
+      <figcaption>L03 · slide 14 — section banner [1] Dilation.</figcaption>
+    </figure>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L03/page-015.png" alt="Lecture 3 — Dilation plain-English definition, page 15">
+      <figcaption>L03 · slide 15 — dilation = set of points where the SE "touches" the foreground; inputs are a binary image and an SE of all 1s.</figcaption>
+    </figure>
+
+    <p><strong>Plain English:</strong> place the (reflected) SE at every pixel $z$; if <em>any</em> SE cell hits a foreground pixel of $A$, mark $z$ foreground in the output.</p>
+
+    <p><strong>Formula</strong> (set-theoretic, slide 16):</p>
+    <p>$$A\oplus B=\{\,z\;\mid\;(\hat B)_z\cap A\neq\varnothing\,\}$$</p>
+    <p>Symbols: $A$ = the binary image (a set of foreground pixels). $B$ = the <em>structuring element</em>, a small binary set with a marked origin, <em>containing only 1s</em>. $\hat B$ = reflection of $B$ about its origin. $(\hat B)_z$ = $\hat B$ translated so its origin sits at $z$. $\varnothing$ = the empty set. The braces mean "the set of all $z$ such that…". The condition $(\hat B)_z\cap A\neq\varnothing$ says <em>the reflected SE at position $z$ overlaps $A$ in at least one pixel</em>.</p>
+
+    <figure class="slide-figure">
+      <img src="../assets/slides/L03/page-016.png" alt="Lecture 3 — Dilation formal definition, page 16">
+      <figcaption>L03 · slide 16 — formal definition: $A\oplus B=\{z\mid(\hat B)_z\cap A\neq\varnothing\}$. "Set of displacements such that $\hat B$ and $A$ overlap by at least one element."</figcaption>
+    </figure>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L03/page-017.png" alt="Lecture 3 — Dilation geometric example with square SE and rectangular SE, page 17">
+      <figcaption>L03 · slide 17 — square input $A$ (side $d$) dilated by a $d/4\times d/4$ square grows by $d/8$ on every side; dilated by a $d/4\times d$ vertical rectangle grows by $d/2$ vertically and $d/8$ horizontally.</figcaption>
+    </figure>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L03/page-018.png" alt="Lecture 3 — Dilation of text with a plus-shaped SE, page 18">
+      <figcaption>L03 · slide 18 — sample text with broken characters dilated by the cross SE $\{0,1,0;1,1,1;0,1,0\}$; broken segments are joined.</figcaption>
+    </figure>
+
+    <details class="reveal">
+      <summary>Worked example — dilate a 6×6 toy grid by a 3×3 cross SE (origin at centre)</summary>
+      <p>Input $A$ (1 = foreground, 0 = background):</p>
+<pre>0 0 0 0 0 0
+0 0 1 0 0 0
+0 1 1 1 0 0
+0 0 1 0 0 0
+0 0 0 0 0 0
+0 0 0 0 0 0</pre>
+      <p>SE $B$ (3×3 plus, origin at centre — symmetric, so $\hat B = B$):</p>
+<pre>0 1 0
+1 1 1
+0 1 0</pre>
+      <p>For every pixel $z$, mark it 1 if the cross centred at $z$ hits at least one 1 of $A$. Every original foreground pixel stays 1, plus its 4-neighbours light up:</p>
+<pre>0 0 1 0 0 0
+0 1 1 1 0 0
+1 1 1 1 1 0
+0 1 1 1 0 0
+0 0 1 0 0 0
+0 0 0 0 0 0</pre>
+      <p>The 4-pixel cross became a 13-pixel "diamond" — dilation visibly grew the foreground.</p>
+    </details>
+
+    <p class="mt-2"><strong>Mini application — edge detection by dilation:</strong> dilate $A$, then subtract the original. The new pixels are exactly the one-pixel-thick boundary.</p>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L03/page-019.png" alt="Lecture 3 — Edge detection by dilation, page 19">
+      <figcaption>L03 · slide 19 — dilate the white pixels, subtract the original, what remains is the edge.</figcaption>
+    </figure>
+
+    <div class="q">
+      <div class="stem">Q. Dilation of a single isolated foreground pixel by a 3×3 all-ones SE produces…</div>
+      <details class="reveal"><summary>Answer</summary>A 3×3 block of foreground pixels centred at the original pixel.</details>
+    </div>
+
+    <div class="callout trap">
+      <h4>Common exam traps</h4>
+      <ul class="list-disc ml-6">
+        <li>Forgetting the reflection $\hat B$. If $B$ is symmetric (square, disc, plus) you can ignore it, but for an asymmetric SE the output flips.</li>
+        <li>The SE must contain only 1s for dilation/erosion. The "don't-care" SE entries appear only in hit-or-miss.</li>
+        <li>Saying "dilation always makes the object bigger by one pixel" — no, it grows by the <em>radius</em> of the SE on every side.</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- Erosion -->
+  <div class="concept">
+    <h3>Erosion — "where does the SE <em>fit inside</em> the foreground?"</h3>
+    <p class="why">Why it matters: erosion <em>shrinks</em> shapes — removes small noise islands, thins thick strokes, separates touching objects.</p>
+
+    <figure class="slide-figure">
+      <img src="../assets/slides/L03/page-020.png" alt="Lecture 3 — Erosion section banner, page 20">
+      <figcaption>L03 · slide 20 — section banner [2] Erosion.</figcaption>
+    </figure>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L03/page-021.png" alt="Lecture 3 — Erosion plain-English definition, page 21">
+      <figcaption>L03 · slide 21 — erosion = set of points where the SE "fits into" the foreground; simple application of pattern matching.</figcaption>
+    </figure>
+
+    <p><strong>Plain English:</strong> place the SE at every pixel $z$; mark $z$ foreground in the output only if the <em>entire</em> SE lies inside $A$.</p>
+
+    <p><strong>Formula:</strong></p>
+    <p>$$A\ominus B=\{\,z\;\mid\;(B)_z\subseteq A\,\}$$</p>
+    <p>Symbols: $(B)_z$ = the SE translated so its origin is at $z$. $\subseteq$ = "is a subset of". So $z$ is in the eroded set only when every 1 of the SE, after shifting it to $z$, lands on a 1 of $A$.</p>
+
+    <figure class="slide-figure">
+      <img src="../assets/slides/L03/page-022.png" alt="Lecture 3 — Erosion geometric example with two SEs, page 22">
+      <figcaption>L03 · slide 22 — same square $A$ (side $d$) eroded by a $d/4\times d/4$ square shrinks to a smaller square; eroded by a $d/4\times d$ tall rectangle collapses to a horizontal line of width $3d/4$ and zero height.</figcaption>
+    </figure>
+
+    <details class="reveal">
+      <summary>Worked example — erode a 6×6 toy grid by a 3×3 all-ones SE (origin at centre)</summary>
+      <p>Input $A$:</p>
+<pre>0 0 0 0 0 0
+0 1 1 1 1 0
+0 1 1 1 1 0
+0 1 1 1 1 0
+0 1 1 1 1 0
+0 0 0 0 0 0</pre>
+      <p>SE $B$ = 3×3 all-ones, origin at centre.</p>
+      <p>At every pixel $z$, ask "does a 3×3 block of 1s fit inside $A$ centred at $z$?" Only the four interior pixels of the 4×4 block qualify:</p>
+<pre>0 0 0 0 0 0
+0 0 0 0 0 0
+0 0 1 1 0 0
+0 0 1 1 0 0
+0 0 0 0 0 0
+0 0 0 0 0 0</pre>
+      <p>The 4×4 block eroded to a 2×2 block — every side lost one pixel, the radius of the SE.</p>
+    </details>
+
+    <p class="mt-2"><strong>Mini application — counting touching coins (slides 23–24):</strong> the coins touch in the binarised image, so connected-component counting gives the wrong answer. Erode with a disc of radius slightly less than half a coin: each coin shrinks to a separate blob while the thin "bridges" between coins vanish.</p>
+
+    <figure class="slide-figure">
+      <img src="../assets/slides/L03/page-023.png" alt="Lecture 3 — erosion then dilation kills small squares, page 23">
+      <figcaption>L03 · slide 23 — squares of sizes 1,3,5,7,9,15. Erosion by a 13×13 SE removes everything smaller than 13; subsequent dilation grows the survivors back. Net effect = <em>opening</em>: keep big objects, kill small ones.</figcaption>
+    </figure>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L03/page-024.png" alt="Lecture 3 — Counting coins via binarisation + erosion, page 24">
+      <figcaption>L03 · slide 24 — touching coins → binarise → erode = separated blobs you can count.</figcaption>
+    </figure>
+
+    <div class="q">
+      <div class="stem">Q. Erode a 5×5 solid square by a 3×3 all-ones SE. Size of the result?</div>
+      <details class="reveal"><summary>Answer</summary>3×3. Each side loses one pixel (the radius of the SE).</details>
+    </div>
+  </div>
+
+  <!-- Duality -->
+  <div class="concept">
+    <h3>Duality between dilation and erosion</h3>
+    <p class="why">Why it matters: this single identity tells you that any algorithm written in terms of dilation can be rewritten in terms of erosion (and vice-versa) by complementing and reflecting. Several proofs and exam manipulations turn on this fact.</p>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L03/page-025.png" alt="Lecture 3 — duality formula, page 25">
+      <figcaption>L03 · slide 25 — $(A\ominus B)^c = A^c\oplus\hat B$. Erosion of $A$ = complement of the dilation of the background.</figcaption>
+    </figure>
+    <p>$$(A\ominus B)^c = A^c\oplus\hat B$$</p>
+    <p>Read it as: <em>eroding the foreground</em> is the same as <em>dilating the background</em>, then flipping foreground and background again. One of erosion's simplest uses is to <strong>eliminate irrelevant small details</strong> from a binary image — anything smaller than the SE disappears.</p>
+
+    <div class="callout trap">
+      <h4>Trap</h4>
+      <ul class="list-disc ml-6">
+        <li>The duality has a reflection $\hat B$ in it. If $B$ is asymmetric, you cannot just swap $\oplus$ and $\ominus$.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- =========================================== s3.3 =========================================== -->
+<section id="s3.3" class="mt-12">
+  <h2 class="text-2xl font-bold border-b pb-1 mb-3">s3.3 — Opening and Closing</h2>
+
+  <figure class="slide-figure">
+    <img src="../assets/slides/L03/page-026.png" alt="Lecture 3 — Opening and Closing section banner, page 26">
+    <figcaption>L03 · slide 26 — section banner.</figcaption>
+  </figure>
+  <figure class="slide-figure">
+    <img src="../assets/slides/L03/page-027.png" alt="Lecture 3 — Opening & Closing intro, page 27">
+    <figcaption>L03 · slide 27 — both are derived from dilation + erosion; both are <em>dual</em>; both apply to binary (and grey) images.</figcaption>
+  </figure>
+  <figure class="slide-figure">
+    <img src="../assets/slides/L03/page-028.png" alt="Lecture 3 — Opening & Closing formulas summary, page 28">
+    <figcaption>L03 · slide 28 — Opening $A\circ B=(A\ominus B)\oplus B$ smooths contours, breaks narrow isthmuses, removes thin protrusions. Closing $A\bullet B=(A\oplus B)\ominus B$ fuses narrow breaks, eliminates small holes, fills gaps.</figcaption>
+  </figure>
+  <figure class="slide-figure">
+    <img src="../assets/slides/L03/page-029.png" alt="Lecture 3 — Opening & Closing properties summary, page 29">
+    <figcaption>L03 · slide 29 — duality + <strong>idempotence</strong>: applying opening (or closing) twice has the same effect as applying it once.</figcaption>
+  </figure>
+
+  <!-- Opening -->
+  <div class="concept">
+    <h3>Opening $A\circ B = (A\ominus B)\oplus B$</h3>
+    <p class="why">Why it matters: opening is the workhorse for <em>denoising binary images</em>: salt noise (small foreground islands smaller than the SE) is wiped out; thin protrusions are removed; the overall shape is smoothed without much change to area.</p>
+
+    <figure class="slide-figure">
+      <img src="../assets/slides/L03/page-030.png" alt="Lecture 3 — Opening section banner, page 30">
+      <figcaption>L03 · slide 30 — section banner [3] Opening.</figcaption>
+    </figure>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L03/page-031.png" alt="Lecture 3 — Opening described as 'roll the SE inside the foreground', page 31">
+      <figcaption>L03 · slide 31 — slide the SE <em>inside</em> each foreground region; pixels the SE can completely cover are preserved, anywhere the SE cannot reach without spilling over the edge is eroded. Opening is <strong>idempotent</strong>.</figcaption>
+    </figure>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L03/page-032.png" alt="Lecture 3 — Opening = erosion then dilation formula, page 32">
+      <figcaption>L03 · slide 32 — opening = first erode $A$ by $B$, then dilate the result by $B$. Equivalently, the union of all translates of $B$ that fit entirely inside $A$.</figcaption>
+    </figure>
+
+    <p><strong>Plain English:</strong> "Erode away the small stuff (kills islands smaller than $B$, thins protrusions), then dilate back so the surviving shapes return roughly to their original size." Geometrically: <em>roll $B$ around inside $A$; the opening is the set swept out by the body of $B$.</em></p>
+
+    <p><strong>Formula:</strong></p>
+    <p>$$A\circ B=(A\ominus B)\oplus B$$</p>
+    <p>Equivalently, opening is the union of all translates of $B$ contained in $A$: $A\circ B = \bigcup\{(B)_z\mid (B)_z\subseteq A\}$.</p>
+
+    <figure class="slide-figure">
+      <img src="../assets/slides/L03/page-033.png" alt="Lecture 3 — opening = erosion + dilation, geometric figure, page 33">
+      <figcaption>L03 · slide 33 — step-by-step: first the erosion shrinks $A$ to a smaller shape, then the dilation grows the result back to its rounded form.</figcaption>
+    </figure>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L03/page-034.png" alt="Lecture 3 — opening with a 3x3 SE on a pixel grid, page 34">
+      <figcaption>L03 · slide 34 — opening with a 3×3 square SE on a pixel grid; thin protrusions disappear, the interior is preserved.</figcaption>
+    </figure>
+
+    <details class="reveal">
+      <summary>Worked example — open a 6×6 toy grid by a 3×3 all-ones SE</summary>
+      <p>Input $A$ — a thick blob with a hair-like 1-pixel-wide protrusion at the top:</p>
+<pre>0 0 1 0 0 0
+0 1 1 1 1 0
+0 1 1 1 1 0
+0 1 1 1 1 0
+0 1 1 1 1 0
+0 0 0 0 0 0</pre>
+      <p>Step 1 — <strong>Erode</strong> by 3×3 all-ones (the 1-pixel hair has no room for a 3×3 to fit, so it vanishes; only interior pixels of the 4×4 block survive):</p>
+<pre>0 0 0 0 0 0
+0 0 0 0 0 0
+0 0 1 1 0 0
+0 0 1 1 0 0
+0 0 0 0 0 0
+0 0 0 0 0 0</pre>
+      <p>Step 2 — <strong>Dilate</strong> the eroded result by 3×3 all-ones (each surviving pixel grows back to a 3×3 block; together they reconstruct a 4×4 square):</p>
+<pre>0 0 0 0 0 0
+0 1 1 1 1 0
+0 1 1 1 1 0
+0 1 1 1 1 0
+0 1 1 1 1 0
+0 0 0 0 0 0</pre>
+      <p>Effect: the thin hair was destroyed; the body of the blob was preserved. <strong>That is opening.</strong></p>
+    </details>
+
+    <figure class="slide-figure">
+      <img src="../assets/slides/L03/page-035.png" alt="Lecture 3 — opening with 11-pixel disc cleans line clutter, page 35">
+      <figcaption>L03 · slide 35 — opening with an 11-pixel-diameter disc keeps round blobs and destroys thin lines, because no thin line accommodates an 11-pixel disc.</figcaption>
+    </figure>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L03/page-036.png" alt="Lecture 3 — directional opening: 3x9 vs 9x3 SE, page 36">
+      <figcaption>L03 · slide 36 — opening with a 9×3 vertical SE keeps only vertical lines; opening with a 3×9 horizontal SE keeps only horizontal lines. The SE acts as an <em>orientation filter</em>.</figcaption>
+    </figure>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L03/page-037.png" alt="Lecture 3 — opening separates large blobs from small noise, page 37">
+      <figcaption>L03 · slide 37 — open with a large disc to keep only the big blobs (cell counting).</figcaption>
+    </figure>
+
+    <div class="callout">
+      <h4>Properties of opening you must memorise</h4>
+      <ul class="list-disc ml-6">
+        <li><strong>Smooths the contour</strong> from the inside, breaks <em>narrow isthmuses</em>, eliminates <em>thin protrusions</em> and small foreground islands.</li>
+        <li><strong>Anti-extensive:</strong> $A\circ B\subseteq A$ — opening can only remove pixels, never add them.</li>
+        <li><strong>Idempotent:</strong> $(A\circ B)\circ B = A\circ B$. Repeated application has no further effect.</li>
+        <li><strong>Increasing</strong> (monotone): $A_1\subseteq A_2 \Rightarrow A_1\circ B \subseteq A_2\circ B$.</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- Closing -->
+  <div class="concept">
+    <h3>Closing $A\bullet B = (A\oplus B)\ominus B$</h3>
+    <p class="why">Why it matters: closing is the <em>dual</em> of opening — it kills <em>pepper noise</em> inside the foreground (small holes), fuses thin gaps between blobs, smooths the contour from the outside.</p>
+
+    <figure class="slide-figure">
+      <img src="../assets/slides/L03/page-038.png" alt="Lecture 3 — Closing section banner, page 38">
+      <figcaption>L03 · slide 38 — section banner [4] Closing.</figcaption>
+    </figure>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L03/page-039.png" alt="Lecture 3 — Closing = dilation then erosion formula, page 39">
+      <figcaption>L03 · slide 39 — closing = first dilate $A$ by $B$, then erode by $B$. Closing of $A$ is the group of points where translates of $B$ around them intersect $A$.</figcaption>
+    </figure>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L03/page-040.png" alt="Lecture 3 — Closing described as 'roll the SE outside the foreground', page 40">
+      <figcaption>L03 · slide 40 — slide the SE <em>outside</em> each foreground region; background pixels the SE cannot reach without spilling onto the foreground are <em>turned into foreground</em>. Closing is also idempotent.</figcaption>
+    </figure>
+
+    <p><strong>Plain English:</strong> "Dilate to fill the small holes and gaps, then erode back so the body of the shape doesn't get permanently fatter." Geometrically: <em>roll $B$ around the outside of $A$; the closing is the complement of the region the body of $B$ sweeps out.</em></p>
+
+    <p><strong>Formula:</strong></p>
+    <p>$$A\bullet B = (A\oplus B)\ominus B$$</p>
+
+    <figure class="slide-figure">
+      <img src="../assets/slides/L03/page-041.png" alt="Lecture 3 — closing = dilation + erosion geometrically, page 41">
+      <figcaption>L03 · slide 41 — step-by-step: dilation fills the indentations; erosion shaves the swollen body back to a smoothed-out version of the original.</figcaption>
+    </figure>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L03/page-042.png" alt="Lecture 3 — closing with 3x3 SE on a pixel grid, page 42">
+      <figcaption>L03 · slide 42 — closing with a 3×3 square SE on a pixel grid; small holes and narrow gaps are sealed; the silhouette is preserved.</figcaption>
+    </figure>
+
+    <details class="reveal">
+      <summary>Worked example — close a 6×6 toy grid (a hole inside a 5×5 block) by a 3×3 all-ones SE</summary>
+      <p>Input $A$ — a 5×5 block with a 1-pixel hole in the middle:</p>
+<pre>0 0 0 0 0 0
+0 1 1 1 1 1
+0 1 1 1 1 1
+0 1 1 0 1 1
+0 1 1 1 1 1
+0 1 1 1 1 1</pre>
+      <p>Step 1 — <strong>Dilate</strong> by 3×3 (the hole gets covered because every neighbour around it is 1, and the block grows outward by one pixel on every side):</p>
+<pre>1 1 1 1 1 1
+1 1 1 1 1 1
+1 1 1 1 1 1
+1 1 1 1 1 1
+1 1 1 1 1 1
+1 1 1 1 1 1</pre>
+      <p>Step 2 — <strong>Erode</strong> by 3×3 (the block shrinks back; the hole is gone, so erosion does not re-open it):</p>
+<pre>0 0 0 0 0 0
+0 1 1 1 1 1
+0 1 1 1 1 1
+0 1 1 1 1 1
+0 1 1 1 1 1
+0 1 1 1 1 1</pre>
+      <p>Effect: the hole was filled; the outline of the block is the same as the input. <strong>That is closing.</strong></p>
+    </details>
+
+    <figure class="slide-figure">
+      <img src="../assets/slides/L03/page-043.png" alt="Lecture 3 — Closing example on a phone-handset photo, page 43">
+      <figcaption>L03 · slide 43 — threshold a phone-handset photo, then close with a disc of size 20 — small dark spots inside the handset disappear and the silhouette becomes a clean shape.</figcaption>
+    </figure>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L03/page-044.png" alt="Lecture 3 — Closing makes downstream skeleton cleaner, page 44">
+      <figcaption>L03 · slide 44 — without closing, the skeleton of a thresholded shape is full of spurious branches; after closing, the skeleton is clean.</figcaption>
+    </figure>
+
+    <div class="callout">
+      <h4>Properties of closing you must memorise</h4>
+      <ul class="list-disc ml-6">
+        <li><strong>Smooths the contour</strong> from the outside, <em>fuses narrow breaks</em>, fills long thin gulfs, <em>eliminates small holes</em>, fills small gaps.</li>
+        <li><strong>Extensive:</strong> $A\subseteq A\bullet B$ — closing can only add pixels, never remove them.</li>
+        <li><strong>Idempotent:</strong> $(A\bullet B)\bullet B = A\bullet B$.</li>
+        <li><strong>Duality with opening:</strong> opening the foreground with $B$ is equivalent to closing the background with $B$. Formally $(A\bullet B)^c = A^c\circ\hat B$.</li>
+      </ul>
+    </div>
+
+    <figure class="slide-figure">
+      <img src="../assets/slides/L03/page-045.png" alt="Lecture 3 — Opening/Closing duality summary, page 45">
+      <figcaption>L03 · slide 45 — opening the foreground = closing the background (with the same SE).</figcaption>
+    </figure>
+
+    <div class="callout trap">
+      <h4>Common exam traps</h4>
+      <ul class="list-disc ml-6">
+        <li>"Opening adds pixels" — <strong>false</strong>. Opening is anti-extensive ($A\circ B\subseteq A$). <em>Closing</em> is the extensive one.</li>
+        <li>"Closing removes small islands" — <strong>false</strong>. Closing removes small <em>holes</em>; opening removes small <em>islands</em>.</li>
+        <li>"Repeated opening keeps shrinking the shape" — <strong>false</strong>. Opening is idempotent: a single pass already gives the final answer.</li>
+        <li>Mixing up the order. Opening = <strong>erode then dilate</strong>. Closing = <strong>dilate then erode</strong>. Remember: opening "opens up" (erodes first to break thin connections); closing "closes up" (dilates first to fill gaps).</li>
+      </ul>
+    </div>
+
+    <div class="q">
+      <div class="stem">Q (MCQ). Which operator would best remove tiny <em>black</em> dots (pepper noise) inside a large white foreground blob?</div>
+      <div>a) Erosion &nbsp; b) Dilation &nbsp; c) Opening &nbsp; d) Closing</div>
+      <details class="reveal"><summary>Answer</summary>d) Closing — black dots inside white = small holes, which closing fills.</details>
+    </div>
+    <div class="q">
+      <div class="stem">Q (MCQ). Which operator would best remove tiny <em>white</em> specks (salt noise) in a black background?</div>
+      <div>a) Erosion alone &nbsp; b) Closing &nbsp; c) Opening &nbsp; d) Dilation</div>
+      <details class="reveal"><summary>Answer</summary>c) Opening — white specks = small foreground islands, opening kills them; subsequent dilation restores the surviving large objects to roughly their original size.</details>
+    </div>
+  </div>
+</section>
+
+<!-- =========================================== s3.4 =========================================== -->
+<section id="s3.4" class="mt-12">
+  <h2 class="text-2xl font-bold border-b pb-1 mb-3">s3.4 — Hit-or-Miss transform &amp; derivatives</h2>
+
+  <p>Once we have dilation, erosion, opening, and closing, every other classical morphological algorithm in this lecture is just a clever combination of those four primitives plus set operations. We start with the hit-or-miss transform, which is itself a pattern detector, and then build the rest of the toolkit on top of it.</p>
+
+  <!-- Hit or Miss -->
+  <div class="concept">
+    <h3>The Hit-or-Miss transform $A\circledast B$ — shape detection</h3>
+    <p class="why">Why it matters: hit-or-miss is the textbook <strong>pattern detector</strong>. It is the morphological analogue of template matching, and it is the basis of corner detection, end-point detection, thinning, thickening, and pruning.</p>
+
+    <figure class="slide-figure">
+      <img src="../assets/slides/L03/page-046.png" alt="Lecture 3 — Hit and Miss section banner, page 46">
+      <figcaption>L03 · slide 46 — section banner [5] Hit and Miss.</figcaption>
+    </figure>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L03/page-047.png" alt="Lecture 3 — Hit-or-Miss intuition: enclose X in a small window W, page 47">
+      <figcaption>L03 · slide 47 — to locate a shape $X$ inside a bigger image $A$, enclose $X$ in a window $W$. The "local background" of $X$ is $W-X$.</figcaption>
+    </figure>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L03/page-048.png" alt="Lecture 3 — Hit-or-Miss formal definition, page 48">
+      <figcaption>L03 · slide 48 — the structuring element is a pair $B=(B_1,B_2)$ with $B_1=X$ and $B_2=W-X$. The match set is $A\circledast B = (A\ominus B_1)\cap(A^c\ominus B_2)$.</figcaption>
+    </figure>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L03/page-049.png" alt="Lecture 3 — Hit-or-Miss rationale: distinct objects are disjoint, page 49">
+      <figcaption>L03 · slide 49 — the reason for the pair-of-SE construction: <em>two objects are distinct only if they are disjoint</em>. Used in OCR-style character matching.</figcaption>
+    </figure>
+
+    <p><strong>Plain English:</strong> the SE is now a <em>pair</em>: $B_1$ says "these pixels must be foreground" and $B_2$ says "these pixels must be background". Hit-or-miss returns the set of locations where both constraints are satisfied simultaneously.</p>
+
+    <p><strong>Formula:</strong></p>
+    <p>$$A\circledast B = (A\ominus B_1)\;\cap\;(A^c\ominus B_2)$$</p>
+    <p>Symbols: $A$ = image. $A^c$ = its complement (background). $B_1$ = the "foreground" template (the shape we want to find). $B_2$ = the "background" template (the local background of the shape — the pixels that must <em>not</em> belong to the foreground). $\ominus$ = erosion. $\cap$ = set intersection. $\circledast$ = "hit-or-miss" operator (some books write $\otimes$).</p>
+
+    <p>An equivalent form (slide 79): $A\circledast B = (A\ominus B_1) - (A\oplus\hat B_2)$.</p>
+
+    <p><strong>Step-by-step recipe (slides 50–56):</strong></p>
+    <ol class="list-decimal ml-6">
+      <li>Pick the shape $X$ you want to find. Enclose it in a small window $W$. Compute the local background $W-X$.</li>
+      <li>Erode $A$ by $B_1=X$. The result is the set of locations where $X$ fits inside the foreground.</li>
+      <li>Erode $A^c$ by $B_2=W-X$. The result is the set of locations where the local background fits inside the actual background.</li>
+      <li>Intersect the two. Survivors are precisely the locations where $X$ is "surrounded by predefined border size" inside $A$.</li>
+    </ol>
+
+    <figure class="slide-figure">
+      <img src="../assets/slides/L03/page-050.png" alt="Lecture 3 — Hit-or-Miss objective figure, page 50">
+      <figcaption>L03 · slide 50 — set $A$ has three objects $X,Y,Z$; goal: find locations of $X$ inside $A$.</figcaption>
+    </figure>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L03/page-051.png" alt="Lecture 3 — Hit-or-Miss inputs: A, A^c, W and W-X, page 51">
+      <figcaption>L03 · slide 51 — the inputs: the image $A$, its complement $A^c$, the window $W$ (larger than $X$), and the local background $W-X$.</figcaption>
+    </figure>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L03/page-052.png" alt="Lecture 3 — Hit-or-Miss Step 1: A erode X, page 52">
+      <figcaption>L03 · slide 52 — Step 1: erode $A$ by $X$, yielding the locations where $X$ fits inside $A$ (one location per occurrence of $X$ or $Y$).</figcaption>
+    </figure>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L03/page-053.png" alt="Lecture 3 — Hit-or-Miss Step 2 part a, page 53">
+      <figcaption>L03 · slide 53 — Step 2: erode $A^c$ by $W-X$ — locations where the local background fits inside the actual background.</figcaption>
+    </figure>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L03/page-054.png" alt="Lecture 3 — Hit-or-Miss Step 2 part b, page 54">
+      <figcaption>L03 · slide 54 — the second erosion isolates locations where there is enough background room around the shape.</figcaption>
+    </figure>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L03/page-055.png" alt="Lecture 3 — Hit-or-Miss Step 3: intersect, page 55">
+      <figcaption>L03 · slide 55 — Step 3: intersect the two erosions. Only the locations where $X$ fits and the local background fits remain.</figcaption>
+    </figure>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L03/page-056.png" alt="Lecture 3 — Hit-or-Miss whole process, page 56">
+      <figcaption>L03 · slide 56 — the whole process in one figure: $A\circledast B = (A\ominus X)\cap[A^c\ominus(W-X)]$, where $B=(X,W-X)$.</figcaption>
+    </figure>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L03/page-057.png" alt="Lecture 3 — Hit-or-Miss summary, page 57">
+      <figcaption>L03 · slide 57 — used for very simple object recognition; <em>all other morphological operations can be derived from it</em>. Input SE contains 0s and 1s.</figcaption>
+    </figure>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L03/page-058.png" alt="Lecture 3 — example Hit-or-Miss SE with 0s, 1s, and don't-cares, page 58">
+      <figcaption>L03 · slide 58 — example SE: contains 0s, 1s, and "don't care" cells; the origin is usually a 1.</figcaption>
+    </figure>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L03/page-059.png" alt="Lecture 3 — Hit-or-Miss as exact pattern match, page 59">
+      <figcaption>L03 · slide 59 — if foreground &amp; background pixels in the SE <em>exactly</em> match the image, the pixel under the origin is set to foreground.</figcaption>
+    </figure>
+
+    <details class="reveal">
+      <summary>Worked example — apply a hit-or-miss SE for an isolated foreground pixel</summary>
+      <p>Goal: find every isolated 1 (a foreground pixel completely surrounded by background).</p>
+      <p>SE: $B_1$ = single "1" at the centre. $B_2$ = ring of "1"s around the centre. (Image: 3×3 with centre=1 in $B_1$ and the eight neighbours=1 in $B_2$, centre of $B_2$ = don't care.)</p>
+      <p>For an isolated pixel:</p>
+<pre>0 0 0
+0 1 0
+0 0 0</pre>
+      <p>$B_1$ erosion: centre pixel survives (1 fits 1). $B_2$ erosion of the background: the ring of 0s around the centre fits the actual background. Intersection → centre pixel survives → match!</p>
+      <p>For a thick blob, the ring of 0s does <em>not</em> fit (those neighbours are 1, not 0), so no match — correctly, the blob is not "isolated".</p>
+    </details>
+  </div>
+
+  <!-- Corner detection -->
+  <div class="concept">
+    <h3>Corner detection via Hit-or-Miss</h3>
+    <p class="why">Why it matters: the simplest non-trivial application of hit-or-miss — one SE per corner orientation, OR the results.</p>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L03/page-060.png" alt="Lecture 3 — four corner SEs, page 60">
+      <figcaption>L03 · slide 60 — four 3×3 SEs, one for each corner orientation: the "L" of 1s marks the corner and the diagonal 0s mark the background that must surround it.</figcaption>
+    </figure>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L03/page-061.png" alt="Lecture 3 — corner detection result, page 61">
+      <figcaption>L03 · slide 61 — apply each of the four SEs and OR the four hit-or-miss outputs together; the union is exactly the set of corner pixels of the foreground.</figcaption>
+    </figure>
+    <p>Algorithm: $\text{Corners}(A) = \bigcup_{i=1}^{4}(A\circledast B^i)$ where $B^1,\dots,B^4$ are the four corner SEs.</p>
+  </div>
+
+  <!-- Applications banner -->
+  <figure class="slide-figure">
+    <img src="../assets/slides/L03/page-062.png" alt="Lecture 3 — Applications of Image Morphology banner, page 62">
+    <figcaption>L03 · slide 62 — Applications section banner.</figcaption>
+  </figure>
+
+  <!-- Coin counting reprise -->
+  <div class="concept">
+    <h3>[1] Counting coins (reprise) — erosion separates touching blobs</h3>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L03/page-063.png" alt="Lecture 3 — counting coins via binarisation + erosion, page 63">
+      <figcaption>L03 · slide 63 — binarise then erode; coins were touching, after erosion they are separate blobs that connected-component counting can label.</figcaption>
+    </figure>
+    <p>Pipeline: greyscale → threshold → erode with a disc of radius slightly under half a coin → connected-component count.</p>
+  </div>
+
+  <!-- Edge detection -->
+  <div class="concept">
+    <h3>[2] Edge detection — dilation minus original</h3>
+    <p class="why">Why it matters: a one-line, fast, branchless edge detector for binary images.</p>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L03/page-064.png" alt="Lecture 3 — edge detection by dilation, page 64">
+      <figcaption>L03 · slide 64 — dilate $A$, subtract $A$ from the dilation; the difference is the one-pixel-thick boundary.</figcaption>
+    </figure>
+    <p>$\text{Edges}(A) = (A\oplus B) - A$.</p>
+  </div>
+
+  <!-- Fingerprint enhancement -->
+  <div class="concept">
+    <h3>[3] Fingerprint enhancement — opening then closing</h3>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L03/page-065.png" alt="Lecture 3 — fingerprint before and after enhancement, page 65">
+      <figcaption>L03 · slide 65 — noisy fingerprint → clean fingerprint after a morphological pipeline.</figcaption>
+    </figure>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L03/page-066.png" alt="Lecture 3 — fingerprint pipeline: erosion, opening, dilation, closing, page 66">
+      <figcaption>L03 · slide 66 — pipeline: erode the noisy image (kills speckles between ridges) → dilate (reconstructs the opening $A\circ B$) → dilate again (fills small gaps in ridges) → erode (closing of the opening); equivalently $((A\circ B)\bullet B)$.</figcaption>
+    </figure>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L03/page-067.png" alt="Lecture 3 — fingerprint pipeline colourised, page 67">
+      <figcaption>L03 · slide 67 — colourised step-by-step view: original → erosion → opening → dilation of opening → closing of opening.</figcaption>
+    </figure>
+    <p>Recipe: $(A\circ B)\bullet B$. The opening first kills inter-ridge noise; the closing then heals small breaks inside ridges.</p>
+  </div>
+
+  <!-- Boundary extraction -->
+  <div class="concept">
+    <h3>[4] Boundary extraction $\beta(A)$</h3>
+    <p class="why">Why it matters: one of the four morphological primitives every CV student must know by name — used for silhouette extraction, contour-based shape descriptors, and a stepping stone to skeletonisation.</p>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L03/page-068.png" alt="Lecture 3 — Boundary Extraction formula and figure, page 68">
+      <figcaption>L03 · slide 68 — $\beta(A)=A-(A\ominus B)$. Erode $A$ by $B$, then subtract the erosion from $A$. Contour thickness depends on $B$.</figcaption>
+    </figure>
+    <p><strong>Plain English:</strong> erode $A$ by $B$; the eroded set is $A$ with its boundary shaved off. Subtract that from $A$ and what is left is exactly the boundary.</p>
+    <p><strong>Formula:</strong></p>
+    <p>$$\beta(A) = A - (A\ominus B)$$</p>
+    <p>The thickness of the extracted boundary equals the radius of $B$. For a one-pixel-thick boundary, use a 3×3 all-ones SE.</p>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L03/page-069.png" alt="Lecture 3 — Boundary extraction example on a silhouette, page 69">
+      <figcaption>L03 · slide 69 — silhouette → eroded silhouette → boundary (the white outline only).</figcaption>
+    </figure>
+
+    <details class="reveal">
+      <summary>Worked example — extract the boundary of a 6×6 5×5 block</summary>
+<pre>0 0 0 0 0 0      0 0 0 0 0 0      0 0 0 0 0 0
+0 1 1 1 1 1      0 0 0 0 0 0      0 1 1 1 1 1
+0 1 1 1 1 1   -  0 0 1 1 1 1   =  0 1 0 0 0 0
+0 1 1 1 1 1      0 0 1 1 1 1      0 1 0 0 0 0
+0 1 1 1 1 1      0 0 1 1 1 1      0 1 0 0 0 0
+0 1 1 1 1 1      0 0 1 1 1 1      0 1 0 0 0 0
+       A           A erode B           beta(A)</pre>
+      <p>The boundary is just the leftmost column and the top row of the block — the part of $A$ that did not survive erosion.</p>
+    </details>
+  </div>
+
+  <!-- Region filling -->
+  <div class="concept">
+    <h3>[5] Region filling — iterated conditional dilation</h3>
+    <p class="why">Why it matters: paint-bucket fills, hole filling in masks, flood fill — they are all this single recursion.</p>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L03/page-070.png" alt="Lecture 3 — Region filling formula, page 70">
+      <figcaption>L03 · slide 70 — iterate $X_k=(X_{k-1}\oplus B)\cap A^c$ with $X_0$ a seed point $p$ inside the region and $B$ a symmetric SE.</figcaption>
+    </figure>
+    <p><strong>Plain English:</strong> start at a seed pixel $p$ <em>inside</em> the region you want to fill. At every step, dilate the current set by $B$ — but mask the result against the <em>background</em> $A^c$ so the dilation cannot cross the boundary $A$. Iterate until nothing changes. Finally OR with $A$ to get the filled region.</p>
+    <p><strong>Formula:</strong></p>
+    <p>$$X_k = (X_{k-1}\oplus B)\;\cap\;A^c,\quad X_0=p,\quad k=1,2,3,\dots$$</p>
+    <p>Convergence: stop when $X_k=X_{k-1}$. Final filled region: $X_k\cup A$.</p>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L03/page-071.png" alt="Lecture 3 — Region filling step-by-step, page 71">
+      <figcaption>L03 · slide 71 — example: $A$ is a closed boundary; $A^c$ is the background; $B$ is a cross SE; start at $X_0=p$ inside; $X_1,X_2,\dots,X_7$ progressively flood-fill the interior; final $X_7\cup A$ is the solid region.</figcaption>
+    </figure>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L03/page-072.png" alt="Lecture 3 — Region filling annotated, page 72">
+      <figcaption>L03 · slide 72 — annotated version showing the growing filled set (orange) inside the closed boundary (green).</figcaption>
+    </figure>
+
+    <div class="callout trap">
+      <h4>Trap</h4>
+      <ul class="list-disc ml-6">
+        <li>The intersection with $A^c$ is what stops the dilation at the boundary. Forgetting it lets the dilation grow forever.</li>
+        <li>The boundary $A$ must be <em>closed</em> (no gaps), otherwise the fill leaks out.</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- Connected components -->
+  <div class="concept">
+    <h3>[6] Extraction of connected components</h3>
+    <p class="why">Why it matters: object counting, blob analysis, segmentation — pick a seed inside an object, grow it until you have the whole object.</p>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L03/page-073.png" alt="Lecture 3 — connected component extraction figure, page 73">
+      <figcaption>L03 · slide 73 — iterate $X_k=(X_{k-1}\oplus B)\cap A$ with $X_0=p$ a seed inside the component. Each step grows the set, masked by $A$ so it can only fill foreground.</figcaption>
+    </figure>
+    <p><strong>Formula:</strong></p>
+    <p>$$X_k = (X_{k-1}\oplus B)\;\cap\;A,\quad X_0=p,\quad k=1,2,3,\dots$$</p>
+    <p>Notice the contrast with region filling: there we intersected with $A^c$ (we wanted to fill the background-inside-the-boundary); here we intersect with $A$ itself (we want to grow within the foreground). Convergence: $X_k=X_{k-1}$.</p>
+  </div>
+
+  <!-- Thinning -->
+  <div class="concept">
+    <h3>[7] Thinning $A\otimes B$</h3>
+    <p class="why">Why it matters: after edge detection, "edges" are often two-pixel-thick. Thinning shaves them to one pixel — required by skeleton-based shape descriptors, OCR, and biometric analysis.</p>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L03/page-074.png" alt="Lecture 3 — Thinning section banner, page 74">
+      <figcaption>L03 · slide 74 — used to remove selected foreground pixels; thin edges to single-pixel-wide lines.</figcaption>
+    </figure>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L03/page-075.png" alt="Lecture 3 — Thinning formula, page 75">
+      <figcaption>L03 · slide 75 — $A\otimes B = A - (A\circledast B) = A\cap(A\circledast B)^c$. Iterate over a sequence of rotated SEs $\{B^1,B^2,\dots,B^n\}$ for symmetric thinning.</figcaption>
+    </figure>
+    <p><strong>Plain English:</strong> wherever the hit-or-miss SE matches, remove that pixel from $A$. Apply a sequence of rotated SEs (typically 8: alternating corner-detectors and edge-detectors) cyclically until nothing changes.</p>
+    <p><strong>Formula:</strong></p>
+    <p>$$A\otimes B = A - (A\circledast B) = A\cap(A\circledast B)^c$$</p>
+    <p>$$A\otimes\{B\} = ((\dots((A\otimes B^1)\otimes B^2)\dots)\otimes B^n),\quad \{B\}=\{B^1,\dots,B^n\}$$</p>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L03/page-076.png" alt="Lecture 3 — Thinning with 8 rotated SEs, page 76">
+      <figcaption>L03 · slide 76 — eight rotated SEs (alternating corner C and edge E patterns) applied in sequence until no pixel changes; the result is a one-pixel-wide skeleton.</figcaption>
+    </figure>
+  </div>
+
+  <!-- Thickening, skeleton, pruning (reference page) -->
+  <div class="concept">
+    <h3>Reference: thickening, skeleton, pruning, convex hull</h3>
+    <p class="why">Why it matters: these are the "named theorems" of morphology — every CV final has at least one definition question pulled from this table.</p>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L03/page-077.png" alt="Lecture 3 — Reference section banner, page 77">
+      <figcaption>L03 · slide 77 — Reference section banner.</figcaption>
+    </figure>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L03/page-078.png" alt="Lecture 3 — Reference table I, page 78">
+      <figcaption>L03 · slide 78 — reference table: translation, reflection, complement, difference, dilation, erosion, opening, closing.</figcaption>
+    </figure>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L03/page-079.png" alt="Lecture 3 — Reference table II, page 79">
+      <figcaption>L03 · slide 79 — hit-or-miss, boundary extraction, region filling, connected components, convex hull.</figcaption>
+    </figure>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L03/page-080.png" alt="Lecture 3 — Reference table III: thinning and thickening, page 80">
+      <figcaption>L03 · slide 80 — thinning $A\otimes B = A-(A\circledast B)$; thickening $A\odot B = A\cup(A\circledast B)$. Thickening uses the same SE sequence as thinning but with 0s and 1s swapped.</figcaption>
+    </figure>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L03/page-081.png" alt="Lecture 3 — Reference table IV: skeletons and pruning, page 81">
+      <figcaption>L03 · slide 81 — skeleton $S(A)=\bigcup_k S_k(A)$ with $S_k(A)=(A\ominus kB) - [(A\ominus kB)\circ B]$; reconstruction $A=\bigcup_k(S_k(A)\oplus kB)$; pruning removes spurious skeleton branches via iterated thinning + conditional dilation.</figcaption>
+    </figure>
+
+    <p><strong>Thickening:</strong></p>
+    <p>$$A\odot B = A\cup(A\circledast B)$$</p>
+    <p>The dual of thinning — wherever the hit-or-miss SE matches, <em>add</em> that pixel. Useful to fatten a skeleton or to grow a region.</p>
+
+    <p><strong>Skeleton $S(A)$:</strong></p>
+    <p>$$S(A) = \bigcup_{k=0}^{K} S_k(A),\qquad S_k(A)=\bigcup_{k=0}^{K}\Big\{(A\ominus kB) - \big[(A\ominus kB)\circ B\big]\Big\}$$</p>
+    <p>Symbols: $kB$ = the SE $B$ dilated by itself $k$ times (so $kB$ is a larger SE). $K$ = the smallest integer such that further erosion makes $A$ vanish. The skeleton is the union of the "skeleton subsets" $S_k$: at every scale $k$, take the difference between the $k$-erosion and the opening of the $k$-erosion. Reconstruction: $A=\bigcup_k(S_k(A)\oplus kB)$ — the skeleton plus the scale information lets us rebuild $A$ exactly.</p>
+
+    <p><strong>Pruning</strong> (removes parasitic skeleton branches):</p>
+    <p>$$X_1=A\otimes\{B\},\quad X_2=\bigcup_{k=1}^{8}(X_1\circledast B^k),\quad X_3=(X_2\oplus H)\cap A,\quad X_4=X_1\cup X_3$$</p>
+    <p>$X_1$ is the thinned skeleton, $X_2$ collects the endpoints, $X_3$ conditionally dilates the endpoints back inside $A$, and $X_4$ unions everything to restore the main skeleton without the spurs.</p>
+
+    <p><strong>Convex hull</strong> (slide 79):</p>
+    <p>$$X_k^i = (X_{k-1}^i\circledast B^i)\cup A,\quad X_0^i=A,\quad i=1,2,3,4$$</p>
+    <p>Iterate four rotated SEs until convergence ($X_k^i=X_{k-1}^i$); union the four limits to get the convex hull $C(A)$.</p>
+
+    <div class="callout trap">
+      <h4>Common exam traps</h4>
+      <ul class="list-disc ml-6">
+        <li>Hit-or-miss SE has <strong>0s, 1s, and "don't-cares"</strong>; dilation/erosion SE has <strong>only 1s</strong>. Don't mix them.</li>
+        <li>Region filling uses $\cap A^c$ (mask by background); connected-component extraction uses $\cap A$ (mask by foreground). Same recursion, opposite mask.</li>
+        <li>Skeleton is <em>not</em> the same as thinning. Thinning is one of several ways to compute a skeleton; the textbook skeleton $S(A)$ is the union of $S_k(A)$'s above.</li>
+        <li>"All other morphological operations can be derived from hit-or-miss" — true in principle, but in practice we usually express thinning, thickening, pruning, corner-detection in terms of hit-or-miss, and dilation/erosion remain primitive.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- =========================================== Practice =========================================== -->
+<section id="practice" class="mt-12">
+  <h2 class="text-2xl font-bold border-b pb-1 mb-3">Practice quiz — Lecture 3</h2>
+
+  <div class="q">
+    <div class="stem">1 (MCQ). The dilation of $A$ by $B$ is defined as:</div>
+    <div>a) $\{z\mid (B)_z\subseteq A\}$ &nbsp; b) $\{z\mid (\hat B)_z\cap A\neq\varnothing\}$ &nbsp; c) $A\cup B$ &nbsp; d) $A-B$</div>
+    <details class="reveal"><summary>Answer</summary>b). Option (a) is the definition of <em>erosion</em>; (c) and (d) are plain set operations.</details>
+  </div>
+
+  <div class="q">
+    <div class="stem">2 (T/F). Opening is <em>extensive</em>: $A\subseteq A\circ B$.</div>
+    <details class="reveal"><summary>Answer</summary>False. Opening is <strong>anti-extensive</strong>: $A\circ B\subseteq A$. The extensive operator is closing: $A\subseteq A\bullet B$.</details>
+  </div>
+
+  <div class="q">
+    <div class="stem">3 (T/F). $(A\ominus B)^c = A^c\oplus\hat B$.</div>
+    <details class="reveal"><summary>Answer</summary>True — the duality between erosion and dilation.</details>
+  </div>
+
+  <div class="q">
+    <div class="stem">4 (Short). Write the formula for the morphological boundary $\beta(A)$ and state, in one sentence, what controls the thickness of the resulting boundary.</div>
+    <details class="reveal"><summary>Answer</summary>$\beta(A)=A-(A\ominus B)$. The boundary thickness is set by the size (radius) of the structuring element $B$.</details>
+  </div>
+
+  <div class="q">
+    <div class="stem">5 (Short). Why is opening called <em>idempotent</em>? Give the formal statement.</div>
+    <details class="reveal"><summary>Answer</summary>Because applying it twice gives the same result as applying it once: $(A\circ B)\circ B = A\circ B$. After the first opening, every surviving foreground pixel is already coverable by $B$ entirely within $A$, so a second pass changes nothing.</details>
+  </div>
+
+  <div class="q">
+    <div class="stem">6 (Scenario). You have a binary mask of a road from satellite imagery. The road is mostly connected but has small breaks across it (gaps of ~3 pixels) and the background contains a few small white speckles. Design a two-step morphological pipeline that produces a clean road mask and explain which artefacts each step removes.</div>
+    <details class="reveal"><summary>Answer</summary>(i) <strong>Opening</strong> with a small SE (say 3×3) — removes the small white speckles in the background (anti-extensive, kills small islands). (ii) <strong>Closing</strong> with an SE just larger than the typical gap (~5×5) — fuses the small breaks in the road (extensive, fills small holes/gaps). The order matters: do opening first to remove noise so that closing does not fuse a spurious speckle to the road.</details>
+  </div>
+
+  <div class="q">
+    <div class="stem">7 (Numerical — erosion by hand). Erode the following 6×6 binary image by a 3×3 all-ones SE (origin at centre). Give the output grid.</div>
+<pre>0 0 0 0 0 0
+0 1 1 1 1 0
+0 1 1 1 1 0
+0 1 1 1 1 0
+0 1 1 1 1 0
+0 0 0 0 0 0</pre>
+    <details class="reveal"><summary>Answer</summary>
+<pre>0 0 0 0 0 0
+0 0 0 0 0 0
+0 0 1 1 0 0
+0 0 1 1 0 0
+0 0 0 0 0 0
+0 0 0 0 0 0</pre>
+The 4×4 block shrinks to a 2×2 block — every side loses one pixel (the SE radius). Only pixels with all eight 3×3 neighbours equal to 1 survive.</details>
+  </div>
+
+  <div class="q">
+    <div class="stem">8 (Numerical — dilation by hand). Dilate the following 6×6 binary image by a 3×3 cross-shaped SE $\{0,1,0;1,1,1;0,1,0\}$ (origin at centre). Give the output grid.</div>
+<pre>0 0 0 0 0 0
+0 0 0 0 0 0
+0 0 1 0 0 0
+0 0 0 0 0 0
+0 0 0 0 0 0
+0 0 0 0 0 0</pre>
+    <details class="reveal"><summary>Answer</summary>
+<pre>0 0 0 0 0 0
+0 0 1 0 0 0
+0 1 1 1 0 0
+0 0 1 0 0 0
+0 0 0 0 0 0
+0 0 0 0 0 0</pre>
+A single foreground pixel dilated by a cross SE becomes a 5-pixel cross — the SE itself reproduced at the position of the original pixel.</details>
+  </div>
+
+  <div class="q">
+    <div class="stem">9 (MCQ). Which one of the following is the correct formula for the hit-or-miss transform?</div>
+    <div>a) $A\circledast B=(A\ominus B_1)\cap(A^c\ominus B_2)$<br>b) $A\circledast B=(A\oplus B_1)\cap(A^c\oplus B_2)$<br>c) $A\circledast B=(A\ominus B_1)\cup(A^c\ominus B_2)$<br>d) $A\circledast B=(A\oplus B_1)\cup(A^c\oplus B_2)$</div>
+    <details class="reveal"><summary>Answer</summary>a). Hit-or-miss = (foreground pattern fits) AND (background pattern fits). Both clauses are <em>erosions</em>, combined by <em>intersection</em>.</details>
+  </div>
+
+  <div class="q">
+    <div class="stem">10 (T/F). The region-filling iteration $X_k=(X_{k-1}\oplus B)\cap A^c$ stops automatically once the fill reaches the boundary, even if the boundary $A$ has small gaps.</div>
+    <details class="reveal"><summary>Answer</summary>False. The intersection with $A^c$ prevents growth across <em>closed</em> boundaries; if $A$ has gaps, the fill leaks out and floods the background. Always close the boundary first (e.g. with a small morphological close) before flood-filling.</details>
+  </div>
+</section>
+
+<footer class="mt-16 pt-6 border-t text-sm text-slate-500 dark:text-slate-400 no-print">
+  Lecture 3 complete. <a href="./L04.html">Next → L04</a>
+</footer>
+</main>
+
+<script>
+document.getElementById('themeToggle').addEventListener('click', () => {
+  const cur = document.documentElement.getAttribute('data-theme');
+  const next = cur === 'dark' ? 'light' : 'dark';
+  document.documentElement.setAttribute('data-theme', next);
+  localStorage.setItem('theme', next);
+});
+// Mark lecture 3 as visited
+try { localStorage.setItem('lecture-L03-visited', '1'); } catch(e){}
+</script>
+</body>
+</html>

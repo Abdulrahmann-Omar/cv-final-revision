@@ -1,0 +1,590 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>L12 — Faster R-CNN Detector Training & Mask R-CNN</title>
+<meta name="description" content="Full revision notes for Lecture 12: Faster R-CNN detector training (multi-task loss, RoI mini-batches), the 4-step alternate training schedule, semantic vs instance segmentation (FCN, Mask R-CNN), RoI Align, and the Mask R-CNN loss." />
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/katex.min.css">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/katex.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/contrib/auto-render.min.js"
+        onload="renderMathInElement(document.body,{delimiters:[{left:'$$',right:'$$',display:true},{left:'$',right:'$',display:false}]});"></script>
+<link rel="stylesheet" href="../assets/css/styles.css">
+<script>
+  (function(){
+    const saved = localStorage.getItem('theme') || 'light';
+    document.documentElement.setAttribute('data-theme', saved);
+  })();
+</script>
+</head>
+<body class="max-w-5xl mx-auto px-4 pb-24">
+
+<header class="flex items-center justify-between py-4 border-b border-slate-200 dark:border-slate-700 no-print">
+  <a href="../index.html" class="text-sm">← Back to index</a>
+  <div class="flex items-center gap-3">
+    <span class="text-xs opacity-70">Lecture 12 of 12</span>
+    <button id="themeToggle" class="text-sm border rounded px-2 py-1">🌓 Theme</button>
+  </div>
+</header>
+
+<nav class="section-jump no-print" aria-label="Sections in this lecture">
+  <a href="#s12.1">s12.1 Detector training</a>
+  <a href="#s12.2">s12.2 4-step alternate training</a>
+  <a href="#s12.3">s12.3 Mask R-CNN</a>
+  <a href="#practice">Practice quiz</a>
+</nav>
+
+<main>
+<h1 class="text-3xl font-extrabold mt-4 mb-2">Lecture 12 — Faster R-CNN Detector Training &amp; Mask R-CNN</h1>
+<p class="text-slate-500 dark:text-slate-400 mb-6">Slides © Dr. Khaled M. ElSayed, Zewail City. 43 slides (Faster R-CNN detector review + Mask R-CNN + bonus notes).</p>
+
+<!-- =========================================== s12.1 =========================================== -->
+<section id="s12.1" class="mt-10">
+  <h2 class="text-2xl font-bold border-b pb-1 mb-3">s12.1 — Detector Training (Multi-task loss on RoIs)</h2>
+
+  <div class="concept">
+    <h3>The pipeline you are training</h3>
+    <p class="why">Why it matters: L11 built the Faster R-CNN <em>architecture</em>; here we have to put numbers on the loss and tell the optimiser which RoIs are positive examples, which are negative, and how to mix them in a mini-batch.</p>
+    <p>Recall the data-flow per training image:</p>
+    <ol class="list-decimal ml-6">
+      <li>Run the shared CNN backbone → produce a <strong>feature map</strong>.</li>
+      <li>Run <strong>RPN</strong> + NMS + max-count → get a small set of region proposals (each one is a 4-D box vector + an objectness score).</li>
+      <li>For each proposal: project the box onto the feature map, apply <strong>RoI (Align) Pooling</strong>, feed the fixed-size tensor through the Fast R-CNN detector head, get two outputs — a class-probability vector ($N\!+\!1$ classes including background) and a per-class regressor vector ($4N$ offsets).</li>
+      <li>Compute the multi-task loss against ground-truth labels (classes &amp; refined box offsets) and back-propagate.</li>
+    </ol>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L12/page-003.png" alt="Lecture 12 — RPN producing proposals, page 3">
+      <figcaption>L12 · slide 3 — at training time you run RPN on a randomly selected image, NMS-filter the overlapping proposals, then cap the number of proposals.</figcaption>
+    </figure>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L12/page-004.png" alt="Lecture 12 — pick proposals one by one, page 4">
+      <figcaption>L12 · slide 4 — each proposed region (box vector + objectness) is fed, together with the original image, into the detector head as one training sample.</figcaption>
+    </figure>
+  </div>
+
+  <div class="concept">
+    <h3>Labelling a proposal: positive (object), negative (background), or mix</h3>
+    <p class="why">Why it matters: an RPN proposal is not annotated; we must <em>derive</em> its ground-truth label from the original GT boxes using IoU. This is the rule the slides will quiz you on.</p>
+
+    <figure class="slide-figure">
+      <img src="../assets/slides/L12/page-005.png" alt="Lecture 12 — IoU-based labelling rule, page 5">
+      <figcaption>L12 · slide 5 — labelling rule: $\text{IoU}&lt;0.5$ → background; else match to the GT box with the highest IoU and copy its class &amp; $(d_x,d_y,d_w,d_h)$ offsets.</figcaption>
+    </figure>
+
+    <p>For every proposal compare its IoU against <em>every</em> ground-truth box:</p>
+    <ul class="list-disc ml-6">
+      <li><strong>If max IoU $&lt; 0.5$</strong> → label the proposal as <em>Background</em> ($C_{bg}$). Its target class one-hot is $[0,0,\ldots,0,1]$, and there is <em>no</em> bounding-box target.</li>
+      <li><strong>Else</strong> → match the proposal to the GT box that gave the highest IoU. Copy that GT box's class (one-hot at $C_u$) and compute the four refinement offsets $[d_x,d_y,d_w,d_h]$ relative to the proposal.</li>
+    </ul>
+
+    <p>The detector then has two output heads:</p>
+    <ul class="list-disc ml-6">
+      <li><strong>Classifier head:</strong> softmax over $N+1$ classes (the $N$ object classes plus a background class $C_{bg}$).</li>
+      <li><strong>Regressor head:</strong> $4N$ outputs — four offsets <em>per</em> object class. Only the four offsets for the GT class are used in the loss; the rest are "don't care".</li>
+    </ul>
+
+    <figure class="slide-figure">
+      <img src="../assets/slides/L12/page-006.png" alt="Lecture 12 — project proposal on feature map, page 6">
+      <figcaption>L12 · slide 6 — instead of re-running the CNN on the cropped proposal, project the proposal box onto the already-computed feature map (the key Fast R-CNN trick).</figcaption>
+    </figure>
+
+    <figure class="slide-figure">
+      <img src="../assets/slides/L12/page-007.png" alt="Lecture 12 — RoI (Align) pooling, page 7">
+      <figcaption>L12 · slide 7 — the projected region goes through <strong>RoI Pooling</strong> (quantised) or <strong>RoI Align</strong> (bilinear, no quantisation) to produce a fixed-size feature.</figcaption>
+    </figure>
+
+    <figure class="slide-figure">
+      <img src="../assets/slides/L12/page-008.png" alt="Lecture 12 — detector outputs the two vectors, page 8">
+      <figcaption>L12 · slide 8 — the fully-connected detector head outputs a <strong>regressor vector</strong> ($4N$ offsets) and a <strong>class-probability vector</strong> ($N+1$ classes).</figcaption>
+    </figure>
+  </div>
+
+  <div class="concept">
+    <h3>The multi-task loss (the formula you will be examined on)</h3>
+    <p class="why">Why it matters: the Fast R-CNN multi-task loss is the equation that ties classification and box regression together. Every R-CNN successor (Mask R-CNN, etc.) extends it.</p>
+
+    <p>$$\boxed{\;L(p,u,t^u,v) \;=\; L_{cls}(p,u)\;+\;\lambda\,[\,u\ge 1\,]\,L_{loc}(t^u,v)\;}$$</p>
+
+    <p>Symbols (memorise):</p>
+    <ul class="list-disc ml-6">
+      <li>$p$ — predicted class-probability vector over $N+1$ classes (softmax output).</li>
+      <li>$u$ — the <strong>ground-truth class index</strong> for this proposal. By convention $u=0$ means background; $u\ge 1$ means a real object class.</li>
+      <li>$t^u$ — the four predicted bounding-box offsets <em>for class $u$</em> (the rest of the $4N$ outputs are discarded).</li>
+      <li>$v$ — the four ground-truth offsets $[d_x,d_y,d_w,d_h]$.</li>
+      <li>$\lambda$ — a balancing weight between the two losses (typically $\lambda=1$).</li>
+      <li>$[u\ge 1]$ — the <strong>Iverson bracket</strong>: equals $1$ when $u\ge 1$ (foreground) and $0$ when $u=0$ (background). This is exactly the slide's "No offsets error for Background class" rule.</li>
+    </ul>
+
+    <p>The two pieces are:</p>
+    <ul class="list-disc ml-6">
+      <li>$L_{cls}(p,u)=-\log p_u$ — standard <strong>softmax cross-entropy</strong> (the slide labels it "Log Loss"). It is evaluated over <em>all</em> $N+1$ class scores.</li>
+      <li>$L_{loc}(t^u,v)=\sum_{i\in\{x,y,w,h\}}\text{smooth}_{L_1}(t^u_i - v_i)$, where
+        $$\text{smooth}_{L_1}(x)=\begin{cases}0.5\,x^2 & |x|&lt;1\\ |x|-0.5 & \text{otherwise}\end{cases}$$
+        The slide draws it as "Squared Distance Loss" (L2-flavoured) — smooth-L1 is the robust version used in Fast R-CNN to avoid exploding gradients for outlier offsets.</li>
+    </ul>
+
+    <figure class="slide-figure">
+      <img src="../assets/slides/L12/page-009.png" alt="Lecture 12 — Error / Loss function diagram, page 9">
+      <figcaption>L12 · slide 9 — combined error: <em>Log Loss</em> over all classes + <em>Squared (smooth-L1) distance</em> on the four offsets of the GT class only. Background proposals contribute only the log-loss term.</figcaption>
+    </figure>
+
+    <details class="reveal">
+      <summary>Worked example — the Iverson bracket in action</summary>
+      Two proposals at the same training step:
+      <ul class="ml-5 list-disc">
+        <li><strong>Proposal A</strong> — max IoU = 0.7 with a "car" (class index $u=7$). $L = L_{cls}(p,7) + \lambda\cdot 1 \cdot L_{loc}(t^7,v)$. Both terms contribute.</li>
+        <li><strong>Proposal B</strong> — max IoU = 0.2, so labelled background ($u=0$). $L = L_{cls}(p,0) + \lambda\cdot 0 \cdot L_{loc}(\cdot) = L_{cls}(p,0)$. Only the class-log-loss contributes; the $4N$ regressor outputs receive zero gradient.</li>
+      </ul>
+    </details>
+
+    <figure class="slide-figure">
+      <img src="../assets/slides/L12/page-010.png" alt="Lecture 12 — shared CNN weights, page 10">
+      <figcaption>L12 · slide 10 — the CNN feature extractor is <strong>shared</strong> between the RPN branch and the detector branch — same weights, applied once per image.</figcaption>
+    </figure>
+
+    <figure class="slide-figure">
+      <img src="../assets/slides/L12/page-011.png" alt="Lecture 12 — single shared feature map, page 11">
+      <figcaption>L12 · slide 11 — equivalently: the same <em>feature map</em> feeds both heads. No need to apply the same CNN twice on the same input image.</figcaption>
+    </figure>
+
+    <div class="callout trap">
+      <h4>Common exam traps</h4>
+      <ul class="list-disc ml-6">
+        <li>"$L_{loc}$ is computed for background RoIs." — <strong>False</strong>. The Iverson bracket $[u\ge 1]$ zeros it out.</li>
+        <li>"$L_{loc}$ uses all $4N$ regressor outputs." — <strong>False</strong>. Only the 4 outputs that correspond to the GT class $u$ are penalised. The slide explicitly says <em>"Loss is calculated for the 4 values of this object only, other values are assumed as Don't care"</em>.</li>
+        <li>"$L_{cls}$ uses only the GT-class probability." — Loss <em>value</em> reduces to $-\log p_u$, but the softmax denominator couples <em>all</em> $N+1$ logits, so gradient flows into every class score.</li>
+        <li>"Pure L2 (squared) loss is used." — In practice Fast R-CNN uses <strong>smooth-L1</strong>; on the slide it appears as "Squared Distance Loss" but in the paper it is the robust version.</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="concept">
+    <h3>Mini-batch composition (positive vs negative RoIs)</h3>
+    <p class="why">Why it matters: most RPN proposals are background; if you just sampled at random, the loss would be dominated by easy negatives. The R-CNN family fixes this by hard-coded sampling ratios.</p>
+
+    <figure class="slide-figure">
+      <img src="../assets/slides/L12/page-018.png" alt="Lecture 12 — RPN and detector batch sizes, page 18">
+      <figcaption>L12 · slide 18 — RPN batches: 256 (128 +, 128 −), all from <em>two</em> images; Detector batches: 128 (32 +, 96 −), sampled from two images only.</figcaption>
+    </figure>
+
+    <table class="text-sm mt-2 w-full">
+      <thead><tr><th class="text-left">Head</th><th class="text-left">Batch size</th><th class="text-left">Positives</th><th class="text-left">Negatives</th><th class="text-left">Images / batch</th></tr></thead>
+      <tbody class="align-top">
+        <tr><td>RPN</td><td>256</td><td>128 (anchor IoU $\ge 0.7$)</td><td>128 (anchor IoU $\le 0.3$)</td><td>2 (may slow training)</td></tr>
+        <tr><td>Fast R-CNN detector + CNN</td><td>128</td><td>32 (RoI IoU $\ge 0.5$)</td><td>96 (RoI IoU in $[0.1,0.5)$)</td><td>2</td></tr>
+      </tbody>
+    </table>
+
+    <p>Why the asymmetry? Negatives are abundant and cheap, so the detector mini-batch keeps a <strong>3:1 negative-to-positive ratio</strong> — enough negatives to learn what background looks like, but not so many that positives are drowned out.</p>
+
+    <figure class="slide-figure">
+      <img src="../assets/slides/L12/page-019.png" alt="Lecture 12 — detector loss notes, page 19">
+      <figcaption>L12 · slide 19 — three loss notes: (1) log-loss spans all class scores; (2) regressor loss is skipped for background labels; (3) only the 4 offsets for the GT class are penalised.</figcaption>
+    </figure>
+
+    <div class="q">
+      <div class="stem">Q. A training image generates 300 proposals from the RPN. After IoU labelling, 12 are foreground and 288 are background. How does the detector training step build its mini-batch?</div>
+      <details class="reveal"><summary>Answer</summary>Take the 12 foreground RoIs (or randomly down-sample to 32 if more) plus enough random background RoIs to reach 96, for a total batch of 128. If foreground is short, pad with extra background. Two such images jointly fill the 128-RoI batch.</details>
+    </div>
+    <div class="q">
+      <div class="stem">Q (T/F). The RPN batch and the detector batch use the same positive-to-negative ratio.</div>
+      <details class="reveal"><summary>Answer</summary>False. RPN uses 1:1 (128:128); the detector uses 1:3 (32:96).</details>
+    </div>
+  </div>
+
+  <div class="concept">
+    <h3>Inference — what comes out at the end</h3>
+    <p class="why">Why it matters: training and inference share the architecture, but inference adds a final <em>per-class NMS</em> step on the detector outputs to drop duplicate boxes.</p>
+
+    <figure class="slide-figure">
+      <img src="../assets/slides/L12/page-020.png" alt="Lecture 12 — final detected objects title, page 20">
+      <figcaption>L12 · slide 20 — final detected objects come from the detector head plus a second non-max-suppression pass.</figcaption>
+    </figure>
+
+    <figure class="slide-figure">
+      <img src="../assets/slides/L12/page-021.png" alt="Lecture 12 — per-class NMS, page 21">
+      <figcaption>L12 · slide 21 — <strong>per-class NMS</strong>: for every detected class, gather all its boxes (each with $x,y,w,h$ + class scores), apply NMS at an IoU threshold, keep the survivors. Repeat for every class.</figcaption>
+    </figure>
+
+    <div class="callout">
+      <h4>Two NMS passes in Faster R-CNN</h4>
+      <ol class="list-decimal ml-6">
+        <li><strong>RPN NMS</strong> (class-agnostic) — dedup anchor proposals using objectness scores.</li>
+        <li><strong>Detector NMS</strong> (per-class) — dedup the final detections within each class.</li>
+      </ol>
+    </div>
+  </div>
+</section>
+
+<!-- =========================================== s12.2 =========================================== -->
+<section id="s12.2" class="mt-12">
+  <h2 class="text-2xl font-bold border-b pb-1 mb-3">s12.2 — The 4-Step Alternate Training Schedule</h2>
+
+  <div class="concept">
+    <h3>The problem and the recipe</h3>
+    <p class="why">Why it matters: the RPN and the detector each need their own gradients, but they want to <em>share</em> the convolutional backbone. The original Faster R-CNN paper proposes a 4-step alternating schedule that achieves shared features without joint optimisation.</p>
+
+    <figure class="slide-figure">
+      <img src="../assets/slides/L12/page-012.png" alt="Lecture 12 — Alternate Training section title, page 12">
+      <figcaption>L12 · slide 12 — section title: Alternate Training for RPN and Faster R-CNN Detector.</figcaption>
+    </figure>
+
+    <p>Initial state: a CNN backbone (e.g. VGG / ResNet) pre-trained on <strong>ImageNet</strong> classification — used as a feature extractor.</p>
+
+    <table class="text-sm mt-2 w-full">
+      <thead><tr><th class="text-left">Step</th><th class="text-left">What is trained</th><th class="text-left">What is frozen</th><th class="text-left">Backbone shared?</th></tr></thead>
+      <tbody class="align-top">
+        <tr><td>1</td><td>RPN head + its own CNN copy (init from ImageNet)</td><td>—</td><td>No (separate backbones)</td></tr>
+        <tr><td>2</td><td>Fast R-CNN detector + its own CNN copy (init from ImageNet), using proposals from step-1 RPN</td><td>The step-1 RPN</td><td>No (separate backbones)</td></tr>
+        <tr><td>3</td><td>RPN-specific layers (re-finetune on step-2 backbone)</td><td>Shared conv layers (from step-2 detector)</td><td><strong>Yes</strong> — backbone now becomes shared</td></tr>
+        <tr><td>4</td><td>Detector-specific layers (fine-tune)</td><td>Shared conv layers</td><td>Yes — both heads share the same backbone</td></tr>
+      </tbody>
+    </table>
+
+    <p>After step 4 the two heads sit on top of the <em>same</em> convolutional feature map → the deployed Faster R-CNN model.</p>
+  </div>
+
+  <div class="concept">
+    <h3>Step 1 — Train the RPN from ImageNet</h3>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L12/page-013.png" alt="Lecture 12 — Step 1, page 13">
+      <figcaption>L12 · slide 13 — step 1: pick a training image, use the pre-trained CNN as feature extractor, forward through the RPN, back-prop to update <strong>RPN weights</strong>.</figcaption>
+    </figure>
+    <p>Use the RPN multi-task loss (objectness log-loss + smooth-L1 box-offset regression for positive anchors only). The CNN backbone here is the ImageNet copy.</p>
+  </div>
+
+  <div class="concept">
+    <h3>Step 2 — Train the Fast R-CNN detector with the step-1 proposals</h3>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L12/page-014.png" alt="Lecture 12 — Step 2, page 14">
+      <figcaption>L12 · slide 14 — step 2: feed the same image to the (now-trained) RPN to get proposals, then forward through the detector. Back-prop updates <strong>both the detector head and its CNN backbone</strong>.</figcaption>
+    </figure>
+    <p>At this point we have <em>two</em> CNN backbones — one for the RPN, one for the detector — that drifted apart during steps 1 and 2.</p>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L12/page-015.png" alt="Lecture 12 — picking another picture, page 15">
+      <figcaption>L12 · slide 15 — repeat over the training set: another picture, updated CNN, RPN forward/backward.</figcaption>
+    </figure>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L12/page-016.png" alt="Lecture 12 — detector update on another image, page 16">
+      <figcaption>L12 · slide 16 — detector + CNN update on another image.</figcaption>
+    </figure>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L12/page-017.png" alt="Lecture 12 — continue till last image, page 17">
+      <figcaption>L12 · slide 17 — keep alternating between RPN-step and Detector-step until the whole training set has been seen.</figcaption>
+    </figure>
+  </div>
+
+  <div class="concept">
+    <h3>Step 3 — Freeze shared conv layers; fine-tune the RPN-specific layers</h3>
+    <p>Take the step-2 detector's CNN (now considered the "shared backbone") and <strong>freeze it</strong>. Re-train only the RPN-specific layers (the small conv + the cls/reg sibling layers) so they re-align to this frozen backbone. Now the RPN and the detector share their convs.</p>
+  </div>
+
+  <div class="concept">
+    <h3>Step 4 — Freeze shared conv layers; fine-tune the detector-specific layers</h3>
+    <p>Keep the shared backbone frozen. Re-finetune only the detector-specific layers (RoI head + classifier + regressor). After step 4, RPN and detector live on a unified, shared backbone — the deployed Faster R-CNN.</p>
+
+    <details class="reveal">
+      <summary>Quick mental diagram of what is unfrozen each step</summary>
+      <pre>Step 1:  [CNN (ImageNet) | RPN]                 -- both unfrozen
+Step 2:  [CNN (fresh ImageNet) | Detector]      -- both unfrozen (separate CNN)
+Step 3:  [CNN (frozen, from step 2) | RPN]      -- only RPN-specific layers unfrozen
+Step 4:  [CNN (frozen) | Detector]              -- only detector-specific layers unfrozen
+        → backbone is now shared by RPN and Detector ✓</pre>
+    </details>
+
+    <div class="q">
+      <div class="stem">Q. In step 3, why is it valid to freeze the backbone instead of jointly training it with the RPN?</div>
+      <details class="reveal"><summary>Answer</summary>Because step 2 has already adapted that backbone to be discriminative for the detection classes. Freezing it forces the RPN to <em>adapt to</em> the detector's features — this is precisely what creates a single shared backbone.</details>
+    </div>
+  </div>
+
+  <div class="concept">
+    <h3>The modern alternative — joint end-to-end training</h3>
+    <p class="why">Why it matters: the alternating recipe is the original method; today's implementations usually replace it with a simpler scheme.</p>
+    <p>Sum all four losses (RPN cls + RPN reg + detector cls + detector reg) into a single objective and back-prop through one shared backbone in <em>one</em> training loop. This is faster to implement and trains the backbone with both signals simultaneously; the alternate schedule is still useful didactically because it makes the data dependency explicit.</p>
+    <div class="callout trap">
+      <h4>Common exam traps</h4>
+      <ul class="list-disc ml-6">
+        <li>"All four steps unfreeze the backbone." — <strong>False</strong>. Steps 1 &amp; 2 train it; steps 3 &amp; 4 freeze it.</li>
+        <li>"After step 2 the backbone is already shared." — <strong>False</strong>. Steps 1 and 2 grow two separate backbones. Sharing happens at step 3 when we adopt step-2's backbone for the RPN too.</li>
+        <li>"Step 1 trains the RPN from scratch." — Misleading; the CNN backbone is initialised from <strong>ImageNet</strong> pre-training, then the RPN-specific layers are trained on top.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- =========================================== s12.3 =========================================== -->
+<section id="s12.3" class="mt-12">
+  <h2 class="text-2xl font-bold border-b pb-1 mb-3">s12.3 — Mask R-CNN (instance segmentation)</h2>
+
+  <div class="concept">
+    <h3>Segmentation 101 — semantic vs instance</h3>
+    <p class="why">Why it matters: detection gives bounding boxes; segmentation classifies <em>pixels</em>. The two flavours differ in whether different instances of the same class are separated.</p>
+
+    <figure class="slide-figure">
+      <img src="../assets/slides/L12/page-023.png" alt="Lecture 12 — Semantic segmentation, page 23">
+      <figcaption>L12 · slide 23 — <strong>Semantic segmentation</strong>: one colour per <em>class</em>; every pixel gets a class label. All cyclists are the same colour even if there are several.</figcaption>
+    </figure>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L12/page-024.png" alt="Lecture 12 — Semantic vs Instance segmentation people, page 24">
+      <figcaption>L12 · slide 24 — semantic vs instance: left, all five people are one blob; right, each person is a separate coloured instance.</figcaption>
+    </figure>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L12/page-030.png" alt="Lecture 12 — Overlap problem of semantic segmentation, page 30">
+      <figcaption>L12 · slide 30 — semantic segmentation has an <em>overlapping problem</em> (touching people merge into one blob). Instance segmentation solves it by labelling each instance separately.</figcaption>
+    </figure>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L12/page-031.png" alt="Lecture 12 — street scene semantic vs instance, page 31">
+      <figcaption>L12 · slide 31 — street scene: left, all cars share one colour (class-based); right, each car gets a unique instance id.</figcaption>
+    </figure>
+  </div>
+
+  <div class="concept">
+    <h3>Fully Convolutional Network (FCN) — the semantic-segmentation baseline</h3>
+    <p class="why">Why it matters: Mask R-CNN's mask head is a small FCN attached to each RoI. Understanding FCN first makes the Mask R-CNN head trivial.</p>
+
+    <figure class="slide-figure">
+      <img src="../assets/slides/L12/page-025.png" alt="Lecture 12 — FCN architecture, page 25">
+      <figcaption>L12 · slide 25 — FCN: a stack of conv/pool/non-linearity layers that downsamples H×W → H/32×W/32, then <strong>upsamples</strong> back to H×W and produces a per-pixel class score map.</figcaption>
+    </figure>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L12/page-026.png" alt="Lecture 12 — FCN forward/backward, page 26">
+      <figcaption>L12 · slide 26 — FCN forward/backward: pixel-wise prediction is supervised against a pixel-wise GT mask of 21 classes (PASCAL VOC).</figcaption>
+    </figure>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L12/page-027.png" alt="Lecture 12 — encoder/decoder FCN, page 27">
+      <figcaption>L12 · slide 27 — modern view: downsampling (pooling / strided conv) is followed by symmetric upsampling, producing C×H×W per-pixel predictions.</figcaption>
+    </figure>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L12/page-028.png" alt="Lecture 12 — Fusing FCN-32s, FCN-16s, FCN-8s, page 28">
+      <figcaption>L12 · slide 28 — FCN-32s/16s/8s fuse predictions from different pooling stages by summing upsampled outputs from pool5, pool4, pool3.</figcaption>
+    </figure>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L12/page-029.png" alt="Lecture 12 — FCN-32s vs 16s vs 8s output, page 29">
+      <figcaption>L12 · slide 29 — fusing earlier features yields sharper masks: FCN-8s &gt; FCN-16s &gt; FCN-32s.</figcaption>
+    </figure>
+
+    <details class="reveal">
+      <summary>FCN training intuition</summary>
+      Treat segmentation as per-pixel classification: at every output pixel, the network produces $C$ class scores; the loss is <strong>per-pixel softmax cross-entropy</strong> against the GT class at that pixel. Skip connections from earlier pooling layers (FCN-16s, FCN-8s) inject high-resolution information back into the prediction.
+    </details>
+  </div>
+
+  <div class="concept">
+    <h3>Mask R-CNN = Faster R-CNN + a parallel FCN mask head</h3>
+    <p class="why">Why it matters: this is the headline architecture of the lecture. It adds <em>instance</em> segmentation almost for free on top of a Faster R-CNN.</p>
+
+    <figure class="slide-figure">
+      <img src="../assets/slides/L12/page-032.png" alt="Lecture 12 — Mask R-CNN diagram, page 32">
+      <figcaption>L12 · slide 32 — Mask R-CNN: take Faster R-CNN, replace RoI Pool with <strong>RoI Align</strong>, and add a small FCN head that predicts a per-class binary mask alongside the existing class/box heads.</figcaption>
+    </figure>
+
+    <figure class="slide-figure">
+      <img src="../assets/slides/L12/page-033.png" alt="Lecture 12 — Faster R-CNN baseline COCO 80 classes, page 33">
+      <figcaption>L12 · slide 33 — recap: a Faster R-CNN trained on COCO ($N=80$ classes) outputs $(x,y,w,h)$ + one-of-80 class for each proposal.</figcaption>
+    </figure>
+
+    <figure class="slide-figure">
+      <img src="../assets/slides/L12/page-034.png" alt="Lecture 12 — Mask R-CNN FPN backbone, page 34">
+      <figcaption>L12 · slide 34 — with an FPN backbone, the RoI Align gives 14×14×256; four conv layers keep it 14×14, then a transposed conv upsamples to 28×28, and a final 1×1 conv produces <strong>K=80 binary masks</strong> (28×28×80).</figcaption>
+    </figure>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L12/page-035.png" alt="Lecture 12 — Mask R-CNN ResNet backbone, page 35">
+      <figcaption>L12 · slide 35 — with a ResNet C5 backbone the mask head is shallower; output is 14×14×80 (K binary masks, one per class).</figcaption>
+    </figure>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L12/page-036.png" alt="Lecture 12 — both Mask R-CNN heads side by side, page 36">
+      <figcaption>L12 · slide 36 — both backbones side by side. The mask head is the bottom branch in each.</figcaption>
+    </figure>
+
+    <p><strong>Key architectural changes vs Faster R-CNN</strong>:</p>
+    <ol class="list-decimal ml-6">
+      <li>Replace <strong>RoI Pool</strong> (which quantises feature-map coordinates twice) with <strong>RoI Align</strong> (bilinear sampling, no quantisation). For boxes this only marginally helps; for masks it is <em>essential</em> because mask quality depends on pixel-accurate alignment.</li>
+      <li>Add a third branch in parallel with cls/box: a small FCN that outputs $K$ binary masks of size $m\times m$ (e.g. $28\times 28$).</li>
+    </ol>
+  </div>
+
+  <div class="concept">
+    <h3>Decoupling class and mask — sigmoid per channel, not softmax</h3>
+    <p class="why">Why it matters: this is the single most important Mask R-CNN design decision and a favourite exam point.</p>
+
+    <figure class="slide-figure">
+      <img src="../assets/slides/L12/page-040.png" alt="Lecture 12 — Multinomial vs independent masks, page 40">
+      <figcaption>L12 · slide 40 — FCN (left) uses <strong>softmax across classes</strong> at each pixel → masks compete; Mask R-CNN (right) uses <strong>sigmoid per channel</strong> → $K$ independent binary masks. Classes compete only in the classification head, not in the mask head.</figcaption>
+    </figure>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L12/page-041.png" alt="Lecture 12 — Softmax vs sigmoid AP table, page 41">
+      <figcaption>L12 · slide 41 — switching from softmax (24.8 AP) to sigmoid (30.3 AP) gives +5.5 mAP on COCO — large jump.</figcaption>
+    </figure>
+
+    <p>Output of the mask head: a tensor of shape $K \times m \times m$ (e.g. $80 \times 28 \times 28$). Each of the $K$ channels is passed through a sigmoid pixel-wise — they are <em>independent</em> binary mask predictions, one per class.</p>
+
+    <figure class="slide-figure">
+      <img src="../assets/slides/L12/page-037.png" alt="Lecture 12 — Mask R-CNN sigmoid heads, page 37">
+      <figcaption>L12 · slide 37 — 80 sigmoid functions + threshold produce 80 binary masks; the class head selects which of the 80 to keep (the slide shows the "boy" channel kept).</figcaption>
+    </figure>
+  </div>
+
+  <div class="concept">
+    <h3>Mask R-CNN loss</h3>
+    <p class="why">Why it matters: this is the exam formula for this lecture.</p>
+
+    <figure class="slide-figure">
+      <img src="../assets/slides/L12/page-039.png" alt="Lecture 12 — Mask R-CNN loss formula, page 39">
+      <figcaption>L12 · slide 39 — three-term multi-task loss.</figcaption>
+    </figure>
+
+    <p>$$\boxed{\;L \;=\; L_{cls} \;+\; L_{box} \;+\; L_{mask}\;}$$</p>
+
+    <ul class="list-disc ml-6">
+      <li>$L_{cls}$ — same softmax log-loss as Faster R-CNN, over $N+1$ classes.</li>
+      <li>$L_{box}$ — same smooth-L1 on the four box offsets of the GT class (Iverson bracket on background still applies).</li>
+      <li>$L_{mask}$ — average <strong>per-pixel binary cross-entropy</strong> across an $m\times m$ mask, evaluated <em>only on the mask channel of the GT class</em> $u$:
+        $$L_{mask}\;=\;-\frac{1}{m^2}\sum_{(i,j)}\Big[y_{ij}\log\hat{y}^{(u)}_{ij} + (1-y_{ij})\log(1-\hat{y}^{(u)}_{ij})\Big]$$
+        where $\hat{y}^{(u)}_{ij}$ is the sigmoid prediction at pixel $(i,j)$ of the $u$-th mask channel, and $y_{ij}\in\{0,1\}$ is the binary GT mask at that pixel (1 inside the object, 0 outside).</li>
+    </ul>
+
+    <p>The mask loss is <strong>decoupled from class prediction</strong>: the other $K-1$ channels receive <em>no gradient</em> from $L_{mask}$ on this RoI. This is why sigmoid + per-class channels works — classes never compete inside the mask head.</p>
+
+    <details class="reveal">
+      <summary>Worked example — 256×256 image with one car (class 7 of 80)</summary>
+      Single RoI for the car. Pipeline:
+      <ol class="list-decimal ml-6">
+        <li>RoI Align extracts a $14\times 14\times 256$ feature for this RoI.</li>
+        <li>The mask head (4 convs at 14×14, one transposed conv to 28×28, final 1×1 conv with 80 channels) outputs a tensor of shape $80\times 28\times 28$.</li>
+        <li>Apply sigmoid to every pixel of every channel.</li>
+        <li>During training: take only channel $u=7$ (the GT class) and compute per-pixel binary CE against the GT mask resized to $28\times 28$. The other 79 channels are ignored for $L_{mask}$ on this RoI.</li>
+        <li>$L_{cls}$ is still computed over all 81 class scores; $L_{box}$ is computed over the 4 offsets of class 7.</li>
+        <li>Total loss: $L = L_{cls} + L_{box} + L_{mask}^{(7)}$.</li>
+      </ol>
+    </details>
+  </div>
+
+  <div class="concept">
+    <h3>From 28×28 soft mask to image-resolution binary mask</h3>
+    <p class="why">Why it matters: at inference time the 28×28 sigmoid output has to be projected back to image coordinates.</p>
+
+    <figure class="slide-figure">
+      <img src="../assets/slides/L12/page-038.png" alt="Lecture 12 — Mask R-CNN final prediction mask, page 38">
+      <figcaption>L12 · slide 38 — three stages: (a) 28×28 sigmoid "soft" mask from the head, (b) bilinear-resample to the RoI's image-resolution size (e.g. 100×35 for a duck, 70×150 for a person), (c) threshold at 0.5 to get foreground/background pixels.</figcaption>
+    </figure>
+
+    <p>Steps (inference):</p>
+    <ol class="list-decimal ml-6">
+      <li>Class head picks the predicted class $\hat u$ for this RoI (and a confidence).</li>
+      <li>Box head gives the refined $(x,y,w,h)$.</li>
+      <li>Take the $\hat u$-th channel of the $K\times 28\times 28$ mask tensor. Apply sigmoid → values in $(0,1)$.</li>
+      <li>Bilinear-resample the $28\times 28$ soft mask to the size of the predicted bounding box (in image pixels).</li>
+      <li>Threshold at $0.5$ → final binary instance mask (foreground vs background).</li>
+    </ol>
+  </div>
+
+  <div class="concept">
+    <h3>Why RoI Align matters for masks (not just bbox)</h3>
+    <p class="why">Why it matters: the slides keep noting "ROI (&amp; Align) Pooling". For masks, RoI Align is no longer optional.</p>
+    <p><strong>RoI Pool</strong> quantises the proposal twice (when mapping image → feature coords, and when bucketing into the output grid). For a 16× stride, a misalignment of ~half a feature-map cell = ~8 image pixels. For boxes you barely notice; for pixel-level masks this kills accuracy.</p>
+    <p><strong>RoI Align</strong> keeps the floating-point coordinates and samples the feature map with <em>bilinear interpolation</em> at 4 regularly-spaced points per output cell, then averages. No quantisation. This is what makes pixel-accurate instance masks possible.</p>
+    <div class="callout trap">
+      <h4>Common exam traps</h4>
+      <ul class="list-disc ml-6">
+        <li>"Mask R-CNN replaces softmax with sigmoid for classification." — <strong>False</strong>. The class head is still softmax. The change is in the <em>mask head</em>: per-class sigmoid instead of cross-class softmax.</li>
+        <li>"$L_{mask}$ uses all $K$ channels." — False. Only the channel of the GT class contributes.</li>
+        <li>"$L_{mask}$ is per-pixel softmax cross-entropy." — That is FCN, not Mask R-CNN. Mask R-CNN is per-pixel <em>binary</em> CE.</li>
+        <li>"RoI Pool is fine for Mask R-CNN." — Empirically no; pixel-level alignment matters and RoI Align gives ~1–3 mAP improvement on masks.</li>
+        <li>Confusing the mask output spatial size: 28×28 with the FPN backbone (slide 34) vs 14×14 with the C5/ResNet backbone (slide 35).</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="concept">
+    <h3>Bonus — FCN vs Mask R-CNN at a glance</h3>
+    <table class="text-sm mt-2 w-full">
+      <thead><tr><th class="text-left">Aspect</th><th class="text-left">FCN</th><th class="text-left">Mask R-CNN</th></tr></thead>
+      <tbody class="align-top">
+        <tr><td>Task</td><td>Semantic segmentation</td><td>Instance segmentation</td></tr>
+        <tr><td>Output</td><td>1 mask covering whole image, $C$ channels</td><td>$K$ per-RoI binary masks of size $m\times m$</td></tr>
+        <tr><td>Activation</td><td>Softmax over classes per pixel</td><td>Sigmoid per channel per pixel</td></tr>
+        <tr><td>Loss</td><td>Per-pixel softmax CE</td><td>Per-pixel binary CE on the GT-class channel only</td></tr>
+        <tr><td>Instance separation</td><td>No (overlapping problem)</td><td>Yes (one mask per detected RoI)</td></tr>
+        <tr><td>COCO AP gain (slide)</td><td>24.8</td><td>30.3 (+5.5)</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- =========================================== Practice =========================================== -->
+<section id="practice" class="mt-12">
+  <h2 class="text-2xl font-bold border-b pb-1 mb-3">Practice quiz — Lecture 12</h2>
+
+  <div class="q">
+    <div class="stem">1 (Short). Write the Fast R-CNN multi-task loss and name every symbol.</div>
+    <details class="reveal"><summary>Answer</summary>$L(p,u,t^u,v)=L_{cls}(p,u)+\lambda[u\ge 1]L_{loc}(t^u,v)$. $p$ = predicted class probabilities (softmax), $u$ = GT class index (0 = background), $t^u$ = predicted box offsets for class $u$, $v$ = ground-truth offsets, $\lambda$ = balancing weight, $[u\ge 1]$ = Iverson bracket that zeros the regression term for background RoIs.</details>
+  </div>
+
+  <div class="q">
+    <div class="stem">2 (T/F). For a background RoI ($u=0$), the regression loss $L_{loc}$ contributes a non-zero value.</div>
+    <details class="reveal"><summary>Answer</summary>False. The Iverson bracket $[u\ge 1]$ is 0 for $u=0$, so $L_{loc}$ is multiplied by 0.</details>
+  </div>
+
+  <div class="q">
+    <div class="stem">3 (List). State the 4 steps of the alternate training schedule.</div>
+    <details class="reveal"><summary>Answer</summary>
+    <ol class="list-decimal ml-5">
+      <li>Train RPN, initialised from ImageNet pre-training.</li>
+      <li>Train Fast R-CNN detector using proposals from step-1 RPN — using a <em>separate</em> ImageNet-initialised CNN (so far: two separate backbones).</li>
+      <li>Freeze the shared conv layers (step-2's CNN); fine-tune RPN-specific layers on it (RPN and detector now share the backbone).</li>
+      <li>Freeze the shared conv layers; fine-tune detector-specific layers. Done — both heads share one backbone.</li>
+    </ol>
+    </details>
+  </div>
+
+  <div class="q">
+    <div class="stem">4 (MCQ). The detector mini-batch has size 128. How is it composed?</div>
+    <div>a) 64 +, 64 − &nbsp; b) 32 +, 96 − &nbsp; c) 96 +, 32 − &nbsp; d) 128 + only</div>
+    <details class="reveal"><summary>Answer</summary>b) 32 positive + 96 negative (≈ 1:3), sampled from two images per batch.</details>
+  </div>
+
+  <div class="q">
+    <div class="stem">5 (Short). Write the Mask R-CNN loss and explain what $L_{mask}$ measures.</div>
+    <details class="reveal"><summary>Answer</summary>$L = L_{cls} + L_{box} + L_{mask}$. $L_{mask}$ is the average per-pixel <strong>binary</strong> cross-entropy over the $m\times m$ output mask, evaluated <em>only</em> on the channel corresponding to the ground-truth class $u$. The other $K-1$ mask channels are ignored — masks are decoupled from class prediction.</details>
+  </div>
+
+  <div class="q">
+    <div class="stem">6 (T/F). RoI Pool and RoI Align give similar quality for Mask R-CNN's mask outputs.</div>
+    <details class="reveal"><summary>Answer</summary>False. RoI Pool quantises feature-map coordinates twice, which destroys pixel-level alignment. RoI Align uses bilinear sampling without quantisation and is essential for mask quality; it gives a sizeable mAP improvement on the mask metric.</details>
+  </div>
+
+  <div class="q">
+    <div class="stem">7 (Numerical / scenario). A 256×256 image with one car (class index 7, COCO with 80 classes). The mask head produces an $80\times 28\times 28$ tensor for the car RoI. During training, which channel(s) of this tensor contribute to $L_{mask}$, and what activation/loss are applied?</div>
+    <details class="reveal"><summary>Answer</summary>Only channel 7 (the GT-class channel). A sigmoid is applied pixel-wise to that 28×28 channel; the loss is the average binary cross-entropy between the 784 sigmoid outputs and the GT mask resized to 28×28. The other 79 channels are "don't care" for $L_{mask}$ (they still get gradients from other RoIs whose GT classes happen to fall on those channels).</details>
+  </div>
+
+  <div class="q">
+    <div class="stem">8 (Short). Why does Mask R-CNN use a sigmoid per channel instead of a softmax across the 80 channels (as FCN does)?</div>
+    <details class="reveal"><summary>Answer</summary>To decouple mask prediction from class prediction. With softmax across channels, the K masks compete pixel-by-pixel, forcing the network to also implicitly classify. With sigmoid per channel, the K masks are independent binary masks; the class head alone decides which channel to keep. Empirically this gives +5.5 mAP on COCO (24.8 → 30.3).</details>
+  </div>
+
+  <div class="q">
+    <div class="stem">9 (T/F). Inside Faster R-CNN, NMS is applied exactly once during inference.</div>
+    <details class="reveal"><summary>Answer</summary>False. NMS is applied <strong>twice</strong>: once class-agnostic on RPN proposals (to dedup anchors), and again per-class on the final detector outputs (to dedup detections within each class).</details>
+  </div>
+</section>
+
+<footer class="mt-16 pt-6 border-t text-sm text-slate-500 dark:text-slate-400 no-print">
+  Lecture 12 complete — end of course. <a href="../index.html">← Back to index</a>
+</footer>
+</main>
+
+<script>
+document.getElementById('themeToggle').addEventListener('click', () => {
+  const cur = document.documentElement.getAttribute('data-theme');
+  const next = cur === 'dark' ? 'light' : 'dark';
+  document.documentElement.setAttribute('data-theme', next);
+  localStorage.setItem('theme', next);
+});
+// Mark lecture 12 as visited
+try { localStorage.setItem('lecture-L12-visited', '1'); } catch(e){}
+</script>
+</body>
+</html>

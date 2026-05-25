@@ -1,0 +1,488 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>L01 — Intro to CV & Image Enhancement in Spatial Domain</title>
+<meta name="description" content="Full revision notes for Lecture 1: classical vs modern CV, pixel-based enhancement, spatial filters." />
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/katex.min.css">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/katex.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/contrib/auto-render.min.js"
+        onload="renderMathInElement(document.body,{delimiters:[{left:'$$',right:'$$',display:true},{left:'$',right:'$',display:false}]});"></script>
+<link rel="stylesheet" href="../assets/css/styles.css">
+<script>
+  (function(){
+    const saved = localStorage.getItem('theme') || 'light';
+    document.documentElement.setAttribute('data-theme', saved);
+  })();
+</script>
+</head>
+<body class="max-w-5xl mx-auto px-4 pb-24">
+
+<header class="flex items-center justify-between py-4 border-b border-slate-200 dark:border-slate-700 no-print">
+  <a href="../index.html" class="text-sm">← Back to index</a>
+  <div class="flex items-center gap-3">
+    <span class="text-xs opacity-70">Lecture 1 of 12</span>
+    <button id="themeToggle" class="text-sm border rounded px-2 py-1">🌓 Theme</button>
+  </div>
+</header>
+
+<nav class="section-jump no-print" aria-label="Sections in this lecture">
+  <a href="#s1.1">s1.1 Classical vs Modern</a>
+  <a href="#s1.2">s1.2 Pixel-based enhancement</a>
+  <a href="#s1.3">s1.3 Spatial filters</a>
+  <a href="#practice">Practice quiz</a>
+</nav>
+
+<main>
+<h1 class="text-3xl font-extrabold mt-4 mb-2">Lecture 1 — Introduction to Computer Vision &amp; Image Enhancement in the Spatial Domain</h1>
+<p class="text-slate-500 dark:text-slate-400 mb-6">Slides © Dr. Khaled M. ElSayed, Zewail City. 56 slides.</p>
+
+<!-- =========================================== s1.1 =========================================== -->
+<section id="s1.1" class="mt-10">
+  <h2 class="text-2xl font-bold border-b pb-1 mb-3">s1.1 — Classical vs Modern Computer Vision</h2>
+
+  <div class="concept">
+    <h3>What is Computer Vision?</h3>
+    <p class="why">Why it matters: every algorithm in this course is a tool that helps a computer <em>see, observe and understand</em>. Knowing this framing makes every later lecture make sense.</p>
+    <p><strong>Computer vision</strong> is a sub-field of AI that uses machine-learning / neural networks to teach machines to derive meaningful information from <em>digital images, videos and other visual inputs</em>, and then to make recommendations or take actions.</p>
+    <p class="mt-2"><em>Slogan to remember:</em> <strong>AI</strong> enables computers to <strong>think</strong>; <strong>CV</strong> enables them to <strong>See, Observe and Understand</strong>.</p>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L01/page-002.png" alt="Lecture 1 — Definition of Computer Vision, page 2">
+      <figcaption>L01 · slide 2 — definition of Computer Vision.</figcaption>
+    </figure>
+  </div>
+
+  <div class="concept">
+    <h3>Two flavours: Classical CV vs Modern CV</h3>
+    <p class="why">Why it matters: the first half of the course is classical CV (hand-crafted features); the second half is modern CV (end-to-end deep models). Exam questions love to ask which one fits a given scenario.</p>
+
+    <figure class="slide-figure">
+      <img src="../assets/slides/L01/page-003.png" alt="Lecture 1 — Tree diagram: Classical CV vs Modern CV, page 3">
+      <figcaption>L01 · slide 3 — Classical vs Modern CV.</figcaption>
+    </figure>
+
+    <p><strong>Classical CV</strong> = <em>hand-crafted features</em>. Pipeline: <code>Pre-processing → Feature Extraction → Dimensionality Reduction → Classification/Segmentation</code>.</p>
+    <p><strong>Modern CV</strong> = <em>end-to-end deep learning model</em>. The CNN learns the features itself.</p>
+
+    <div class="callout">
+      <h4>Same problem, two pipelines — OCR on a phone photo</h4>
+      <ul class="list-disc ml-6">
+        <li><strong>Classical:</strong> detect corners → affine-rectify → SVM / NN for OCR.</li>
+        <li><strong>Modern:</strong> CNN filters rectify + extract features → fully-connected layers classify characters.</li>
+      </ul>
+    </div>
+
+    <figure class="slide-figure">
+      <img src="../assets/slides/L01/page-005.png" alt="Lecture 1 — Pros/Cons of classical CV, page 5">
+      <figcaption>L01 · slide 5 — Classical CV pros &amp; cons.</figcaption>
+    </figure>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L01/page-007.png" alt="Lecture 1 — Pros/Cons of modern CV, page 7">
+      <figcaption>L01 · slide 7 — Modern CV pros &amp; cons.</figcaption>
+    </figure>
+
+    <details class="reveal">
+      <summary>Compare the two — click for the table you should memorise.</summary>
+      <table class="text-sm mt-2 w-full">
+        <thead><tr><th class="text-left">Aspect</th><th class="text-left">Classical CV</th><th class="text-left">Modern CV</th></tr></thead>
+        <tbody class="align-top">
+          <tr><td>Features</td><td>hand-crafted</td><td>learned by the model</td></tr>
+          <tr><td>Domain</td><td>fixed / controlled</td><td>generalises, good outdoors</td></tr>
+          <tr><td>Data needed</td><td>little</td><td>large</td></tr>
+          <tr><td>Inference time</td><td>fast (average)</td><td>slower</td></tr>
+          <tr><td>Edge devices</td><td>yes (small)</td><td>limited</td></tr>
+          <tr><td>Explainability</td><td>built-in</td><td>opaque</td></tr>
+          <tr><td>Hard tasks</td><td>weak</td><td>strong</td></tr>
+        </tbody>
+      </table>
+    </details>
+
+    <div class="callout trap">
+      <h4>Common exam traps</h4>
+      <ul class="list-disc ml-6">
+        <li>"Classical CV needs more data." — <strong>False</strong>. The opposite is true.</li>
+        <li>"Modern CV is always more accurate." — Only on rich data; on tiny fixed-domain data classical can win.</li>
+        <li>"Classical CV is always interpretable." — Interpretation is much more <em>straightforward</em>, but it is not magical; still requires effort.</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="concept">
+    <h3>Some CV tasks (memorise the menu)</h3>
+    <p class="why">Why it matters: the lectures map onto these tasks (classification, detection, segmentation, recognition…). Knowing the menu helps you place every algorithm.</p>
+    <p>Object detection &amp; localisation, object recognition (classification), content-based image retrieval, pose estimation, OCR, facial recognition, emotion recognition, human activity recognition, object tracking, image restoration (fix lens / transmission damage), image inpainting (restore missing parts).</p>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L01/page-008.png" alt="Lecture 1 — CV tasks list, page 8">
+      <figcaption>L01 · slide 8 — CV task menu.</figcaption>
+    </figure>
+  </div>
+</section>
+
+<!-- =========================================== s1.2 =========================================== -->
+<section id="s1.2" class="mt-12">
+  <h2 class="text-2xl font-bold border-b pb-1 mb-3">s1.2 — Pixel-based Image Enhancement</h2>
+
+  <p>Image enhancement has two big families:</p>
+  <ol class="list-decimal ml-6">
+    <li><strong>Pixel-based</strong>: output pixel depends only on the input pixel value at the same location → Negative, Gamma, Histogram equalisation.</li>
+    <li><strong>Neighbourhood-based (local)</strong>: output depends on a window around the pixel → Spatial filters (smoothing, ordered-statistics, sharpening).</li>
+  </ol>
+  <figure class="slide-figure">
+    <img src="../assets/slides/L01/page-010.png" alt="Lecture 1 — Image enhancement taxonomy, page 10">
+    <figcaption>L01 · slide 10 — taxonomy.</figcaption>
+  </figure>
+
+  <div class="concept">
+    <h3>The general gray-level transform <code>s = T(r)</code></h3>
+    <p class="why">Why it matters: every pixel-based method is just a different curve of $s=T(r)$. Recognising the curve on the exam is half the answer.</p>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L01/page-011.png" alt="Lecture 1 — gray-level transformation curves, page 11">
+      <figcaption>L01 · slide 11 — curves: identity, negative, log, inverse-log, n-th root, n-th power.</figcaption>
+    </figure>
+    <p>Symbols: <strong>r</strong> = input gray level, <strong>s</strong> = output gray level, <strong>L</strong> = number of gray levels (usually 256).</p>
+    <details class="reveal">
+      <summary>How to read the curve graph</summary>
+      Pick a point on the x-axis (input r). Move up to the curve, then read across to the y-axis (output s). A steep slope locally = high contrast in that input range; a flat slope = compressed contrast.
+    </details>
+  </div>
+
+  <!-- Negative -->
+  <div class="concept">
+    <h3>(1) Negative transformation</h3>
+    <p class="why">Why it matters: dramatic visualisation tool for medical images and dark backgrounds — exam favourite for "name the transform applied".</p>
+    <p>Formula: $s = L-1 - r$, or for 8-bit images $s = 255-r$.</p>
+    <p>Black (0) becomes white (255), and vice versa.</p>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L01/page-013.png" alt="Lecture 1 — Negative transform on a mammogram, page 13">
+      <figcaption>L01 · slide 13 — negative transform applied to a mammogram.</figcaption>
+    </figure>
+    <details class="reveal">
+      <summary>Worked example — apply $s=255-r$ to a 3×3 block</summary>
+      Input:
+      <pre>[ 10  20  30
+  40  50  60
+  70  80  90]</pre>
+      Output:
+      <pre>[245 235 225
+ 215 205 195
+ 185 175 165]</pre>
+    </details>
+
+    <div class="q">
+      <div class="stem">Q. The original image is a dark mammogram; tumours appear bright. After the negative transform, where do the tumours appear?</div>
+      <details class="reveal"><summary>Answer</summary>Dark. Negative flips intensities — bright detail in the original becomes dark detail in the output, and vice versa.</details>
+    </div>
+  </div>
+
+  <!-- Gamma -->
+  <div class="concept">
+    <h3>(2) Gamma correction (power law)</h3>
+    <p class="why">Why it matters: digital cameras + displays use power-law non-linearities. You'll be asked to predict the visual effect of γ&lt;1 vs γ&gt;1.</p>
+    <p>Formula: $s = c\,r^{\gamma}$. Normalise $r\in[0,1]$ first; the output $s$ comes out in $[0,1]$.</p>
+    <ul class="list-disc ml-6">
+      <li>$\gamma &lt; 1$ → curve bends <strong>up</strong> → dark regions get brighter → reveals shadow detail.</li>
+      <li>$\gamma &gt; 1$ → curve bends <strong>down</strong> → bright regions get darker → reveals highlight detail.</li>
+      <li>$\gamma = 1$ → identity.</li>
+    </ul>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L01/page-015.png" alt="Lecture 1 — Family of gamma curves for c=1, page 15">
+      <figcaption>L01 · slide 15 — family of γ curves.</figcaption>
+    </figure>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L01/page-016.png" alt="Lecture 1 — γ correction lookup table, page 16">
+      <figcaption>L01 · slide 16 — γ correction lookup table (verify by hand: $0.5^{0.4}\!\approx\!0.758$).</figcaption>
+    </figure>
+
+    <details class="reveal">
+      <summary>Worked example — pixel value 0.5 under several γ (c=1)</summary>
+      <ul class="ml-5 list-disc">
+        <li>γ = 0.4 → $s=0.5^{0.4}=0.758$</li>
+        <li>γ = 1.0 → $s=0.5$</li>
+        <li>γ = 2.5 → $s=0.5^{2.5}=0.177$</li>
+      </ul>
+      → small γ brightens, large γ darkens.
+    </details>
+
+    <figure class="slide-figure">
+      <img src="../assets/slides/L01/page-017.png" alt="Lecture 1 — γ=0.6 spinal MRI, page 17">
+      <figcaption>L01 · slide 17 — γ=0.6 brightens dark MRI.</figcaption>
+    </figure>
+
+    <div class="callout trap">
+      <h4>Trap</h4>
+      <ul class="list-disc ml-6">
+        <li>Forgetting to normalise r to [0,1] before applying $r^{\gamma}$ — values explode or vanish.</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- Histogram -->
+  <div class="concept">
+    <h3>(3) Histogram &amp; Histogram Equalisation</h3>
+    <p class="why">Why it matters: this is the marquee pixel-based method. Expect a numerical 5×5/8-level toy problem on the final.</p>
+
+    <p><strong>Histogram</strong>: $h(k)$ = number of pixels with gray level $k$. Used to diagnose <em>dark</em>, <em>bright</em>, <em>low-contrast</em>, <em>high-contrast</em> images.</p>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L01/page-022.png" alt="Lecture 1 — four contrast types, page 22">
+      <figcaption>L01 · slide 22 — visual diagnosis from a histogram.</figcaption>
+    </figure>
+
+    <p><strong>Goal of equalisation</strong>: find a transform $s = T(r)$ that produces an output histogram that is (approximately) <em>uniform</em>, i.e. the full dynamic range is used.</p>
+    <p>Discrete formula (the only one you need to memorise):</p>
+    <p>$$T(r)=\text{round}\Big(N\,\sum_{i=0}^{r} p(i)\Big)$$</p>
+    <p>where $p(i)$ is the probability of gray level $i$ (count/total) and $N$ is the maximum gray level (e.g. 7 for an 8-level image, 255 for an 8-bit image). The sum is just the cumulative distribution function (CDF) at level $r$.</p>
+
+    <figure class="slide-figure">
+      <img src="../assets/slides/L01/page-026.png" alt="Lecture 1 — full worked HE example, page 26">
+      <figcaption>L01 · slide 26 — full worked example.</figcaption>
+    </figure>
+
+    <details class="reveal">
+      <summary>Replicate the slide example by hand (50 pixels, 8 levels)</summary>
+      Counts: $[10,20,12,8,0,0,0,0]$, total 50.<br>
+      Probabilities: $[0.2,0.4,0.24,0.16,0,0,0,0]$<br>
+      CDF: $[0.2,0.6,0.84,1.0,1,1,1,1]$<br>
+      Map $T(r)=\text{round}(7\cdot\text{CDF}(r))$: $[\;1,4,6,7,7,7,7,7\;]$<br>
+      Mapping table → original {0,1,2,3} → new {1,4,6,7}. Output histogram fills the range.
+    </details>
+
+    <figure class="slide-figure">
+      <img src="../assets/slides/L01/page-027.png" alt="Lecture 1 — input/output histograms, page 27">
+      <figcaption>L01 · slide 27 — input histogram → output histogram after equalisation.</figcaption>
+    </figure>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L01/page-029.png" alt="Lecture 1 — equalised dark image, page 29">
+      <figcaption>L01 · slide 29 — dark image equalised.</figcaption>
+    </figure>
+
+    <div class="callout trap">
+      <h4>Common exam traps</h4>
+      <ul class="list-disc ml-6">
+        <li>Forgetting to <strong>round</strong> at the end.</li>
+        <li>Using $N = $ number-of-levels (e.g. 8) instead of <strong>max gray level</strong> (7).</li>
+        <li>Saying "equalisation produces a perfectly flat histogram" — for discrete images it is only <em>approximately</em> uniform.</li>
+      </ul>
+    </div>
+
+    <div class="q">
+      <div class="stem">Q. For the toy image above, what is the new value of every pixel that was at level 2?</div>
+      <details class="reveal"><summary>Answer</summary>$T(2)=\text{round}(7\cdot 0.84)=\text{round}(5.88)=6$.</details>
+    </div>
+    <div class="q">
+      <div class="stem">Q (T/F). After histogram equalisation, the number of distinct gray levels in the output is at least as large as in the input.</div>
+      <details class="reveal"><summary>Answer</summary>False. Equalisation is a many-to-one mapping; distinct levels can <em>merge</em>, never split.</details>
+    </div>
+  </div>
+</section>
+
+<!-- =========================================== s1.3 =========================================== -->
+<section id="s1.3" class="mt-12">
+  <h2 class="text-2xl font-bold border-b pb-1 mb-3">s1.3 — Spatial Filters (neighbourhood-based)</h2>
+
+  <div class="concept">
+    <h3>Basics of spatial filtering</h3>
+    <p class="why">Why it matters: every later lecture (CNNs, edge detection, SIFT) is a special case of a spatial filter sliding across the image.</p>
+    <p>Define $g(x,y) = T[f(x,y)]$ where $T$ operates on a neighbourhood (window/mask/kernel) around $(x,y)$. The output pixel at $(x,y)$ is a function of the pixel and its neighbours.</p>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L01/page-035.png" alt="Lecture 1 — neighbourhood operator schematic, page 35">
+      <figcaption>L01 · slide 35 — neighbourhood operator $T$ sliding over $f(x,y)$.</figcaption>
+    </figure>
+    <p>Three families: <strong>Smoothing</strong>, <strong>Order-statistics</strong>, <strong>Sharpening</strong>.</p>
+  </div>
+
+  <!-- Smoothing -->
+  <div class="concept">
+    <h3>Smoothing filters (linear / averaging / weighted)</h3>
+    <p class="why">Used for <em>blurring</em> and <em>noise reduction</em>; the workhorse before edge detection.</p>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L01/page-037.png" alt="Lecture 1 — 3x3 box and weighted Gaussian-ish kernels, page 37">
+      <figcaption>L01 · slide 37 — 3×3 box (×1/9) and weighted (×1/16) kernels.</figcaption>
+    </figure>
+    <details class="reveal">
+      <summary>Worked numerical example — apply the box 3×3 to the centre pixel</summary>
+      Window:
+      <pre>[10 20 30
+ 40 50 60
+ 70 80 90]</pre>
+      Output centre = $\tfrac{1}{9}(10+20+30+40+50+60+70+80+90)=\tfrac{450}{9}=50$.
+      (Sanity check: the centre value is the mean. ✓)
+    </details>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L01/page-038.png" alt="Lecture 1 — effect of mask size on the 'a' test image, page 38">
+      <figcaption>L01 · slide 38 — bigger mask → more blur, but you start losing fine detail.</figcaption>
+    </figure>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L01/page-039.png" alt="Lecture 1 — Hubble image: smoothing + thresholding pipeline, page 39">
+      <figcaption>L01 · slide 39 — useful trick: smoothing → thresholding turns noisy stars into clean binary blobs.</figcaption>
+    </figure>
+    <div class="callout trap">
+      <h4>Traps</h4>
+      <ul class="list-disc ml-6">
+        <li>Forgetting to <strong>divide</strong> by the sum of weights → the output saturates / clips.</li>
+        <li>"Bigger kernel is always better" — bigger kernels also blur edges; small objects disappear.</li>
+      </ul>
+    </div>
+    <div class="q">
+      <div class="stem">Q (MCQ). Which mask is the weighted (≈Gaussian) 3×3 averaging mask?</div>
+      <div>a) all ones, ÷9.<br>b) center=4, edges=2, corners=1, ÷16.<br>c) center=−4, edges=1, corners=0.<br>d) center=9, edges=−1, corners=−1.</div>
+      <details class="reveal"><summary>Answer</summary>b. (a) is the unweighted box; (c) is a Laplacian; (d) is a sharpener.</details>
+    </div>
+  </div>
+
+  <!-- Order-statistics -->
+  <div class="concept">
+    <h3>Order-statistics filters (non-linear)</h3>
+    <p class="why">Removes <strong>salt-and-pepper</strong> noise without blurring edges — averaging cannot do that.</p>
+    <p>Procedure on a $3\times 3$ window: sort the 9 values → pick min (min filter), median (median filter), or max (max filter).</p>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L01/page-041.png" alt="Lecture 1 — sort-then-pick min/median/max, page 41">
+      <figcaption>L01 · slide 41 — sort the 9 neighbourhood values, then pick min/median/max.</figcaption>
+    </figure>
+    <details class="reveal">
+      <summary>Slide's worked example</summary>
+      Window
+      <pre>[35 30 10
+  7 50 19
+ 15 23 42]</pre>
+      Sorted: 7,10,15,19,23,30,35,42,50 → median = <strong>23</strong>. So the centre's 50 (the spike) is replaced by 23 — exactly what we wanted.
+    </details>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L01/page-042.png" alt="Lecture 1 — original vs 3x3 average vs 3x3 median, page 42">
+      <figcaption>L01 · slide 42 — the median crushes salt-and-pepper noise while preserving edges; the box average just smears it.</figcaption>
+    </figure>
+    <div class="callout trap">
+      <h4>Trap</h4>
+      <ul class="list-disc ml-6">
+        <li>"Median filter is linear" — false; it is a <strong>non-linear</strong> filter (cannot be expressed as a convolution).</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- Sharpening -->
+  <div class="concept">
+    <h3>Sharpening filters — derivatives &amp; Laplacian</h3>
+    <p class="why">Sharpening is the dual of smoothing; it brings out fine detail and edges. Critical foundation for L02 (frequency-domain high-pass) and L03 (edge detection in SIFT).</p>
+
+    <p>Goal: (1) highlight fine detail = <em>spatial differentiation</em>, (2) de-emphasise slowly-varying regions.</p>
+
+    <p>Digital first &amp; second derivatives in 1-D:</p>
+    <p>$$\frac{\partial f}{\partial x}=f(x+1)-f(x)$$</p>
+    <p>$$\frac{\partial^2 f}{\partial x^2}=f(x+1)+f(x-1)-2f(x)$$</p>
+
+    <figure class="slide-figure">
+      <img src="../assets/slides/L01/page-050.png" alt="Lecture 1 — 1st &amp; 2nd derivative formulas, page 50">
+      <figcaption>L01 · slide 50 — derivatives as finite differences.</figcaption>
+    </figure>
+
+    <p><strong>Laplacian in 2-D</strong> (isotropic 2nd-order operator):</p>
+    <p>$$\nabla^2 f = f(x+1,y)+f(x-1,y)+f(x,y+1)+f(x,y-1)-4\,f(x,y)$$</p>
+
+    <figure class="slide-figure">
+      <img src="../assets/slides/L01/page-051.png" alt="Lecture 1 — Laplacian formula and neighbourhood, page 51">
+      <figcaption>L01 · slide 51 — Laplacian operator.</figcaption>
+    </figure>
+
+    <figure class="slide-figure">
+      <img src="../assets/slides/L01/page-052.png" alt="Lecture 1 — Laplacian mask variants, page 52">
+      <figcaption>L01 · slide 52 — four Laplacian masks. The 8-neighbour ones include diagonals (45° rotation invariant); the 4-neighbour ones are 90° rotation invariant.</figcaption>
+    </figure>
+
+    <p><strong>Sharpened image</strong> = original ± Laplacian, sign chosen so the centre coefficient is &gt; 0:</p>
+    <p>$$g(x,y) = \begin{cases} f(x,y)-\nabla^2 f & \text{if centre coeff of the Laplacian mask is }-4 \\ f(x,y)+\nabla^2 f & \text{if centre coeff of the Laplacian mask is }+4 \end{cases}$$</p>
+
+    <figure class="slide-figure">
+      <img src="../assets/slides/L01/page-054.png" alt="Lecture 1 — composite sharpening mask, page 54">
+      <figcaption>L01 · slide 54 — the composite "5 centre" and "9 centre" sharpening masks (Original + Laplacian merged into one mask).</figcaption>
+    </figure>
+
+    <details class="reveal">
+      <summary>Worked example — apply the 5-centre mask</summary>
+      Window
+      <pre>[10 20 30
+ 40 50 60
+ 70 80 90]</pre>
+      Centre output = $5\cdot 50 - (20+40+60+80) = 250 - 200 = 50$. (Here the gradient is symmetric — sharpening does nothing. For an edge: window <code>[10,10,10; 10,10,10; 100,100,100]</code> → centre output = $5\cdot 10 - (10+10+10+100)=50-130=-80$ → clipped to 0; the edge above the centre is enhanced.)
+    </details>
+
+    <figure class="slide-figure">
+      <img src="../assets/slides/L01/page-056.png" alt="Lecture 1 — cyan (90°) vs orange (45°) Laplacian results, page 56">
+      <figcaption>L01 · slide 56 — cyan mask (5-centre, 4-neighbour) vs orange mask (9-centre, 8-neighbour).</figcaption>
+    </figure>
+
+    <div class="callout trap">
+      <h4>Common exam traps</h4>
+      <ul class="list-disc ml-6">
+        <li>Picking the wrong sign in $g = f \pm \nabla^2 f$. Remember: <strong>centre +</strong> means add, <strong>centre −</strong> means subtract.</li>
+        <li>Confusing 1st-derivative (Sobel-style) and 2nd-derivative (Laplacian) magnitude maps — only the 2nd derivative crosses zero at edges.</li>
+        <li>Forgetting that Laplacian is sensitive to noise — usually apply a smoothing first ("LoG" = Laplacian of Gaussian, returns in L02 / L04).</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- =========================================== Practice =========================================== -->
+<section id="practice" class="mt-12">
+  <h2 class="text-2xl font-bold border-b pb-1 mb-3">Practice quiz — Lecture 1</h2>
+
+  <div class="q">
+    <div class="stem">1 (MCQ). An 8-bit image has pixel value 200. After negative transformation:</div>
+    <div>a) 55 &nbsp; b) 56 &nbsp; c) 100 &nbsp; d) 200</div>
+    <details class="reveal"><summary>Answer</summary>a) $s=255-200=55$.</details>
+  </div>
+
+  <div class="q">
+    <div class="stem">2 (MCQ). γ = 0.5 with c=1 is applied to a normalised pixel value 0.25. Output is:</div>
+    <div>a) 0.0625 &nbsp; b) 0.125 &nbsp; c) 0.5 &nbsp; d) 0.7071</div>
+    <details class="reveal"><summary>Answer</summary>c) $0.25^{0.5}=0.5$.</details>
+  </div>
+
+  <div class="q">
+    <div class="stem">3 (T/F). Median filter is a linear filter.</div>
+    <details class="reveal"><summary>Answer</summary>False. It is non-linear.</details>
+  </div>
+
+  <div class="q">
+    <div class="stem">4 (T/F). Histogram equalisation always produces a perfectly uniform histogram.</div>
+    <details class="reveal"><summary>Answer</summary>False — only approximately uniform on discrete images (many-to-one mapping).</details>
+  </div>
+
+  <div class="q">
+    <div class="stem">5 (Short). Write the 2-D discrete Laplacian formula.</div>
+    <details class="reveal"><summary>Answer</summary>$\nabla^2 f = f(x+1,y)+f(x-1,y)+f(x,y+1)+f(x,y-1)-4f(x,y)$.</details>
+  </div>
+
+  <div class="q">
+    <div class="stem">6 (Scenario). You are given a chest X-ray that is uniformly very dark. Which technique recovers shadow detail best, and what parameter setting would you use?</div>
+    <details class="reveal"><summary>Answer</summary>Gamma correction with $\gamma &lt; 1$ (e.g. 0.4–0.6) brightens dark pixels relatively more than bright ones. Histogram equalisation also works, especially when the dynamic range is compressed.</details>
+  </div>
+
+  <div class="q">
+    <div class="stem">7 (Scenario). A printed-circuit photo has salt-and-pepper noise. Pick the filter and justify in one sentence.</div>
+    <details class="reveal"><summary>Answer</summary>3×3 median (order-statistics) — replaces the extreme pixels with the rank median, edges of traces are preserved (a 3×3 average would just smear the noise).</details>
+  </div>
+
+  <div class="q">
+    <div class="stem">8 (Numerical). Equalise the histogram of an image whose 8 levels have counts $[5,10,5,0,0,0,0,0]$ (total 20).</div>
+    <details class="reveal"><summary>Answer</summary>p = $[0.25,0.5,0.25,0,…]$. CDF = $[0.25,0.75,1.0,1,…]$. $T = \text{round}(7\cdot\text{CDF}) = [2,5,7,7,…]$. Map 0→2, 1→5, 2→7.</details>
+  </div>
+</section>
+
+<footer class="mt-16 pt-6 border-t text-sm text-slate-500 dark:text-slate-400 no-print">
+  Lecture 1 complete. <a href="./L02.html">Next → L02 — Filters in the frequency domain</a>
+</footer>
+</main>
+
+<script>
+document.getElementById('themeToggle').addEventListener('click', () => {
+  const cur = document.documentElement.getAttribute('data-theme');
+  const next = cur === 'dark' ? 'light' : 'dark';
+  document.documentElement.setAttribute('data-theme', next);
+  localStorage.setItem('theme', next);
+});
+// Mark lecture 1 as visited
+try { localStorage.setItem('lecture-L01-visited', '1'); } catch(e){}
+</script>
+</body>
+</html>

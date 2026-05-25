@@ -1,0 +1,595 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>L08 — YOLO Loss Function</title>
+<meta name="description" content="Full revision notes for Lecture 8: YOLO loss function structure, localisation/objectness/classification, weights, IoU-based variants, and YOLO version evolution." />
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/katex.min.css">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/katex.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/contrib/auto-render.min.js"
+        onload="renderMathInElement(document.body,{delimiters:[{left:'$$',right:'$$',display:true},{left:'$',right:'$',display:false}]});"></script>
+<link rel="stylesheet" href="../assets/css/styles.css">
+<script>
+  (function(){
+    const saved = localStorage.getItem('theme') || 'light';
+    document.documentElement.setAttribute('data-theme', saved);
+  })();
+</script>
+</head>
+<body class="max-w-5xl mx-auto px-4 pb-24">
+
+<header class="flex items-center justify-between py-4 border-b border-slate-200 dark:border-slate-700 no-print">
+  <a href="../index.html" class="text-sm">← Back to index</a>
+  <div class="flex items-center gap-3">
+    <span class="text-xs opacity-70">Lecture 8 of 12</span>
+    <button id="themeToggle" class="text-sm border rounded px-2 py-1">🌓 Theme</button>
+  </div>
+</header>
+
+<nav class="section-jump no-print" aria-label="Sections in this lecture">
+  <a href="#s8.1">s8.1 Loss structure</a>
+  <a href="#s8.2">s8.2 Localisation / Conf / Class</a>
+  <a href="#s8.3">s8.3 YOLO versions evolution</a>
+  <a href="#practice">Practice quiz</a>
+</nav>
+
+<main>
+<h1 class="text-3xl font-extrabold mt-4 mb-2">Lecture 8 — YOLO Loss Functions (across versions)</h1>
+<p class="text-slate-500 dark:text-slate-400 mb-6">Slides © Dr. Khaled M. ElSayed, Zewail City. 39 slides.</p>
+
+<!-- =========================================== Quick review of YOLO basics =========================================== -->
+<section id="review" class="mt-6">
+  <h2 class="text-2xl font-bold border-b pb-1 mb-3">Quick review — YOLO at a glance (slides 1–16)</h2>
+
+  <div class="concept">
+    <h3>The YOLO pipeline in one paragraph</h3>
+    <p class="why">Why it matters: every term in the loss function is just a regression target on one of the entries of the YOLO output vector. If the encoding isn't clear, the loss formula will look like nonsense.</p>
+    <p>YOLO ("You Only Look Once") divides the input image into an $S\times S$ grid of cells. Each cell is responsible for predicting any object whose <strong>centre</strong> falls inside it. For every cell the model outputs, for each of $B$ anchor boxes:</p>
+    <ul class="list-disc ml-6">
+      <li>An <strong>objectness</strong> / confidence score $\hat C \in [0,1]$ — "is there an object centred here?".</li>
+      <li>The box coordinates $\hat x,\hat y,\hat w,\hat h$ (centre offset + size).</li>
+      <li>A class-probability vector $\hat p(c_1),\hat p(c_2),\ldots$ — one entry per class.</li>
+    </ul>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L08/page-003.png" alt="Lecture 8 — YOLO concept at a glance, page 3">
+      <figcaption>L08 · slide 3 — YOLO concept at a glance: image → grid → label vector per cell.</figcaption>
+    </figure>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L08/page-004.png" alt="Lecture 8 — cell-based coordinate encoding, page 4">
+      <figcaption>L08 · slide 4 — cell-based encoding: $(x,y)\in[0,1]$ relative to the cell, $w,h$ may exceed 1.</figcaption>
+    </figure>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L08/page-005.png" alt="Lecture 8 — image-based encoding, page 5">
+      <figcaption>L08 · slide 5 — image-based encoding: $(x,y,w,h)\in[0,S]$ in cell units.</figcaption>
+    </figure>
+  </div>
+
+  <div class="concept">
+    <h3>Anchors — multiple boxes per cell</h3>
+    <p class="why">Why it matters: $\mathbb{1}^{obj}_{ij}$ in the loss has a $j$ index because each cell has $B$ anchor boxes. Without anchors the index would just be $i$.</p>
+    <p>Each cell can host up to $B$ anchor boxes of different shapes/aspect ratios. An object is assigned to the anchor whose <em>shape</em> is most similar to its bounding box (highest IoU).</p>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L08/page-007.png" alt="Lecture 8 — multiple anchors for overlapping objects, page 7">
+      <figcaption>L08 · slide 7 — two object centres in the SAME cell → assign each to the most similar anchor.</figcaption>
+    </figure>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L08/page-011.png" alt="Lecture 8 — proper-vs-wrong anchor assignment, page 11">
+      <figcaption>L08 · slide 11 — proper anchor assignment → consistent training data → high accuracy.</figcaption>
+    </figure>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L08/page-012.png" alt="Lecture 8 — output vector size formula, page 12">
+      <figcaption>L08 · slide 12 — output tensor size: $S{\times}S{\times}M{\times}(5+N)$ for multiple-object-per-cell, $S{\times}S{\times}(5M+N)$ for one-object-per-cell.</figcaption>
+    </figure>
+    <details class="reveal">
+      <summary>Sanity check from slide 12</summary>
+      For $S=13$, $M=6$ anchors, $N=100$ classes:
+      <ul class="list-disc ml-6">
+        <li>One object per cell: $13\!\cdot\!13\!\cdot\![6\!\cdot\!5+100]=21{,}970$ outputs.</li>
+        <li>Multiple objects per cell: $13\!\cdot\!13\!\cdot\!6\!\cdot\![5+100]=106{,}470$ outputs (≈4.84× larger).</li>
+      </ul>
+    </details>
+  </div>
+
+  <div class="concept">
+    <h3>The YOLO output tensor (v2 / v3)</h3>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L08/page-016.png" alt="Lecture 8 — YOLO v2/v3 output layer structure, page 16">
+      <figcaption>L08 · slide 16 — output layer split into <strong>offsets</strong> $(x,y)$, <strong>scales</strong> $(w,h)$, <strong>obj</strong> ($P(c)$), and <strong>probs</strong> $(c_1,c_2,\ldots,c_n)$ per anchor.</figcaption>
+    </figure>
+    <p>Four logical groups per anchor: <code>offsets</code> (box centre), <code>scales</code> (width/height), <code>obj</code> (confidence), <code>probs</code> (class scores). The loss function has one term per group.</p>
+  </div>
+</section>
+
+<!-- =========================================== s8.1 =========================================== -->
+<section id="s8.1" class="mt-12">
+  <h2 class="text-2xl font-bold border-b pb-1 mb-3">s8.1 — Overall structure of the YOLO loss (5 terms)</h2>
+
+  <div class="concept">
+    <h3>Three sub-losses, five formula terms</h3>
+    <p class="why">Why it matters: in an exam, "list the components of the YOLO loss" or "what does $\mathbb{1}^{obj}_{ij}$ mean" is almost free marks if you know the structure.</p>
+    <p>The YOLO loss is a <strong>weighted sum of three sub-losses</strong>:</p>
+    <p>$$\text{Loss} = \underbrace{\text{Localisation}}_{\text{box }(x,y,w,h)} + \underbrace{\text{Objectness}}_{\text{confidence }C} + \underbrace{\text{Classification}}_{\text{class probs }p(c)}$$</p>
+    <p>When written as one formula it splits into <strong>five</strong> summation terms:</p>
+    <ol class="list-decimal ml-6">
+      <li>Box centre — $(x,y)$ squared error (with weight $\lambda_{coord}$).</li>
+      <li>Box size — $(\sqrt{w},\sqrt{h})$ squared error (also with $\lambda_{coord}$).</li>
+      <li>Object-confidence — $(C-\hat C)^2$ over cells <em>that contain</em> an object.</li>
+      <li>No-object confidence — $(C-\hat C)^2$ over cells that <em>do not</em> (with weight $\lambda_{noobj}$).</li>
+      <li>Class probabilities — $\sum_c (p_i(c)-\hat p_i(c))^2$, only over cells that contain an object.</li>
+    </ol>
+
+    <figure class="slide-figure">
+      <img src="../assets/slides/L08/page-018.png" alt="Lecture 8 — regression loss YOLO v1, page 18">
+      <figcaption>L08 · slide 18 — the three sub-losses for ONE cell, one anchor box.</figcaption>
+    </figure>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L08/page-019.png" alt="Lecture 8 — total loss of one cell, page 19">
+      <figcaption>L08 · slide 19 — total loss of one cell (no weights yet) using $L^{Obj}$/$L^{NoObj}$ indicators.</figcaption>
+    </figure>
+  </div>
+
+  <div class="concept">
+    <h3>The $\mathbb{1}^{obj}_{ij}$ indicators (the gatekeepers)</h3>
+    <p class="why">Why it matters: every term in the loss has one of these out the front; they are what makes the loss "responsibility-aware".</p>
+    <p>These are 0/1 switches that turn each term on or off depending on whether the corresponding cell/anchor is responsible for an object. In the slides they are written as $L^{Obj}_{ij}$ and $L^{NoObj}_{ij}$:</p>
+    <ul class="list-disc ml-6">
+      <li>$\mathbb{1}^{obj}_{ij}=1$ if anchor $j$ of cell $i$ <strong>is responsible</strong> for a ground-truth object (the cell contains that object's centre AND anchor $j$ has the highest IoU with it). Otherwise $0$.</li>
+      <li>$\mathbb{1}^{noobj}_{ij}=1$ if anchor $j$ of cell $i$ is <strong>not responsible</strong> for any object. Otherwise $0$.</li>
+      <li>$\mathbb{1}^{obj}_{i}$ (no $j$) = 1 if cell $i$ contains any object's centre — used only in the class-probability term, which is shared across anchors of the same cell.</li>
+    </ul>
+    <div class="callout">
+      <h4>Mnemonic</h4>
+      <p><strong>Localisation</strong> and <strong>Classification</strong> are only computed where an object exists (gated by $\mathbb{1}^{obj}$). <strong>Objectness</strong> is computed everywhere but split: one piece for "is object", another for "no object" with a small weight.</p>
+    </div>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L08/page-021.png" alt="Lecture 8 — adding weights λ_coord and λ_noobj, page 21">
+      <figcaption>L08 · slide 21 — the weighted version: $\lambda_{coord}$ in front of localisation, $\lambda_{noobj}$ in front of the "no object" confidence term.</figcaption>
+    </figure>
+  </div>
+
+  <div class="callout trap">
+    <h4>Common exam traps</h4>
+    <ul class="list-disc ml-6">
+      <li>"The class loss runs over every anchor." — <strong>False</strong>. It is gated by $\mathbb{1}^{obj}_{i}$ (only cells with an object); in YOLO v1 the class probability is <em>shared</em> by all anchors of a cell.</li>
+      <li>Forgetting that there are <strong>two</strong> objectness terms (object-cells and no-object-cells), not one.</li>
+      <li>Mixing up $\mathbb{1}^{obj}_{ij}$ (per anchor) with $\mathbb{1}^{obj}_{i}$ (per cell).</li>
+    </ul>
+  </div>
+</section>
+
+<!-- =========================================== s8.2 =========================================== -->
+<section id="s8.2" class="mt-12">
+  <h2 class="text-2xl font-bold border-b pb-1 mb-3">s8.2 — The three sub-losses in detail</h2>
+
+  <!-- Full canonical formula -->
+  <div class="concept">
+    <h3>The full YOLO v1 loss — canonical form</h3>
+    <p class="why">Why it matters: this is the single most important formula in this lecture. It is also the form most likely to appear on the final.</p>
+
+    <p>Term 1 — box centre $(x,y)$:</p>
+    <p>$$L_1 = \lambda_{coord}\sum_{i=0}^{S^2}\sum_{j=0}^{B}\mathbb{1}^{obj}_{ij}\Big[(x_i-\hat x_i)^2+(y_i-\hat y_i)^2\Big]$$</p>
+
+    <p>Term 2 — box size $(w,h)$ with $\sqrt{\cdot}$ trick:</p>
+    <p>$$L_2 = \lambda_{coord}\sum_{i=0}^{S^2}\sum_{j=0}^{B}\mathbb{1}^{obj}_{ij}\Big[(\sqrt{w_i}-\sqrt{\hat w_i})^2+(\sqrt{h_i}-\sqrt{\hat h_i})^2\Big]$$</p>
+
+    <p>Term 3 — object confidence:</p>
+    <p>$$L_3 = \sum_{i=0}^{S^2}\sum_{j=0}^{B}\mathbb{1}^{obj}_{ij}\,(C_i-\hat C_i)^2$$</p>
+
+    <p>Term 4 — no-object confidence (down-weighted):</p>
+    <p>$$L_4 = \lambda_{noobj}\sum_{i=0}^{S^2}\sum_{j=0}^{B}\mathbb{1}^{noobj}_{ij}\,(C_i-\hat C_i)^2$$</p>
+
+    <p>Term 5 — class probabilities (per cell, only if cell has an object):</p>
+    <p>$$L_5 = \sum_{i=0}^{S^2}\mathbb{1}^{obj}_{i}\sum_{c\in\text{classes}}(p_i(c)-\hat p_i(c))^2$$</p>
+
+    <p>Total: $\;L_{YOLOv1} = L_1+L_2+L_3+L_4+L_5$.</p>
+
+    <figure class="slide-figure">
+      <img src="../assets/slides/L08/page-023.png" alt="Lecture 8 — loss summed over all S^2 cells, page 23">
+      <figcaption>L08 · slide 23 — summed over all $S^2$ cells (one anchor).</figcaption>
+    </figure>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L08/page-024.png" alt="Lecture 8 — full loss over all cells and B anchors, page 24">
+      <figcaption>L08 · slide 24 — the full loss over $S^2$ cells × $B$ anchor boxes (note the extra $j$ index on every indicator).</figcaption>
+    </figure>
+
+    <h4 class="font-semibold mt-4">Named symbols</h4>
+    <ul class="list-disc ml-6">
+      <li>$S^2$ — number of grid cells (e.g. $7\times 7=49$ in YOLO v1).</li>
+      <li>$B$ — anchor boxes per cell (2 in v1, 5 in v2, 9 in v3).</li>
+      <li>$x_i,y_i,w_i,h_i$ — <strong>ground-truth</strong> box centre &amp; size for the object in cell $i$.</li>
+      <li>$\hat x_i,\hat y_i,\hat w_i,\hat h_i$ — <strong>predicted</strong> box centre &amp; size.</li>
+      <li>$C_i$ — ground-truth confidence (1 if obj present, otherwise 0 — or in some refs, the IoU between predicted &amp; ground-truth box).</li>
+      <li>$\hat C_i$ — predicted confidence in $[0,1]$.</li>
+      <li>$p_i(c)$ — ground-truth class probability (one-hot: 1 for the right class, 0 otherwise).</li>
+      <li>$\hat p_i(c)$ — predicted class probability.</li>
+      <li>$\mathbb{1}^{obj}_{ij}$ — 1 if anchor $j$ of cell $i$ is responsible for the object, 0 otherwise.</li>
+      <li>$\mathbb{1}^{noobj}_{ij}$ — 1 if anchor $j$ of cell $i$ is NOT responsible for any object.</li>
+      <li>$\lambda_{coord}$ — weight for the localisation terms. <strong>Typical value 5</strong>.</li>
+      <li>$\lambda_{noobj}$ — weight for the no-object confidence term. <strong>Typical value 0.5</strong>.</li>
+    </ul>
+  </div>
+
+  <!-- Localisation -->
+  <div class="concept">
+    <h3>(1) Localisation loss — $(x,y)$ + $(\sqrt{w},\sqrt{h})$</h3>
+    <p class="why">This is the biggest of the three sub-losses (it is a 4-D regression). It dominates training, hence the $\lambda_{coord}$ weight.</p>
+
+    <p>$$L_{loc} = \lambda_{coord}\sum_{i=0}^{S^2}\sum_{j=0}^{B}\mathbb{1}^{obj}_{ij}\Big[(x_i-\hat x_i)^2+(y_i-\hat y_i)^2+(\sqrt{w_i}-\sqrt{\hat w_i})^2+(\sqrt{h_i}-\sqrt{\hat h_i})^2\Big]$$</p>
+
+    <h4 class="font-semibold mt-3">Why $\sqrt{w},\sqrt{h}$ instead of $w,h$?</h4>
+    <p>Without the square root, a 5-pixel error on a tiny box and a 5-pixel error on a huge box contribute the same amount to the loss — but the tiny-box error is visually catastrophic (you missed half the object) while the huge-box error is invisible. The square-root mapping <strong>expands small numbers</strong> (anything in $[0,0.25]$ maps to $[0,0.5]$) so the gradient is much steeper for small boxes.</p>
+
+    <figure class="slide-figure">
+      <img src="../assets/slides/L08/page-020.png" alt="Lecture 8 — square-root rationale for width/height, page 20">
+      <figcaption>L08 · slide 20 — square-root rationale: deviations on small boxes are more significant than the same deviation on big boxes.</figcaption>
+    </figure>
+
+    <details class="reveal">
+      <summary>Worked example — same 5-px error, two box sizes</summary>
+      <p>Small box: width 20 px, predicted 15 px.</p>
+      <ul class="list-disc ml-6">
+        <li>Without $\sqrt{\;}$: $(20-15)^2 = 25$</li>
+        <li>With $\sqrt{\;}$: $(\sqrt{20}-\sqrt{15})^2 = (4.47-3.87)^2 \approx (0.60)^2 \approx 0.36$</li>
+      </ul>
+      <p>Large box: width 500 px, predicted 495 px.</p>
+      <ul class="list-disc ml-6">
+        <li>Without $\sqrt{\;}$: $(500-495)^2 = 25$ &nbsp;(identical to small box!)</li>
+        <li>With $\sqrt{\;}$: $(\sqrt{500}-\sqrt{495})^2 = (22.36-22.25)^2 \approx (0.11)^2 \approx 0.013$</li>
+      </ul>
+      <p>Ratio of losses with $\sqrt{\;}$: $0.36 / 0.013 \approx 28\times$ larger for the small-box error. <em>That's exactly the behaviour we want.</em></p>
+    </details>
+
+    <div class="q">
+      <div class="stem">Q. Why isn't the localisation loss computed for empty cells?</div>
+      <details class="reveal"><summary>Answer</summary>$\mathbb{1}^{obj}_{ij}=0$ there — there is no ground-truth box to regress against, so the term vanishes.</details>
+    </div>
+  </div>
+
+  <!-- Objectness -->
+  <div class="concept">
+    <h3>(2) Objectness (confidence) loss — split into obj / no-obj</h3>
+    <p class="why">Most cells in an image contain no object. If we treated them all equally, the "no object" gradient would dominate and the model would collapse to predicting $\hat C=0$ everywhere.</p>
+
+    <p>$$L_{obj} = \sum_{i=0}^{S^2}\sum_{j=0}^{B}\mathbb{1}^{obj}_{ij}(C_i-\hat C_i)^2 \;+\; \lambda_{noobj}\sum_{i=0}^{S^2}\sum_{j=0}^{B}\mathbb{1}^{noobj}_{ij}(C_i-\hat C_i)^2$$</p>
+
+    <p>Both halves use exactly the same per-cell formula $(C_i-\hat C_i)^2$ — the difference is the <strong>indicator</strong> (obj vs noobj) and the <strong>weight</strong> ($1$ vs $\lambda_{noobj}=0.5$).</p>
+
+    <p>The ground-truth confidence $C_i$ in YOLO v1 is taken to be the <strong>IoU</strong> between the predicted box and the ground-truth box (for the responsible anchor), or simply 0 for "no object" cells. The predicted $\hat C_i$ is the network's sigmoid output for that anchor's objectness channel.</p>
+
+    <figure class="slide-figure">
+      <img src="../assets/slides/L08/page-022.png" alt="Lecture 8 — why λ_noobj is small, page 22">
+      <figcaption>L08 · slide 22 — most grid cells have no objects → use small $\lambda_{noobj}$ (0.5) so the model is not biased toward "no object"; $\lambda_{coord}=5$ forces it to focus on getting boxes right.</figcaption>
+    </figure>
+
+    <details class="reveal">
+      <summary>Why the asymmetric weights 5 and 0.5?</summary>
+      <p>Imagine a $7\times 7$ grid → 49 cells. A typical image has maybe 1–3 objects, so ~46 cells have <em>no</em> object. If all 49 confidence errors had equal weight, the model could minimise the loss by pushing every $\hat C\!\to\!0$ — that drops 46 large gradients to zero but loses the 3 important ones. Setting $\lambda_{noobj}=0.5$ shrinks the "no object" gradient; setting $\lambda_{coord}=5$ amplifies the box-regression gradient. Together, the model is forced to pay attention to where the few real objects actually are.</p>
+    </details>
+  </div>
+
+  <!-- Classification -->
+  <div class="concept">
+    <h3>(3) Classification loss — per cell, only when an object exists</h3>
+    <p class="why">Class probabilities only make sense for cells that actually contain an object — otherwise "what class is the empty patch?" is meaningless.</p>
+
+    <p>$$L_{cls} = \sum_{i=0}^{S^2}\mathbb{1}^{obj}_{i}\sum_{c\in\text{classes}}(p_i(c)-\hat p_i(c))^2$$</p>
+
+    <p>Note: the sum is over $i$ only (no $j$). In YOLO v1, all $B$ anchor boxes of a cell <strong>share</strong> one class-probability vector — the network commits to one class per cell. (v2+ predicts class per anchor.)</p>
+
+    <details class="reveal">
+      <summary>Worked example — 3-class cell with one car</summary>
+      Classes = {pedestrian, car, motorcycle}. Ground truth $p = [0,1,0]$. Predicted $\hat p = [0.1, 0.7, 0.2]$.<br>
+      Loss $= (0-0.1)^2 + (1-0.7)^2 + (0-0.2)^2 = 0.01 + 0.09 + 0.04 = 0.14$.
+    </details>
+
+    <div class="callout trap">
+      <h4>Trap</h4>
+      <ul class="list-disc ml-6">
+        <li>Classification loss in YOLO v1 is <strong>SSE</strong> (sum-of-squared-errors), <em>not</em> softmax cross-entropy. This is unusual and unique to YOLO v1; v2/v3 switches to cross-entropy.</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- Combined formula slide -->
+  <div class="concept">
+    <h3>Putting it all together — the full sum</h3>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L08/page-024.png" alt="Lecture 8 — full YOLO v1 loss, all cells and B anchors, page 24">
+      <figcaption>L08 · slide 24 — the canonical YOLO v1 loss summed over all $S^2$ cells and $B$ anchor boxes.</figcaption>
+    </figure>
+    <p>You should be able to <em>derive this from the three sub-losses on a blank page</em> in less than 2 minutes. Practice it.</p>
+  </div>
+</section>
+
+<!-- =========================================== s8.3 =========================================== -->
+<section id="s8.3" class="mt-12">
+  <h2 class="text-2xl font-bold border-b pb-1 mb-3">s8.3 — YOLO versions evolution (what changed in the loss)</h2>
+
+  <div class="concept">
+    <h3>The timeline (until March 2026)</h3>
+    <p class="why">Most "what's new in YOLOvX?" questions reduce to <em>which loss function</em> they adopted. Every release shipped a different objective.</p>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L08/page-013.png" alt="Lecture 8 — YOLO versions list, page 13">
+      <figcaption>L08 · slide 13 — versions list: YOLO, v2, v3, …, v12, plus YOLO-NAS, YOLO-World, YOLO 2026.</figcaption>
+    </figure>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L08/page-014.png" alt="Lecture 8 — YOLO timeline poster, page 14">
+      <figcaption>L08 · slide 14 — full timeline with release dates and primary references.</figcaption>
+    </figure>
+  </div>
+
+  <!-- v1 -->
+  <div class="concept">
+    <h3>YOLOv1 (Jun 2015) — "You only look once"</h3>
+    <ul class="list-disc ml-6">
+      <li>Loss type: <strong>Sum-of-squared error (SSE)</strong> for all 5 terms.</li>
+      <li>$S=7$, $B=2$ anchors per cell, 20 classes (PASCAL VOC).</li>
+      <li>$\lambda_{coord}=5$, $\lambda_{noobj}=0.5$.</li>
+      <li>$\sqrt{w},\sqrt{h}$ trick for size loss.</li>
+      <li>Class probability is <strong>shared</strong> across the anchors of a cell.</li>
+    </ul>
+    <p>Key improvements: simple implementation, fast.<br>Weaknesses: poor IoU handling, struggles with small / clustered objects, only 98 boxes per image.</p>
+  </div>
+
+  <!-- v2 -->
+  <div class="concept">
+    <h3>YOLOv2 / YOLO9000 (Dec 2016) — "Better, faster, stronger"</h3>
+    <ul class="list-disc ml-6">
+      <li>Removes the fully-connected head; goes <strong>fully convolutional</strong>.</li>
+      <li><strong>Anchors learned by k-means clustering</strong> on the training-set ground-truth box shapes — instead of hand-picking aspect ratios. Typically 5 anchors.</li>
+      <li><strong>Direct location prediction</strong>: applies $\sigma$ on the predicted centre offsets so $(x,y)$ stays inside the cell ($\in[0,1]$).</li>
+      <li>Multi-scale training (the network randomly resizes the input every few iterations: 320, 352, …, 608).</li>
+      <li>Higher input resolution (416×416 → $S=13$).</li>
+      <li>Objectness loss switches from SSE to <strong>(binary) cross-entropy</strong> — see slide 26.</li>
+      <li>Class prediction is <strong>per anchor</strong>, not per cell — different objects in the same cell get different classes.</li>
+      <li>YOLO9000 = trained jointly on detection (COCO) + classification (ImageNet) to scale to 9000 classes.</li>
+    </ul>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L08/page-025.png" alt="Lecture 8 — objectness as regression, page 25">
+      <figcaption>L08 · slide 25 — problem with SSE objectness: $(C_i-\hat C_i)^2$ is a fraction² → very small gradient.</figcaption>
+    </figure>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L08/page-026.png" alt="Lecture 8 — objectness as cross-entropy, page 26">
+      <figcaption>L08 · slide 26 — fix: cross-entropy for objectness:
+      $\hat C_i\log(C_i)+(1-\hat C_i)\log(1-C_i)$.</figcaption>
+    </figure>
+  </div>
+
+  <!-- v3 -->
+  <div class="concept">
+    <h3>YOLOv3 (Apr 2018) — "An incremental improvement"</h3>
+    <ul class="list-disc ml-6">
+      <li><strong>Multi-scale predictions</strong>: 3 output heads at 3 different feature-map scales (small/medium/large) — like a feature pyramid (FPN). Each scale predicts 3 anchors → 9 anchors total.</li>
+      <li>Deeper backbone: <strong>Darknet-53</strong> (residual blocks).</li>
+      <li>Classification loss switches from softmax to <strong>independent logistic / sigmoid + binary cross-entropy</strong> per class — supports <em>multi-label</em> classes (e.g. "Woman" + "Person").</li>
+      <li>Objectness still binary cross-entropy.</li>
+    </ul>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L08/page-027.png" alt="Lecture 8 — classification as cross-entropy, page 27">
+      <figcaption>L08 · slide 27 — classification switches to cross-entropy in v2/v3.</figcaption>
+    </figure>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L08/page-028.png" alt="Lecture 8 — full v2/v3 loss with regression + cross-entropy, page 28">
+      <figcaption>L08 · slide 28 — combined regression (localisation) + cross-entropy (objectness, classification) loss for v2/v3.</figcaption>
+    </figure>
+  </div>
+
+  <!-- v4 -->
+  <div class="concept">
+    <h3>YOLOv4 (Apr 2020) — "Optimal speed and accuracy"</h3>
+    <p>This is the version where the field <strong>stopped using $(x,y,w,h)$ regression</strong> for localisation and moved to <strong>IoU-based losses</strong>, because regression has a known flaw:</p>
+
+    <figure class="slide-figure">
+      <img src="../assets/slides/L08/page-029.png" alt="Lecture 8 — problem of regression localisation, page 29">
+      <figcaption>L08 · slide 29 — the regression localisation loss can take any value, while objectness and classification are $&lt;1$. Localisation dominates even with weights.</figcaption>
+    </figure>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L08/page-030.png" alt="Lecture 8 — IoU instead of regression, page 30">
+      <figcaption>L08 · slide 30 — solution: use $\text{Loss} = 1 - \text{IoU}$, bounded in $[0,1]$, scale-invariant.</figcaption>
+    </figure>
+
+    <p>YOLOv4 uses <strong>CIoU loss</strong> for box regression and <strong>binary cross-entropy (BCE)</strong> for objectness and classification. CIoU combines three penalties:</p>
+    <p>$$\text{Loss}_{CIoU} = 1 - \text{IoU} + \frac{d^2}{C^2} + \alpha\nu$$</p>
+    <p>where:</p>
+    <ul class="list-disc ml-6">
+      <li>$d$ = Euclidean distance between predicted &amp; ground-truth box centres,</li>
+      <li>$C$ = diagonal length of the smallest enclosing box,</li>
+      <li>$\nu = \dfrac{4}{\pi^2}\left(\arctan\dfrac{w^{gt}}{h^{gt}} - \arctan\dfrac{w}{h}\right)^2$ — aspect-ratio mismatch (orientation),</li>
+      <li>$\alpha = \dfrac{\nu}{(1-\text{IoU})+\nu}$ — balancing factor.</li>
+    </ul>
+
+    <figure class="slide-figure">
+      <img src="../assets/slides/L08/page-034.png" alt="Lecture 8 — DIoU review, page 34">
+      <figcaption>L08 · slide 34 — DIoU adds a centre-distance penalty $d^2/C^2$ on top of IoU.</figcaption>
+    </figure>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L08/page-035.png" alt="Lecture 8 — CIoU orientation term, page 35">
+      <figcaption>L08 · slide 35 — CIoU adds an aspect-ratio (orientation) term $\nu$, normalised by $(\pi/2)^2$.</figcaption>
+    </figure>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L08/page-036.png" alt="Lecture 8 — CIoU formula, page 36">
+      <figcaption>L08 · slide 36 — full CIoU: IoU + centre-distance + aspect-ratio terms with adaptive $\alpha$.</figcaption>
+    </figure>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L08/page-037.png" alt="Lecture 8 — CIoU-based YOLO loss, page 37">
+      <figcaption>L08 · slide 37 — the v4-era loss with CIoU localisation + BCE objectness + BCE classification.</figcaption>
+    </figure>
+
+    <details class="reveal">
+      <summary>The IoU-variant zoo (slide 32)</summary>
+      <ul class="list-disc ml-6">
+        <li><strong>Basic IoU</strong> — $|A\cap B|/|A\cup B|$. Zero gradient when boxes don't overlap.</li>
+        <li><strong>GIoU</strong> (Generalised) — adds a penalty for the "empty" area inside the enclosing box.</li>
+        <li><strong>DIoU</strong> (Distance) — adds $d^2/C^2$ centre-distance penalty.</li>
+        <li><strong>CIoU</strong> (Complete) — DIoU + aspect-ratio term $\alpha\nu$. Used by YOLOv4/v5/YOLOR/v7.</li>
+        <li><strong>EIoU</strong> (Efficient) — splits the aspect-ratio penalty into separate $w$ and $h$ terms.</li>
+        <li><strong>Focal-EIoU</strong> — adds a focal weighting on top of EIoU to emphasise hard examples.</li>
+        <li><strong>SIoU</strong> (SCYLLA) — adds an angle/shape cost (used by YOLOv6).</li>
+        <li><strong>WIoU</strong> (Wise) — adaptive weighting based on outlier quality.</li>
+      </ul>
+    </details>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L08/page-032.png" alt="Lecture 8 — IoU variants list, page 32">
+      <figcaption>L08 · slide 32 — IoU-variant menu.</figcaption>
+    </figure>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L08/page-033.png" alt="Lecture 8 — which variant is used in which YOLO, page 33">
+      <figcaption>L08 · slide 33 — which IoU variant each YOLO version adopted.</figcaption>
+    </figure>
+  </div>
+
+  <!-- v5 -->
+  <div class="concept">
+    <h3>YOLOv5 (Jun 2020, Ultralytics) — "Auto-anchors + Focal Loss"</h3>
+    <ul class="list-disc ml-6">
+      <li>PyTorch re-implementation (not Darknet); huge engineering quality jump (export, training tools, mosaic augmentation, …).</li>
+      <li><strong>Auto-anchor learning</strong>: k-means + genetic algorithm refines anchors on your dataset at training start.</li>
+      <li>Localisation loss: <strong>CIoU</strong>.</li>
+      <li>Classification + objectness loss: <strong>BCE</strong>, optionally with a <strong>Focal Loss</strong> wrapper $\alpha_t(1-p_t)^\gamma\log(p_t)$ to focus on hard examples / handle class imbalance.</li>
+    </ul>
+  </div>
+
+  <!-- v6 -->
+  <div class="concept">
+    <h3>YOLOv6 (Jun 2022, Meituan) — industrial single-stage</h3>
+    <ul class="list-disc ml-6">
+      <li>Localisation: <strong>SIoU</strong> (or GIoU) — angle cost + shape cost + IoU.</li>
+      <li>Classification: <strong>VariFocal Loss</strong>.</li>
+      <li>Decoupled detection head (separate branches for classification vs box regression).</li>
+      <li>v6 3.0 (Jan 2023) — full-scale reload with better backbone.</li>
+    </ul>
+  </div>
+
+  <!-- v7 -->
+  <div class="concept">
+    <h3>YOLOv7 (Jul 2022) — "Trainable bag of freebies"</h3>
+    <ul class="list-disc ml-6">
+      <li>Localisation: <strong>CIoU</strong> (same family as v5/v4).</li>
+      <li>Adds many "free" tricks: auxiliary heads with re-parameterised convolutions, planned re-param, coarse-to-fine label assignment, etc.</li>
+      <li>YOLOR (May 2021) is its predecessor — "you only learn one representation".</li>
+    </ul>
+  </div>
+
+  <!-- v8 -->
+  <div class="concept">
+    <h3>YOLOv8 (Jan 2023, Ultralytics) — anchor-free</h3>
+    <ul class="list-disc ml-6">
+      <li><strong>Anchor-free</strong> head: predicts box <em>distances</em> from each grid point to the 4 sides, no pre-defined anchors.</li>
+      <li>Localisation: <strong>CIoU</strong> + <strong>Distribution Focal Loss (DFL)</strong> — DFL models each side distance as a discrete distribution, $\mathcal{L}_{DFL} = -\sum_i p_i^*\log(p_i)$.</li>
+      <li>Task-aligned assigner for matching predictions to ground truth.</li>
+    </ul>
+  </div>
+
+  <!-- v9 / NAS / world / v10-12 -->
+  <div class="concept">
+    <h3>YOLOv9, v10, v11, v12 + YOLO-NAS / YOLO-World</h3>
+    <ul class="list-disc ml-6">
+      <li><strong>YOLO-NAS</strong> (May 2023, Deci) — architecture discovered by Neural Architecture Search; quant-friendly.</li>
+      <li><strong>YOLO-World</strong> (Jan 2024) — open-vocabulary object detection; text-image alignment (CLIP-style).</li>
+      <li><strong>YOLOv9</strong> (Feb 2024) — Programmable Gradient Information (PGI) + GELAN backbone; <strong>VLR loss</strong> (vector projection with boundary constraints); learned object ordering; eliminates NMS.</li>
+      <li><strong>YOLOv10</strong> (May 2024) — end-to-end (no NMS), <strong>probabilistic loss</strong> (joint classification-regression likelihood), Transformer integration; fewer false positives.</li>
+      <li><strong>YOLOv11</strong> (Sep 2024, Ultralytics) — <strong>GELAN-style loss</strong>, hybrid geometric + attention-guided IoU, SAM integration, soft edge handling.</li>
+      <li><strong>YOLOv12</strong> (Feb 2025) — attention-centric real-time detector; <strong>Unified Ranking Loss</strong>, directional attention box matching, occlusion robustness, foundation-model fusion.</li>
+    </ul>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L08/page-039.png" alt="Lecture 8 — loss types of YOLO versions, page 39">
+      <figcaption>L08 · slide 39 — master table: every YOLO version and its loss-type/mathematical form/key improvement.</figcaption>
+    </figure>
+  </div>
+
+  <div class="callout">
+    <h4>Big picture</h4>
+    <p>From the slides: <em>"Most enhancements of YOLO versions are in the loss function."</em> The backbone and head evolve too, but the loss function is where each version really differentiates itself.</p>
+  </div>
+  <figure class="slide-figure">
+    <img src="../assets/slides/L08/page-038.png" alt="Lecture 8 — most enhancements are in loss function, page 38">
+    <figcaption>L08 · slide 38 — the key takeaway.</figcaption>
+  </figure>
+
+  <div class="callout trap">
+    <h4>Common exam traps</h4>
+    <ul class="list-disc ml-6">
+      <li>"YOLOv1 used cross-entropy for classification." — <strong>False</strong>. YOLOv1 used SSE everywhere. Cross-entropy came in with v2.</li>
+      <li>"YOLOv3 uses softmax." — False. v3 uses <strong>per-class sigmoid + BCE</strong> for multi-label support.</li>
+      <li>"CIoU = IoU − $d^2/C^2$." — That's DIoU. CIoU adds an aspect-ratio term $\alpha\nu$.</li>
+      <li>"YOLOv8 still uses anchors." — False. v8 is anchor-free.</li>
+      <li>"Anchor sizes are hand-designed in YOLOv2." — False. v2 learns them by <strong>k-means clustering</strong> on the dataset's GT boxes.</li>
+    </ul>
+  </div>
+</section>
+
+<!-- =========================================== Practice =========================================== -->
+<section id="practice" class="mt-12">
+  <h2 class="text-2xl font-bold border-b pb-1 mb-3">Practice quiz — Lecture 8</h2>
+
+  <div class="q">
+    <div class="stem">1 (Short). Write down the <strong>localisation loss term</strong> of the YOLO v1 loss function (centre + size), including the indicator and weight.</div>
+    <details class="reveal"><summary>Answer</summary>
+    $$L_{loc}=\lambda_{coord}\sum_{i=0}^{S^2}\sum_{j=0}^{B}\mathbb{1}^{obj}_{ij}\Big[(x_i-\hat x_i)^2+(y_i-\hat y_i)^2+(\sqrt{w_i}-\sqrt{\hat w_i})^2+(\sqrt{h_i}-\sqrt{\hat h_i})^2\Big]$$
+    </details>
+  </div>
+
+  <div class="q">
+    <div class="stem">2 (Short). Explain in one or two sentences what $\lambda_{noobj}$ does and why it is small (≈ 0.5).</div>
+    <details class="reveal"><summary>Answer</summary>$\lambda_{noobj}$ down-weights the confidence loss over the (very many) cells that contain no object. Without it, the gradient from background cells would overwhelm the gradient from the few object cells and the model would collapse to predicting $\hat C=0$ everywhere.</details>
+  </div>
+
+  <div class="q">
+    <div class="stem">3 (MCQ). Why does YOLO v1 use $\sqrt{w}$ and $\sqrt{h}$ in the size loss?</div>
+    <div>a) To make the loss differentiable.<br>b) To penalise the same absolute error more for small boxes than for large boxes.<br>c) To bound the loss in $[0,1]$.<br>d) To remove the need for anchors.</div>
+    <details class="reveal"><summary>Answer</summary>b. The square-root mapping expands small values and compresses large values, so an identical $|w-\hat w|$ contributes more to the loss when $w$ is small.</details>
+  </div>
+
+  <div class="q">
+    <div class="stem">4 (T/F). $\mathbb{1}^{obj}_{ij}=1$ for <em>every</em> anchor in a cell that contains an object.</div>
+    <details class="reveal"><summary>Answer</summary>False. Only for the <strong>one</strong> anchor that is actually responsible for the object (the anchor with highest IoU with the ground truth). The other anchors in the same cell have $\mathbb{1}^{obj}_{ij}=0$ and $\mathbb{1}^{noobj}_{ij}=1$.</details>
+  </div>
+
+  <div class="q">
+    <div class="stem">5 (Numerical). For a small box ground-truth width 16, predicted width 9, compute the size loss contribution with the square-root trick.</div>
+    <details class="reveal"><summary>Answer</summary>$(\sqrt{16}-\sqrt{9})^2 = (4-3)^2 = 1$. (Without $\sqrt{\;}$ it would be $(16-9)^2=49$.)</details>
+  </div>
+
+  <div class="q">
+    <div class="stem">6 (Short). What loss function does YOLOv2/v3 use for the <strong>objectness</strong> term and why did they change from YOLOv1's SSE?</div>
+    <details class="reveal"><summary>Answer</summary>Binary cross-entropy: $\hat C\log(C)+(1-\hat C)\log(1-C)$. The original SSE gives a very small gradient because $C,\hat C\in[0,1]$ → $(C-\hat C)^2$ is "fraction²" — slow to learn. Cross-entropy provides a strong gradient near 0 and 1.</details>
+  </div>
+
+  <div class="q">
+    <div class="stem">7 (Match). Match each YOLO version to its localisation loss type: <em>YOLOv1, YOLOv4, YOLOv6, YOLOv7, YOLOv8</em>. Options: SSE on $(x,y,\sqrt w,\sqrt h)$, CIoU, SIoU, CIoU + DFL.</div>
+    <details class="reveal"><summary>Answer</summary>
+    <ul class="list-disc ml-6">
+      <li>YOLOv1 → SSE on $(x,y,\sqrt w,\sqrt h)$</li>
+      <li>YOLOv4 → CIoU</li>
+      <li>YOLOv6 → SIoU (or GIoU)</li>
+      <li>YOLOv7 → CIoU</li>
+      <li>YOLOv8 → CIoU + DFL</li>
+    </ul>
+    </details>
+  </div>
+
+  <div class="q">
+    <div class="stem">8 (Scenario). Your dataset is dominated by tiny objects (people seen from a drone). Which IoU variant is most likely to improve box regression and why?</div>
+    <details class="reveal"><summary>Answer</summary>CIoU or EIoU — both add aspect-ratio/scale-aware terms; for very small boxes basic IoU has zero gradient when boxes don't overlap, while DIoU/CIoU's centre-distance penalty $d^2/C^2$ still provides a learning signal. CIoU's $\alpha\nu$ aspect-ratio penalty further stabilises shape.</details>
+  </div>
+</section>
+
+<footer class="mt-16 pt-6 border-t text-sm text-slate-500 dark:text-slate-400 no-print">
+  Lecture 8 complete. <a href="./L09.html">Next → L09</a>
+</footer>
+</main>
+
+<script>
+document.getElementById('themeToggle').addEventListener('click', () => {
+  const cur = document.documentElement.getAttribute('data-theme');
+  const next = cur === 'dark' ? 'light' : 'dark';
+  document.documentElement.setAttribute('data-theme', next);
+  localStorage.setItem('theme', next);
+});
+// Mark lecture 8 as visited
+try { localStorage.setItem('lecture-L08-visited', '1'); } catch(e){}
+</script>
+</body>
+</html>

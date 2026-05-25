@@ -1,0 +1,646 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>L10 — Region Proposal Network (RPN)</title>
+<meta name="description" content="Full revision notes for Lecture 10: anchor points/boxes, RPN heads, regressor parameterisation, and the RPN multi-task loss inside Faster R-CNN." />
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/katex.min.css">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/katex.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/contrib/auto-render.min.js"
+        onload="renderMathInElement(document.body,{delimiters:[{left:'$$',right:'$$',display:true},{left:'$',right:'$',display:false}]});"></script>
+<link rel="stylesheet" href="../assets/css/styles.css">
+<script>
+  (function(){
+    const saved = localStorage.getItem('theme') || 'light';
+    document.documentElement.setAttribute('data-theme', saved);
+  })();
+</script>
+</head>
+<body class="max-w-5xl mx-auto px-4 pb-24">
+
+<header class="flex items-center justify-between py-4 border-b border-slate-200 dark:border-slate-700 no-print">
+  <a href="../index.html" class="text-sm">← Back to index</a>
+  <div class="flex items-center gap-3">
+    <span class="text-xs opacity-70">Lecture 10 of 12</span>
+    <button id="themeToggle" class="text-sm border rounded px-2 py-1">🌓 Theme</button>
+  </div>
+</header>
+
+<nav class="section-jump no-print" aria-label="Sections in this lecture">
+  <a href="#s10.1">s10.1 Architecture review</a>
+  <a href="#s10.2">s10.2 Anchor points &amp; boxes</a>
+  <a href="#s10.3">s10.3 RPN heads</a>
+  <a href="#s10.4">s10.4 Training &amp; loss</a>
+  <a href="#practice">Practice quiz</a>
+</nav>
+
+<main>
+<h1 class="text-3xl font-extrabold mt-4 mb-2">Lecture 10 — Region Proposal Network (RPN)</h1>
+<p class="text-slate-500 dark:text-slate-400 mb-6">Slides © Dr. Khaled M. ElSayed, Zewail City. 67 slides. Faster R-CNN = (Pre-trained CNN backbone) + (RPN) + (RoI pool + classification/regression head).</p>
+
+<!-- =========================================== s10.1 =========================================== -->
+<section id="s10.1" class="mt-10">
+  <h2 class="text-2xl font-bold border-b pb-1 mb-3">s10.1 — Architecture review: where the RPN sits inside Faster R-CNN</h2>
+
+  <div class="concept">
+    <h3>Why we need the RPN — the Fast R-CNN bottleneck</h3>
+    <p class="why">Why it matters: the RPN is the single new piece that turns slow Fast R-CNN into Faster R-CNN. Knowing exactly which weakness it fixes is a classic exam opener.</p>
+
+    <p><strong>Fast R-CNN recap</strong>: pass the whole image through a CNN once to get a feature map, run <em>Selective Search</em> on the spatial image to get ~2000 region proposals, <em>project</em> each proposal onto the feature map, then <em>RoI-pool</em> each region to a fixed size before the classifier / box regressor.</p>
+
+    <figure class="slide-figure">
+      <img src="../assets/slides/L10/page-004.png" alt="Lecture 10 — Fast R-CNN pipeline, page 4">
+      <figcaption>L10 · slide 4 — Fast R-CNN: regions still come from Selective Search; only feature computation is shared.</figcaption>
+    </figure>
+
+    <p><strong>Three problems with Fast R-CNN</strong> (slide 5):</p>
+    <ul class="list-disc ml-6">
+      <li><strong>Slow</strong> — Selective Search runs on CPU and dominates inference time.</li>
+      <li><strong>Too many proposed regions</strong> — ~2000 per image.</li>
+      <li><strong>Duplicate detections</strong> — the same object appears under many overlapping proposals with different boxes.</li>
+    </ul>
+
+    <p><strong>Solution</strong> (slide 5): replace the hand-crafted Selective Search / Edge Boxes with a <em>trained</em> Region Proposal Network, and optimise the number of proposed regions.</p>
+
+    <figure class="slide-figure">
+      <img src="../assets/slides/L10/page-005.png" alt="Lecture 10 — Disadvantages of Fast R-CNN and the proposed solution, page 5">
+      <figcaption>L10 · slide 5 — Why Fast R-CNN needs an RPN.</figcaption>
+    </figure>
+  </div>
+
+  <div class="concept">
+    <h3>Faster R-CNN at a glance</h3>
+    <p class="why">Why it matters: this is the picture you should be able to redraw in 30 seconds on the exam.</p>
+
+    <p>The full pipeline is:</p>
+    <p class="font-mono text-sm bg-slate-100 dark:bg-slate-800 p-2 rounded">Input image → CNN backbone (e.g. VGG-16) → feature map → <strong>RPN</strong> → object/no-object scores + box deltas per anchor → proposals → <strong>RoI pooling</strong> on the same feature map → FC head → (multi-class softmax, refined bounding box).</p>
+
+    <p>Key insight: the <strong>feature map is computed only once</strong> and is shared by the RPN and the downstream detector head. The RPN does not look at the raw pixels — it operates entirely on the backbone's feature map.</p>
+
+    <figure class="slide-figure">
+      <img src="../assets/slides/L10/page-007.png" alt="Lecture 10 — Faster R-CNN block diagram, page 7">
+      <figcaption>L10 · slide 7 — Faster R-CNN: RPN reads the feature map and emits (objectness, box-deltas) at every spatial location.</figcaption>
+    </figure>
+
+    <figure class="slide-figure">
+      <img src="../assets/slides/L10/page-006.png" alt="Lecture 10 — Faster R-CNN bullet description, page 6">
+      <figcaption>L10 · slide 6 — RoI pool fixes the variable-size proposals into a fixed-length vector before the FC classifier.</figcaption>
+    </figure>
+
+    <details class="reveal">
+      <summary>R-CNN vs Fast R-CNN vs Faster R-CNN — the three-line table to memorise</summary>
+      <table class="text-sm mt-2 w-full">
+        <thead><tr><th class="text-left">Model</th><th class="text-left">Region proposals</th><th class="text-left">Where features come from</th></tr></thead>
+        <tbody class="align-top">
+          <tr><td>R-CNN</td><td>Selective Search on image</td><td>each region fed through a CNN separately (slow)</td></tr>
+          <tr><td>Fast R-CNN</td><td>Selective Search on image</td><td>shared feature map; project boxes, RoI-pool</td></tr>
+          <tr><td>Faster R-CNN</td><td><strong>RPN on feature map</strong></td><td>shared feature map; RPN + detector share it</td></tr>
+        </tbody>
+      </table>
+    </details>
+
+    <div class="callout trap">
+      <h4>Common exam traps</h4>
+      <ul class="list-disc ml-6">
+        <li>"RPN looks at the raw image." — <strong>False</strong>. It looks at the backbone's feature map.</li>
+        <li>"Faster R-CNN runs the CNN once per proposal." — False; that is R-CNN. Faster R-CNN computes the feature map <em>once</em>, used by RPN and the head.</li>
+        <li>"RPN replaces RoI pooling." — False. RPN replaces Selective Search; RoI pooling stays.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- =========================================== s10.2 =========================================== -->
+<section id="s10.2" class="mt-12">
+  <h2 class="text-2xl font-bold border-b pb-1 mb-3">s10.2 — Anchor points &amp; anchor boxes</h2>
+
+  <div class="concept">
+    <h3>Anchor points = centres of the feature-map cells</h3>
+    <p class="why">Why it matters: this is the single mental model that unlocks the rest of the lecture. The RPN never tries arbitrary boxes — it uses a fixed grid of <em>anchor points</em> and a fixed library of <em>anchor boxes</em> at each point.</p>
+
+    <p>Imagine the input image overlaid by a coarse grid corresponding to the spatial size of the last conv feature map (e.g. for VGG-16 with a 224×224 input, the last conv produces a 7×7×512 map, so the image is split into 7×7=49 cells). The <strong>centre of each cell is an "anchor point"</strong>.</p>
+
+    <figure class="slide-figure">
+      <img src="../assets/slides/L10/page-011.png" alt="Lecture 10 — Anchor points placed on the image grid, page 11">
+      <figcaption>L10 · slide 11 — every grid cell contributes one anchor point.</figcaption>
+    </figure>
+
+    <p><strong>Counting anchor points</strong>: if the feature map is $H \times W$, the number of anchor points is exactly $H \times W$. The toy slide example uses a 4×5 grid → <strong>20 anchor points</strong>.</p>
+  </div>
+
+  <div class="concept">
+    <h3>Anchor boxes = $k$ predefined boxes per anchor point</h3>
+    <p class="why">Why it matters: a single point can't tell us whether the object is tall, square or wide, or large vs small. We attach a small set of pre-shaped reference boxes ("anchors") to every anchor point so the RPN only has to choose / refine.</p>
+
+    <p>At each anchor point we centre <strong>$k$ anchor boxes</strong>, all sharing the same centre but differing in <em>scale</em> and <em>aspect ratio</em>. In the Faster R-CNN paper:</p>
+    <ul class="list-disc ml-6">
+      <li><strong>3 scales</strong>: 128×128, 256×256, 512×512.</li>
+      <li><strong>3 aspect ratios</strong>: 1:1, 2:1, 1:2.</li>
+      <li>$\Rightarrow k = 3 \times 3 = \mathbf{9}$ anchor boxes per anchor point.</li>
+    </ul>
+
+    <figure class="slide-figure">
+      <img src="../assets/slides/L10/page-012.png" alt="Lecture 10 — Anchor boxes centred at anchor points, 3 scales × 3 ratios, page 12">
+      <figcaption>L10 · slide 12 — 9 anchors per anchor point (3 scales × 3 aspect ratios), all centred at the same anchor point.</figcaption>
+    </figure>
+
+    <figure class="slide-figure">
+      <img src="../assets/slides/L10/page-015.png" alt="Lecture 10 — 9 anchors at 3 scales (128,256,512) × 3 ratios (1:1, 2:1, 1:2), page 15">
+      <figcaption>L10 · slide 15 — paper values: scales 128/256/512 px; ratios 1:1, 2:1, 1:2.</figcaption>
+    </figure>
+
+    <p><strong>Total number of anchor boxes in an image</strong> = $H \times W \times k$.</p>
+
+    <details class="reveal">
+      <summary>Worked example 1 — toy slide grid (slide 15)</summary>
+      Feature-map grid 4×5 → 20 anchor points. $k=9$ anchor boxes per point.<br>
+      Total anchor boxes in the image = $4 \cdot 5 \cdot 9 = \mathbf{180}$.
+    </details>
+
+    <details class="reveal">
+      <summary>Worked example 2 — Faster R-CNN paper size</summary>
+      For a typical 600×1000 input through VGG-16 the feature map ends up roughly $38 \times 50$. With $k=9$ anchors per point:<br>
+      Total anchor boxes = $38 \cdot 50 \cdot 9 = \mathbf{17{,}100}$ anchors.<br>
+      → The RPN's job is to whittle these 17,100 down to a few hundred good proposals.
+    </details>
+
+    <figure class="slide-figure">
+      <img src="../assets/slides/L10/page-013.png" alt="Lecture 10 — When anchors are too small, only the ball is matched, page 13">
+      <figcaption>L10 · slide 13 — if the anchor boxes are too small relative to the objects, only tiny objects (the ball) can be detected — the rest are forced into "background".</figcaption>
+    </figure>
+
+    <figure class="slide-figure">
+      <img src="../assets/slides/L10/page-014.png" alt="Lecture 10 — Larger anchor boxes overlap heavily but cover all objects, page 14">
+      <figcaption>L10 · slide 14 — large overlapping anchors are <em>fine</em>; redundancy will be cleaned up later by Non-Max Suppression.</figcaption>
+    </figure>
+  </div>
+
+  <div class="concept">
+    <h3>Anchor-box classification: positive, negative, mix</h3>
+    <p class="why">Why it matters: not every anchor box is treated the same during training. Knowing the IoU rules is a guaranteed exam question.</p>
+
+    <p>Each anchor box is labelled by its <strong>IoU</strong> (Intersection over Union) with the ground-truth object boxes:</p>
+    <ul class="list-disc ml-6">
+      <li><strong>Positive</strong> (objectness label $p^*=1$, vector $[1,0]$) — either:
+        <ol class="list-decimal ml-6">
+          <li>it has the <em>highest</em> IoU with some ground-truth box, <strong>OR</strong></li>
+          <li>it has IoU $\geq 0.7$ with any ground-truth box (even if not the highest).</li>
+        </ol>
+      </li>
+      <li><strong>Negative</strong> (label $p^*=0$, vector $[0,1]$) — IoU $\leq 0.3$ with <em>every</em> ground-truth box.</li>
+      <li><strong>Mix / Undetermined</strong> (label vector $[0,0]$) — $0.3 &lt; \text{IoU} &lt; 0.7$ with all ground-truth boxes; <em>not used</em> in the loss.</li>
+    </ul>
+
+    <figure class="slide-figure">
+      <img src="../assets/slides/L10/page-019.png" alt="Lecture 10 — Positive/Negative/Mix rules with IoU thresholds, page 19">
+      <figcaption>L10 · slide 19 — the formal rules. Note the "highest-IoU" clause guarantees every GT box gets at least one positive anchor even if no anchor reaches 0.7.</figcaption>
+    </figure>
+
+    <figure class="slide-figure">
+      <img src="../assets/slides/L10/page-020.png" alt="Lecture 10 — Visual examples of positive/negative/mix anchors with one-hot labels, page 20">
+      <figcaption>L10 · slide 20 — visual examples plus the one-hot label vectors $[1,0]$, $[0,1]$, $[0,0]$.</figcaption>
+    </figure>
+
+    <div class="callout trap">
+      <h4>Common exam traps</h4>
+      <ul class="list-disc ml-6">
+        <li>"Positive only if IoU ≥ 0.7." — Incomplete. The <em>highest-IoU</em> clause is a separate positive rule.</li>
+        <li>"Mix boxes count as negative." — False. They are <strong>ignored</strong>; their gradient does not flow.</li>
+        <li>"The threshold for negative is &lt; 0.7." — False. Negative requires IoU $\leq 0.3$.</li>
+      </ul>
+    </div>
+
+    <div class="q">
+      <div class="stem">Q (T/F). An anchor box that has IoU = 0.5 with the only ground-truth box is treated as a negative example in training.</div>
+      <details class="reveal"><summary>Answer</summary>False. $0.3 &lt; 0.5 &lt; 0.7$, so it is in the "mix/undetermined" zone — it is excluded from the loss entirely (unless it happens to be the highest-IoU anchor for some GT, in which case it becomes positive).</details>
+    </div>
+  </div>
+
+  <div class="concept">
+    <h3>What we predict per anchor box: the two output vectors</h3>
+    <p class="why">Why it matters: the RPN's two heads exist precisely because each anchor is described by two things.</p>
+
+    <p>Each anchor box is characterised by two vectors:</p>
+    <ol class="list-decimal ml-6">
+      <li><strong>Content classification (objectness) vector</strong>, length <strong>2</strong> — encloses object vs background (mix → ignored).</li>
+      <li><strong>Bounding-box offsets vector</strong>, length <strong>4</strong> — the displacement and scale change that pull the anchor onto the ground-truth box. Computed <em>only for positive anchors</em>.</li>
+    </ol>
+
+    <figure class="slide-figure">
+      <img src="../assets/slides/L10/page-017.png" alt="Lecture 10 — Two vectors per anchor: classification length 2, regressor length 4, page 17">
+      <figcaption>L10 · slide 17 — every anchor box owns one objectness vector (2D) and one box-offset vector (4D).</figcaption>
+    </figure>
+  </div>
+
+  <div class="concept">
+    <h3>Box-offset parameterisation (the regressor vector)</h3>
+    <p class="why">Why it matters: you will almost certainly be asked to (1) write these four formulas, (2) name every symbol, and (3) explain why the log is used.</p>
+
+    <figure class="slide-figure">
+      <img src="../assets/slides/L10/page-021.png" alt="Lecture 10 — Geometry of anchor box vs target ground truth box, page 21">
+      <figcaption>L10 · slide 21 — anchor box $(x_a,y_a,w_a,h_a)$ in magenta; ground-truth target box $(x_t,y_t,w_t,h_t)$ in green.</figcaption>
+    </figure>
+
+    <p>Define the <strong>anchor box</strong> by its centre $(x_a, y_a)$ and size $(w_a, h_a)$, and the <strong>target / ground-truth box</strong> by $(x_t, y_t, w_t, h_t)$. The naive deltas would be $(x_t - x_a)$ for the centre shift and $w_t / w_a$ for the size, but those are sensitive to the absolute object size. We normalise:</p>
+
+    <p>$$t_x = \frac{x_t - x_a}{w_a}, \qquad t_y = \frac{y_t - y_a}{h_a}, \qquad t_w = \log\!\frac{w_t}{w_a}, \qquad t_h = \log\!\frac{h_t}{h_a}.$$</p>
+
+    <p>(In the slides these are written $d_x, d_y, d_w, d_h$; the paper writes them $t_x, t_y, t_w, t_h$ — same thing.)</p>
+
+    <p><strong>Symbols</strong>:</p>
+    <ul class="list-disc ml-6">
+      <li>$x_a, y_a$ — anchor box centre (known, fixed by the grid).</li>
+      <li>$w_a, h_a$ — anchor box width / height (known, fixed by the scale × ratio combo).</li>
+      <li>$x_t, y_t, w_t, h_t$ — ground-truth box centre and size (known at training time only).</li>
+      <li>$t_x, t_y$ — fractional centre shift, expressed in units of anchor width / height.</li>
+      <li>$t_w, t_h$ — log-scale change in width / height.</li>
+    </ul>
+
+    <figure class="slide-figure">
+      <img src="../assets/slides/L10/page-022.png" alt="Lecture 10 — Displacement and scale-difference intuition, page 22">
+      <figcaption>L10 · slide 22 — centre shift $(x_t-x_a, y_t-y_a)$ and scale ratio $w_t/w_a, h_t/h_a$.</figcaption>
+    </figure>
+
+    <figure class="slide-figure">
+      <img src="../assets/slides/L10/page-023.png" alt="Lecture 10 — Normalised offsets and the special case of a perfect match, page 23">
+      <figcaption>L10 · slide 23 — normalising by $w_a, h_a$ makes the deltas dimensionless. A perfect anchor (anchor = GT) gives $d_x=d_y=0$ and $d_w=d_h=1$ in the un-logged form — not zero, which is awkward for a regressor.</figcaption>
+    </figure>
+
+    <figure class="slide-figure">
+      <img src="../assets/slides/L10/page-024.png" alt="Lecture 10 — Why log on w and h: all four targets are zero on a perfect match, page 24">
+      <figcaption>L10 · slide 24 — apply <em>log</em> to width/height ratios so that a perfect anchor produces $t_x=t_y=t_w=t_h=0$. The network's "do-nothing" output is then the zero vector.</figcaption>
+    </figure>
+
+    <details class="reveal">
+      <summary>Why the <em>log</em> on width &amp; height? (memorise this answer)</summary>
+      <ol class="list-decimal ml-6">
+        <li>Width/height are <em>multiplicative</em> quantities: doubling and halving should be symmetric. Plain $w_t/w_a$ ranges asymmetrically in $(0,\infty)$ with neutral value 1; $\log(w_t/w_a)$ ranges symmetrically in $(-\infty,\infty)$ with neutral value 0.</li>
+        <li>It puts both location and scale offsets on the same "additive" footing so a single Smooth-L1 loss treats them sensibly.</li>
+        <li>A perfect anchor produces the all-zeros vector — the easiest target for any regressor to learn.</li>
+        <li>It guarantees the predicted width $w_t = w_a e^{t_w}$ is always <strong>positive</strong>, no matter what the network outputs.</li>
+      </ol>
+    </details>
+
+    <details class="reveal">
+      <summary>Worked example — predicted deltas → predicted box</summary>
+      Anchor box: $(x_a,y_a,w_a,h_a) = (100,100,64,64)$.<br>
+      Predicted deltas: $(t_x,t_y,t_w,t_h) = (0.1,\,0.2,\,0.05,\,0.1)$.<br><br>
+      Invert the parameterisation:
+      <ul class="ml-5 list-disc">
+        <li>$x = x_a + t_x w_a = 100 + 0.1 \cdot 64 = \mathbf{106.4}$</li>
+        <li>$y = y_a + t_y h_a = 100 + 0.2 \cdot 64 = \mathbf{112.8}$ &nbsp;(<em>note: 0.2·64=12.8, not 20.8 — careful with the formula</em>)</li>
+        <li>$w = w_a\,e^{t_w} = 64 \cdot e^{0.05} \approx 64 \cdot 1.05127 \approx \mathbf{67.3}$</li>
+        <li>$h = h_a\,e^{t_h} = 64 \cdot e^{0.10} \approx 64 \cdot 1.10517 \approx \mathbf{70.7}$</li>
+      </ul>
+      So the RPN proposes the box centred at $\approx (106.4, 112.8)$ of size $\approx 67.3 \times 70.7$, instead of the original $64\times 64$ anchor centred at $(100,100)$.
+    </details>
+
+    <div class="callout trap">
+      <h4>Trap</h4>
+      <ul class="list-disc ml-6">
+        <li>Mixing up "normalise by anchor width $w_a$" vs "normalise by GT width $w_t$" — the denominator is always the <strong>known</strong> anchor side.</li>
+        <li>Forgetting the $e^{t_w}$ when reading the box back out; using $t_w$ directly gives a nonsense width.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- =========================================== s10.3 =========================================== -->
+<section id="s10.3" class="mt-12">
+  <h2 class="text-2xl font-bold border-b pb-1 mb-3">s10.3 — RPN heads (3×3 sliding conv → two parallel 1×1 convs)</h2>
+
+  <div class="concept">
+    <h3>Backbone produces a 3-D feature volume</h3>
+    <p class="why">Why it matters: the RPN's input is a <em>tensor</em>, not an image. Knowing its shape ($H \times W \times C$) makes the 1×1 conv counts obvious.</p>
+
+    <p>For a 224×224 input, VGG-16 ends with a $7 \times 7 \times 512$ feature map (last conv block):</p>
+
+    <figure class="slide-figure">
+      <img src="../assets/slides/L10/page-033.png" alt="Lecture 10 — VGG-16 convolution part, layer-by-layer sizes, page 33">
+      <figcaption>L10 · slide 33 — VGG-16 conv part: 224→112→56→28→14→7 spatial, 64→128→256→512→512 channels.</figcaption>
+    </figure>
+
+    <figure class="slide-figure">
+      <img src="../assets/slides/L10/page-038.png" alt="Lecture 10 — Each 1×1×512 vector represents a 32×32 receptive-field block of the input, page 38">
+      <figcaption>L10 · slide 38 — each 1×1×512 vector summarises a 224/7 ≈ 32 × 32 patch of the original image. That patch is what the RPN "sees" through one anchor point.</figcaption>
+    </figure>
+
+    <figure class="slide-figure">
+      <img src="../assets/slides/L10/page-039.png" alt="Lecture 10 — Each cell centre is an anchor point with k=9 anchor boxes, page 39">
+      <figcaption>L10 · slide 39 — recap: 7×7 anchor points; each carries $k=9$ anchor boxes.</figcaption>
+    </figure>
+  </div>
+
+  <div class="concept">
+    <h3>The RPN itself: 3×3 sliding conv → two parallel 1×1 conv heads</h3>
+    <p class="why">Why it matters: this is the architecture diagram you must be able to draw. The genius of the RPN is that it is <em>fully convolutional</em> — no fully-connected layers — so it works on any feature-map size.</p>
+
+    <p>Three layers:</p>
+    <ol class="list-decimal ml-6">
+      <li><strong>3×3 conv (intermediate layer)</strong>: a 3×3 sliding-window convolution applied on the backbone's feature map (with same padding so the spatial shape is preserved). Output shape $H \times W \times C$ (e.g. $7 \times 7 \times 512$). This is the "shared" intermediate representation.</li>
+      <li><strong>Classification head</strong>: a 1×1 conv with $2k$ output filters → produces, at every spatial position, $2k$ scores = $k$ anchors × 2 (object / no-object). For $k=9$ that is <strong>18 1×1×$C$ filters</strong>.</li>
+      <li><strong>Regression head</strong>: a 1×1 conv with $4k$ output filters → produces, at every spatial position, $4k$ regressed deltas = $k$ anchors × 4 ($t_x, t_y, t_w, t_h$). For $k=9$ that is <strong>36 1×1×$C$ filters</strong>.</li>
+    </ol>
+
+    <figure class="slide-figure">
+      <img src="../assets/slides/L10/page-050.png" alt="Lecture 10 — RPN architecture: 3×3 conv → 36 1×1 (regressor) and 18 1×1 (objectness) heads, page 50">
+      <figcaption>L10 · slide 50 — RPN full picture (VGG-16, $k=9$): one 3×3 conv → two 1×1 conv heads producing the Regressor (36 channels) and Objectness (18 channels) maps.</figcaption>
+    </figure>
+
+    <figure class="slide-figure">
+      <img src="../assets/slides/L10/page-052.png" alt="Lecture 10 — Generic RPN: 4k and 2k 1×1 filters of size 1×1×CH, page 52">
+      <figcaption>L10 · slide 52 — generic form: $4k$ and $2k$ filters of size $1 \times 1 \times C$ work with any pre-trained CNN backbone.</figcaption>
+    </figure>
+
+    <p><strong>Output tensors</strong>:</p>
+    <ul class="list-disc ml-6">
+      <li>Objectness map: $H \times W \times 2k$ (e.g. $7\times 7 \times 18 = 882$ scores for VGG, or $H\!\cdot\!W\!\cdot\!k$ pairs).</li>
+      <li>Regressor map: $H \times W \times 4k$ (e.g. $7\times 7 \times 36 = 1764$ regressed values for VGG).</li>
+    </ul>
+
+    <details class="reveal">
+      <summary>Step-by-step intuition for the 1×1 conv counts (slides 41–48)</summary>
+      Apply <strong>one</strong> 1×1×512 filter to the $7\times 7\times 512$ feature map → a single $7\times 7$ response map; each value is one number derived from a block of the image.<br>
+      Apply <strong>two</strong> 1×1 filters → two response maps; the two values at a spatial location describe the same block.<br>
+      Apply <strong>36</strong> 1×1 filters → at every spatial location you now have 36 numbers, exactly the right size to be the 4 box-deltas for each of the 9 anchors centred at that point. That is the <em>regressor head</em>.<br>
+      Apply <strong>18</strong> 1×1 filters → 2 scores per anchor × 9 anchors at every spatial location. That is the <em>classification head</em>.
+    </details>
+
+    <figure class="slide-figure">
+      <img src="../assets/slides/L10/page-047.png" alt="Lecture 10 — Regressor head: 36 filters at every spatial location, page 47">
+      <figcaption>L10 · slide 47 — regressor head: 36 1×1×512 filters produce 7×7×36 = 49 vectors of length 36, each describing 9 anchors × 4 deltas.</figcaption>
+    </figure>
+
+    <figure class="slide-figure">
+      <img src="../assets/slides/L10/page-048.png" alt="Lecture 10 — Objectness head: 18 filters at every spatial location, page 48">
+      <figcaption>L10 · slide 48 — objectness head: 18 1×1×512 filters produce 7×7×18 = 49 vectors of length 18, each carrying 9 anchors × 2 class scores.</figcaption>
+    </figure>
+
+    <div class="callout">
+      <h4>Why 1×1 convs and not FC layers?</h4>
+      <ul class="list-disc ml-6">
+        <li>Weight sharing: the same head is applied at every anchor point — translation equivariance comes for free.</li>
+        <li>Variable input size: an FC layer would need a fixed input shape; 1×1 convs handle any $H \times W$ feature map.</li>
+        <li>Cheap: ~1 filter per (anchor × output dim).</li>
+      </ul>
+    </div>
+
+    <div class="callout trap">
+      <h4>Common exam traps</h4>
+      <ul class="list-disc ml-6">
+        <li>"The 3×3 conv is the classifier." — No, the 3×3 conv is a shared intermediate layer. The two <strong>parallel</strong> 1×1 convs are the actual heads.</li>
+        <li>"Classification head has $k$ outputs." — Wrong: it has $2k$ (object + background score for each of the $k$ anchors).</li>
+        <li>"Regression head has 4 outputs." — Wrong: it has $4k$ (4 deltas per anchor, $k$ anchors).</li>
+      </ul>
+    </div>
+
+    <div class="q">
+      <div class="stem">Q. The backbone produces a feature map of shape $H=38, W=50, C=512$, and we use $k=9$ anchors. How many channels does the regressor 1×1 conv output, and how many regressed numbers does the RPN emit for one image?</div>
+      <details class="reveal"><summary>Answer</summary>Regressor head output channels: $4k = 36$. Total regressed numbers per image: $H \cdot W \cdot 4k = 38 \cdot 50 \cdot 36 = 68{,}400$.</details>
+    </div>
+  </div>
+</section>
+
+<!-- =========================================== s10.4 =========================================== -->
+<section id="s10.4" class="mt-12">
+  <h2 class="text-2xl font-bold border-b pb-1 mb-3">s10.4 — RPN training &amp; multi-task loss</h2>
+
+  <div class="concept">
+    <h3>Preparing the training labels (one anchor at a time)</h3>
+    <p class="why">Why it matters: the labels for the RPN are <em>derived</em> from the ground-truth bounding boxes — there is no separate annotation cost.</p>
+
+    <p>Steps 1–8 from slides 29–30:</p>
+    <ol class="list-decimal ml-6">
+      <li>Take a dataset whose images have annotated object bounding boxes.</li>
+      <li>Pass each image through a pre-trained backbone (VGG-16, ResNet, …) to get the feature map.</li>
+      <li>For every anchor point, generate the $k$ anchor-box coordinates (3 scales × 3 ratios centred on the anchor point projected to image coords).</li>
+      <li>Compute IoU between every anchor box and every ground-truth box.</li>
+      <li>Label each anchor as object $[1,0]$, background $[0,1]$, or mix $[0,0]$ (the objectness vector — length $2$, so length $2k$ for all anchors at one point).</li>
+      <li>For <strong>positive anchors only</strong>, compute the 4-D regressor target $(d_x, d_y, d_w, d_h)$ using the parameterisation above — length $4$ per anchor, so $4k$ at one point.</li>
+      <li>For mix &amp; negative anchors, fill the regressor target with zeros (they are masked out in the loss anyway).</li>
+      <li>Feed the RPN with the feature map (input) and the (objectness, regressor) tensors as labels.</li>
+    </ol>
+
+    <figure class="slide-figure">
+      <img src="../assets/slides/L10/page-027.png" alt="Lecture 10 — Labels per anchor: object / mix / background, page 27">
+      <figcaption>L10 · slide 27 — example labels: object box → $[1,0]$ + real deltas; mix → $[0,0]$ + don't-cares; background → $[0,1]$ + don't-cares.</figcaption>
+    </figure>
+
+    <figure class="slide-figure">
+      <img src="../assets/slides/L10/page-028.png" alt="Lecture 10 — Labels assembled into Regressor vector (length 4k) and Objectness vector (length 2k), page 28">
+      <figcaption>L10 · slide 28 — at each anchor point the label is a Regressor vector of length $4k$ and an Objectness vector of length $2k$ (for $k=9$ that is 36 and 18).</figcaption>
+    </figure>
+  </div>
+
+  <div class="concept">
+    <h3>The classification loss (binary cross-entropy)</h3>
+    <p class="why">Why it matters: object-vs-background is a 2-class problem; cross-entropy is the natural fit.</p>
+
+    <p>For one anchor:</p>
+    <p>$$L_{cls}(p^L, p^P) = -\, p^L \log p^P.$$</p>
+
+    <p>where $p^L$ is the one-hot label vector (length 2) and $p^P$ is the predicted probability vector (length 2). Averaged over $N_{cls}$ sampled anchors:</p>
+
+    <p>$$\text{Classification Loss} = \frac{1}{N_{cls}} \sum_{i=1}^{N_{cls}} L_{cls}(p^L_i, p^P_i).$$</p>
+
+    <figure class="slide-figure">
+      <img src="../assets/slides/L10/page-057.png" alt="Lecture 10 — Object classification loss with binary cross-entropy, page 57">
+      <figcaption>L10 · slide 57 — full slide-form of the classification loss.</figcaption>
+    </figure>
+  </div>
+
+  <div class="concept">
+    <h3>The box-regression loss (Smooth-L1)</h3>
+    <p class="why">Why it matters: this is the second half of the multi-task loss and the place where the "regression only for positives" trick is encoded mathematically.</p>
+
+    <p>For one anchor with ground-truth offsets $d^L = (d_x^L, d_y^L, d_w^L, d_h^L)$ and predicted offsets $d^P = (d_x^P, d_y^P, d_w^P, d_h^P)$:</p>
+
+    <p>$$L_{reg}(d^L, d^P) = L_1\!\big(d_x^P - d_x^L\big) + L_1\!\big(d_y^P - d_y^L\big) + L_1\!\big(d_w^P - d_w^L\big) + L_1\!\big(d_h^P - d_h^L\big),$$</p>
+
+    <p>where $L_1$ is the <strong>Smooth-L1 (Huber)</strong> function:</p>
+
+    <p>$$L_1(x) = \begin{cases} 0.5\,x^2 & \text{if } |x| &lt; 1 \\ |x| - 0.5 & \text{otherwise} \end{cases}$$</p>
+
+    <p>and the box-regression loss is averaged over $N_{reg}$ anchors, weighted by the ground-truth label so only positives contribute:</p>
+
+    <p>$$\text{Box Regressor Loss} = \frac{1}{N_{reg}} \sum_{i=1}^{N} p_i^* \, L_{reg}(d_i^L, d_i^P).$$</p>
+
+    <figure class="slide-figure">
+      <img src="../assets/slides/L10/page-058.png" alt="Lecture 10 — Box regressor loss using Smooth-L1 over the 4 deltas, page 58">
+      <figcaption>L10 · slide 58 — note the $p_i^*$ (a.k.a. $p_i^t$) multiplier: regression is only computed for anchors whose label is "object".</figcaption>
+    </figure>
+
+    <figure class="slide-figure">
+      <img src="../assets/slides/L10/page-059.png" alt="Lecture 10 — Smooth-L1 examples for x=0.5, 0.1, 0.01, 1, -1, page 59">
+      <figcaption>L10 · slide 59 — numerical Smooth-L1 examples: $x=0.5$ → $0.125$; $x=0.1$ → $0.005$; $x=0.01$ → $5\times10^{-5}$; $|x|=1$ → $0.5$ (boundary, both branches agree).</figcaption>
+    </figure>
+
+    <figure class="slide-figure">
+      <img src="../assets/slides/L10/page-060.png" alt="Lecture 10 — Plot of L1, L2 and Smooth-L1, page 60">
+      <figcaption>L10 · slide 60 — Smooth-L1 is quadratic ($L_2$-like) near 0 and linear ($L_1$-like) far from 0 — robust to outliers while keeping a smooth gradient near the optimum.</figcaption>
+    </figure>
+
+    <details class="reveal">
+      <summary>Why Smooth-L1 instead of plain $L_2$ or $L_1$?</summary>
+      <ul class="list-disc ml-6">
+        <li>$L_2$ ($x^2$): grows quadratically → outlier deltas (e.g. a wildly wrong anchor at the start of training) produce huge gradients and destabilise training.</li>
+        <li>$L_1$ ($|x|$): robust to outliers but has a kink at $x=0$ → no continuous gradient at the optimum.</li>
+        <li>Smooth-L1: quadratic for $|x|&lt;1$ (smooth at zero) and linear for $|x|\geq 1$ (bounded gradient on outliers). The $-0.5$ in the linear branch ensures continuity at $|x|=1$.</li>
+      </ul>
+    </details>
+  </div>
+
+  <div class="concept">
+    <h3>Total RPN loss (the multi-task objective)</h3>
+    <p class="why">Why it matters: this is the equation you must be able to write from memory, with every symbol named.</p>
+
+    <p>$$\boxed{\; L(\{p_i\}, \{t_i\}) \;=\; \frac{1}{N_{cls}}\sum_i L_{cls}(p_i, p_i^*) \;+\; \lambda\,\frac{1}{N_{reg}}\sum_i p_i^* \, L_{reg}(t_i, t_i^*) \;}$$</p>
+
+    <p><strong>Symbols</strong>:</p>
+    <ul class="list-disc ml-6">
+      <li>$i$ — index over anchors in a mini-batch.</li>
+      <li>$p_i$ — predicted probability that anchor $i$ contains an object (output of the classification head).</li>
+      <li>$p_i^* \in \{0, 1\}$ — ground-truth binary label: 1 for positive anchor, 0 for negative; the mix anchors are not in the sum at all.</li>
+      <li>$t_i$ — predicted 4-D regressor vector $(t_x, t_y, t_w, t_h)$ for anchor $i$.</li>
+      <li>$t_i^*$ — ground-truth 4-D regressor vector for anchor $i$.</li>
+      <li>$L_{cls}$ — log/binary cross-entropy loss.</li>
+      <li>$L_{reg}$ — Smooth-L1 loss summed over the 4 components.</li>
+      <li>$N_{cls}$ — number of anchors used in the classification term (mini-batch size, e.g. 256).</li>
+      <li>$N_{reg}$ — normalising count for the regression term (≈ number of anchor locations).</li>
+      <li>$\lambda$ — balancing weight between the two tasks (paper uses $\lambda = 10$ so the two terms have comparable magnitude after normalisation).</li>
+    </ul>
+
+    <p><strong>Why does $p_i^*$ multiply $L_{reg}$?</strong> Because <em>regression targets only exist for positive anchors</em>. A negative anchor's ground-truth box is "no object" — there is no box to regress to. Multiplying by $p_i^*$ (which is 0 for negatives) cancels the regression term for any non-positive anchor. This is also why for negative/mix anchors we fill the regressor label with zeros: the loss multiplies them away regardless.</p>
+
+    <figure class="slide-figure">
+      <img src="../assets/slides/L10/page-061.png" alt="Lecture 10 — Total loss = classification + λ × regression, page 61">
+      <figcaption>L10 · slide 61 — total loss summary.</figcaption>
+    </figure>
+
+    <figure class="slide-figure">
+      <img src="../assets/slides/L10/page-056.png" alt="Lecture 10 — Weighted-sum block combining the two losses inside the RPN diagram, page 56">
+      <figcaption>L10 · slide 56 — the weighted sum is what back-propagates through the 1×1 heads and the shared 3×3 conv.</figcaption>
+    </figure>
+  </div>
+
+  <div class="concept">
+    <h3>Mini-batch sampling — only 256 anchors per image</h3>
+    <p class="why">Why it matters: an image contains thousands of anchors but the vast majority are negative. Naively averaging would drown the loss in background examples.</p>
+
+    <p>Per image the RPN samples a mini-batch of <strong>256 anchors</strong>: <strong>128 positives</strong> + <strong>128 negatives</strong>. If there are fewer than 128 positives in the image, the rest of the budget is filled with negatives (the mini-batch is always 256 total).</p>
+
+    <p>This 1:1 positive/negative balance prevents class imbalance from dominating $L_{cls}$. The whole image is trained in <em>one shot</em> — the RPN is fully convolutional and the entire feature map is processed at once.</p>
+
+    <figure class="slide-figure">
+      <img src="../assets/slides/L10/page-062.png" alt="Lecture 10 — Mini-batch: 128 positive + 128 negative, 256 total per image, page 62">
+      <figcaption>L10 · slide 62 — mini-batch sampling. Note the slide stresses "Don't use ALL anchor boxes" — only the sampled 256 contribute to the loss.</figcaption>
+    </figure>
+  </div>
+
+  <div class="concept">
+    <h3>From RPN outputs to final region proposals — Non-Max Suppression</h3>
+    <p class="why">Why it matters: the RPN produces thousands of object-like boxes that overlap heavily. NMS filters them down to a clean set of proposals to feed the downstream detector.</p>
+
+    <p><strong>Step A — read out a box per anchor</strong> using the inverse parameterisation:</p>
+    <p>$$X_t = d_x w_a + x_a,\qquad Y_t = d_y h_a + y_a,\qquad W_t = e^{d_w} w_a,\qquad H_t = e^{d_h} h_a.$$</p>
+
+    <figure class="slide-figure">
+      <img src="../assets/slides/L10/page-064.png" alt="Lecture 10 — Inverse of the offset parameterisation to recover the predicted box, page 64">
+      <figcaption>L10 · slide 64 — invert the deltas to get $(X_t, Y_t, W_t, H_t)$.</figcaption>
+    </figure>
+
+    <p><strong>Step B — attach the objectness scores</strong> $(P_{obj}, P_{bg})$ from the classification head to every proposed box:</p>
+
+    <figure class="slide-figure">
+      <img src="../assets/slides/L10/page-065.png" alt="Lecture 10 — Combine box deltas with objectness scores for all anchors, page 65">
+      <figcaption>L10 · slide 65 — every anchor outputs a $(X_t, Y_t, W_t, H_t, P_{obj}, P_{bg})$ record.</figcaption>
+    </figure>
+
+    <p><strong>Step C — Non-Max Suppression</strong>: sort all proposed boxes by $P_{obj}$, then repeatedly keep the highest-scoring box and remove every box that overlaps it by more than a threshold. Output: a much smaller set of high-quality region proposals.</p>
+
+    <figure class="slide-figure">
+      <img src="../assets/slides/L10/page-066.png" alt="Lecture 10 — Non-Max Suppression filter, page 66">
+      <figcaption>L10 · slide 66 — NMS uses the required number of proposals and an objectness threshold as hyper-parameters.</figcaption>
+    </figure>
+
+    <figure class="slide-figure">
+      <img src="../assets/slides/L10/page-067.png" alt="Lecture 10 — Final Faster R-CNN diagram, RPN + RoI pool + classifier, page 67">
+      <figcaption>L10 · slide 67 — final Faster R-CNN diagram: feature map computed once → RPN produces proposals → RoI pool on the same feature map → multi-class classifier + box regressor.</figcaption>
+    </figure>
+
+    <div class="callout trap">
+      <h4>Common exam traps</h4>
+      <ul class="list-disc ml-6">
+        <li>"NMS is part of the RPN architecture / loss." — False. NMS is a deterministic post-processing step at inference; it has no learnable parameters.</li>
+        <li>"All anchor boxes become proposals." — False. Thousands of anchors are pruned by objectness threshold + NMS down to a few hundred.</li>
+        <li>"The feature map is recomputed for each proposal." — False; that was R-CNN. In Faster R-CNN, the feature map is computed <strong>once</strong> and shared by RPN and the head.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- =========================================== Practice =========================================== -->
+<section id="practice" class="mt-12">
+  <h2 class="text-2xl font-bold border-b pb-1 mb-3">Practice quiz — Lecture 10</h2>
+
+  <div class="q">
+    <div class="stem">1 (Numerical — anchor count). A feature map has shape $H=38, W=50$ and we use the paper's $k=9$ anchors per anchor point. How many anchor boxes does the RPN consider in total for this image?</div>
+    <details class="reveal"><summary>Answer</summary>$H \cdot W \cdot k = 38 \cdot 50 \cdot 9 = \mathbf{17{,}100}$ anchor boxes.</details>
+  </div>
+
+  <div class="q">
+    <div class="stem">2 (T/F — positive/negative assignment). An anchor with IoU = 0.65 (its highest with any ground-truth box) and which is <em>not</em> the highest-IoU anchor for any GT box is labelled <strong>positive</strong>.</div>
+    <details class="reveal"><summary>Answer</summary>False. $0.3 &lt; 0.65 &lt; 0.7$ and it is not the top-IoU anchor for any GT → it falls in the "mix" (undetermined) bucket and is excluded from the loss.</details>
+  </div>
+
+  <div class="q">
+    <div class="stem">3 (Short answer). In the total RPN loss $L = \tfrac{1}{N_{cls}}\sum_i L_{cls}(p_i, p_i^*) + \lambda\,\tfrac{1}{N_{reg}}\sum_i p_i^* L_{reg}(t_i, t_i^*)$, why is the factor $p_i^*$ in front of $L_{reg}$?</div>
+    <details class="reveal"><summary>Answer</summary>Because regression targets are only defined for positive anchors (anchors that actually overlap an object). $p_i^* = 1$ for positives and $0$ for negatives, so the multiplier zeros out the regression term for negative (and mix) anchors — exactly the "regression only for positives" rule, encoded mathematically. Background anchors have no ground-truth box to regress to, so contributing them to $L_{reg}$ would be meaningless.</details>
+  </div>
+
+  <div class="q">
+    <div class="stem">4 (MCQ — RPN heads). The classification 1×1 head in the original Faster R-CNN paper outputs how many channels per spatial position?</div>
+    <div>a) $k$ &nbsp; b) $2k$ &nbsp; c) $4k$ &nbsp; d) $9$</div>
+    <details class="reveal"><summary>Answer</summary>b) $2k$. Two scores (object / no-object) per anchor × $k$ anchors. For $k=9$ that is 18.</details>
+  </div>
+
+  <div class="q">
+    <div class="stem">5 (Numerical — predict the box). Anchor $(x_a, y_a, w_a, h_a) = (100, 100, 64, 64)$. The RPN outputs deltas $(t_x, t_y, t_w, t_h) = (0.1,\, 0.2,\, 0.05,\, 0.1)$. Give the predicted box centre and size.</div>
+    <details class="reveal"><summary>Answer</summary>$x = 100 + 0.1 \cdot 64 = 106.4$. $y = 100 + 0.2 \cdot 64 = 112.8$. $w = 64 \cdot e^{0.05} \approx 67.3$. $h = 64 \cdot e^{0.10} \approx 70.7$. Predicted box ≈ centre $(106.4, 112.8)$, size $67.3 \times 70.7$.</details>
+  </div>
+
+  <div class="q">
+    <div class="stem">6 (Short). Why is the <em>log</em> applied to $w_t/w_a$ and $h_t/h_a$ in the regressor parameterisation?</div>
+    <details class="reveal"><summary>Answer</summary>Width and height are multiplicative quantities (doubling vs halving should be symmetric); the log makes them additive/symmetric around 0. A perfect anchor produces $t_w=t_h=0$ (and likewise $t_x=t_y=0$), giving the regressor the easy "predict zero" target. Decoding via $w = w_a e^{t_w}$ also guarantees positive widths regardless of network output.</details>
+  </div>
+
+  <div class="q">
+    <div class="stem">7 (T/F). The RPN is fully convolutional, so the same network can be applied to feature maps of different spatial sizes without architectural change.</div>
+    <details class="reveal"><summary>Answer</summary>True. The 3×3 intermediate conv and the two 1×1 heads are convolutions; there are no fully-connected layers. The output spatial size is $H \times W$, whatever $H, W$ the backbone produces.</details>
+  </div>
+
+  <div class="q">
+    <div class="stem">8 (Scenario). At inference, the RPN emits 17,100 boxes for an image. Briefly describe how the system narrows this down to a few hundred final region proposals (no learnable parameters in this step).</div>
+    <details class="reveal"><summary>Answer</summary>(1) Decode each anchor's predicted deltas $(t_x, t_y, t_w, t_h)$ into a box $(X_t, Y_t, W_t, H_t)$. (2) Attach the predicted objectness $P_{obj}$ to each box. (3) Discard boxes with $P_{obj}$ below a threshold. (4) Apply Non-Max Suppression: sort remaining boxes by $P_{obj}$, repeatedly keep the top-scoring box and remove all boxes whose IoU with it exceeds the NMS threshold. The survivors are the final proposals fed to RoI pooling and the detector head.</details>
+  </div>
+</section>
+
+<footer class="mt-16 pt-6 border-t text-sm text-slate-500 dark:text-slate-400 no-print">
+  Lecture 10 complete. <a href="./L11.html">Next → L11</a>
+</footer>
+</main>
+
+<script>
+document.getElementById('themeToggle').addEventListener('click', () => {
+  const cur = document.documentElement.getAttribute('data-theme');
+  const next = cur === 'dark' ? 'light' : 'dark';
+  document.documentElement.setAttribute('data-theme', next);
+  localStorage.setItem('theme', next);
+});
+// Mark lecture 10 as visited
+try { localStorage.setItem('lecture-L10-visited', '1'); } catch(e){}
+</script>
+</body>
+</html>

@@ -1,0 +1,618 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>L05 — Object Detection: Sliding Window</title>
+<meta name="description" content="Full revision notes for Lecture 5: classification vs localisation vs detection, output vector with don't-care loss, sliding window detector." />
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/katex.min.css">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/katex.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/contrib/auto-render.min.js"
+        onload="renderMathInElement(document.body,{delimiters:[{left:'$$',right:'$$',display:true},{left:'$',right:'$',display:false}]});"></script>
+<link rel="stylesheet" href="../assets/css/styles.css">
+<script>
+  (function(){
+    const saved = localStorage.getItem('theme') || 'light';
+    document.documentElement.setAttribute('data-theme', saved);
+  })();
+</script>
+</head>
+<body class="max-w-5xl mx-auto px-4 pb-24">
+
+<header class="flex items-center justify-between py-4 border-b border-slate-200 dark:border-slate-700 no-print">
+  <a href="../index.html" class="text-sm">← Back to index</a>
+  <div class="flex items-center gap-3">
+    <span class="text-xs opacity-70">Lecture 5 of 12</span>
+    <button id="themeToggle" class="text-sm border rounded px-2 py-1">🌓 Theme</button>
+  </div>
+</header>
+
+<nav class="section-jump no-print" aria-label="Sections in this lecture">
+  <a href="#s5.1">s5.1 Classification vs Localisation vs Detection</a>
+  <a href="#s5.2">s5.2 Output vector Y &amp; don't-care loss</a>
+  <a href="#s5.3">s5.3 Sliding window detector</a>
+  <a href="#practice">Practice quiz</a>
+</nav>
+
+<main>
+<h1 class="text-3xl font-extrabold mt-4 mb-2">Lecture 5 — Object Detection: Sliding Window</h1>
+<p class="text-slate-500 dark:text-slate-400 mb-6">Slides © Dr. Khaled M. ElSayed, Zewail City. 47 slides.</p>
+
+<!-- =========================================== s5.1 =========================================== -->
+<section id="s5.1" class="mt-10">
+  <h2 class="text-2xl font-bold border-b pb-1 mb-3">s5.1 — Classification vs Localisation vs Detection</h2>
+
+  <div class="concept">
+    <h3>The three CV tasks on a single image</h3>
+    <p class="why">Why it matters: every later lecture (YOLO, R-CNN, segmentation) is just a more advanced version of one of these three problems. Exam questions love "is this task localisation or detection?"</p>
+
+    <figure class="slide-figure">
+      <img src="../assets/slides/L05/page-002.png" alt="Lecture 5 — Definitions of Classification, Localisation, Detection, page 2">
+      <figcaption>L05 · slide 2 — formal definitions.</figcaption>
+    </figure>
+
+    <ul class="list-disc ml-6">
+      <li><strong>Object Classification</strong> — <em>single</em> object in the image. The model must decide <em>which class</em> the object belongs to. <strong>No</strong> position information is produced.</li>
+      <li><strong>Object Localisation &amp; Classification</strong> — still a <em>single</em> object. The model produces both the class label <em>and</em> a <strong>bounding box</strong> $(b_x, b_y, b_w, b_h)$ around it.</li>
+      <li><strong>Object Detection</strong> — <em>multiple</em> objects, possibly of different classes. The model produces a class label <strong>and</strong> a bounding box <em>for each</em> object. The detector only finds objects of the classes it was <em>trained on</em> (everything else is "background").</li>
+    </ul>
+
+    <figure class="slide-figure">
+      <img src="../assets/slides/L05/page-003.png" alt="Lecture 5 — Visual examples of classification, localisation, detection, page 3">
+      <figcaption>L05 · slide 3 — top row: pure classification (Person / Car / Apple). Bottom-left: localisation (single person with X,Y,W,H box). Bottom-right: detection (3 children boxed; the man on the right is also a person but the detector only flags learned objects).</figcaption>
+    </figure>
+
+    <div class="callout">
+      <h4>Mantra to memorise</h4>
+      <ul class="list-disc ml-6">
+        <li><strong>Classification</strong> = what?</li>
+        <li><strong>Localisation</strong> = what + where? (single object)</li>
+        <li><strong>Detection</strong> = what + where? (multiple objects)</li>
+        <li><strong>Segmentation</strong> = what + which pixels? (pixel-wise mask, not a rectangle).</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="concept">
+    <h3>Localisation vs Segmentation — a subtle but exam-favourite distinction</h3>
+    <p class="why">Both produce per-object output but at different granularities. Localisation outputs a <em>rectangle</em>; segmentation outputs a <em>per-pixel mask</em> that follows the actual silhouette of the object.</p>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L05/page-004.png" alt="Lecture 5 — Localisation vs Segmentation, page 4">
+      <figcaption>L05 · slide 4 — green = bounding boxes (localisation); red contour = segmentation masks following the body silhouette.</figcaption>
+    </figure>
+
+    <details class="reveal">
+      <summary>Tiny taxonomy you should be able to draw on the exam</summary>
+      <table class="text-sm mt-2 w-full">
+        <thead><tr><th class="text-left">Task</th><th class="text-left">#objects</th><th class="text-left">Output</th></tr></thead>
+        <tbody class="align-top">
+          <tr><td>Classification</td><td>1</td><td>class label</td></tr>
+          <tr><td>Localisation</td><td>1</td><td>class + box $(b_x,b_y,b_w,b_h)$</td></tr>
+          <tr><td>Detection</td><td>many</td><td>list of (class + box) tuples</td></tr>
+          <tr><td>Segmentation</td><td>many</td><td>per-pixel class mask</td></tr>
+        </tbody>
+      </table>
+    </details>
+  </div>
+
+  <div class="concept">
+    <h3>Pure classification — a CNN with a softmax head</h3>
+    <p class="why">This is the starting point. Take a CNN trained for classification, and we will gradually upgrade its output to also produce a box, then make it run at every position to handle multiple objects.</p>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L05/page-005.png" alt="Lecture 5 — CNN classification with softmax over Person/Fruit/Car/Pencil/None, page 5">
+      <figcaption>L05 · slide 5 — classical classification pipeline: CNN feature extractor → softmax over $N$ classes + a "None of the above" class.</figcaption>
+    </figure>
+    <p>Note the explicit <strong>"None of the above"</strong> (or <strong>"Background"</strong>) class — needed because the network must be able to say <em>nothing is here</em>; this prepares the ground for the $p_c$ indicator we add in s5.2.</p>
+  </div>
+
+  <div class="concept">
+    <h3>Localisation — adding a bounding box to the output</h3>
+    <p class="why">Once the network can say "this is a person", we want it to also say <em>where</em>. The trick: extend the output layer with four extra regression outputs $(b_x,b_y,b_w,b_h)$ that describe a normalised box.</p>
+
+    <figure class="slide-figure">
+      <img src="../assets/slides/L05/page-006.png" alt="Lecture 5 — Normalised bounding box coordinates in (0,1), page 6">
+      <figcaption>L05 · slide 6 — bounding-box coordinates are normalised by the image width and height so that they always live in $[0,1]$.</figcaption>
+    </figure>
+
+    <p>Convention used in the slides (top-left of the image is $(0,0)$, bottom-right is $(1,1)$):</p>
+    <ul class="list-disc ml-6">
+      <li>$b_x, b_y$ — coordinates of the <strong>top-left corner</strong> of the box, divided by the image width / height.</li>
+      <li>$b_w, b_h$ — <strong>width and height</strong> of the box, divided by the image width / height.</li>
+    </ul>
+    <p>In the slide: $b_x=0.15$, $b_y=0.1$, $W=0.5$, $H=0.9$ — the person occupies most of the vertical extent but only half the horizontal extent of the image.</p>
+
+    <figure class="slide-figure">
+      <img src="../assets/slides/L05/page-007.png" alt="Lecture 5 — CNN classification with Background class, page 7">
+      <figcaption>L05 · slide 7 — classification network with explicit Background output.</figcaption>
+    </figure>
+  </div>
+</section>
+
+<!-- =========================================== s5.2 =========================================== -->
+<section id="s5.2" class="mt-12">
+  <h2 class="text-2xl font-bold border-b pb-1 mb-3">s5.2 — The Output Vector $Y$ and the Don't-Care Loss</h2>
+
+  <div class="concept">
+    <h3>The unified output vector $Y$</h3>
+    <p class="why">Why it matters: this single vector is the conceptual backbone of <em>every</em> object-detection model in the rest of the course (YOLO especially). Memorise the layout and the symbols.</p>
+
+    <figure class="slide-figure">
+      <img src="../assets/slides/L05/page-008.png" alt="Lecture 5 — Output vector Y = [pc, bx, by, bw, bh, c1, c2, c3], page 8">
+      <figcaption>L05 · slide 8 — the output vector $Y$ that combines existence indicator, box, and class scores.</figcaption>
+    </figure>
+
+    <p>$$Y = \begin{bmatrix} p_c \\ b_x \\ b_y \\ b_w \\ b_h \\ c_1 \\ c_2 \\ \vdots \\ c_N \end{bmatrix}$$</p>
+
+    <p>Where every symbol means:</p>
+    <ul class="list-disc ml-6">
+      <li><strong>$p_c$</strong> — probability that the patch contains <em>any</em> object of the classes we care about (i.e. <em>not</em> background). Sometimes called the <em>objectness</em> score. Equals $1$ in the training label when an object is present, $0$ otherwise.</li>
+      <li><strong>$b_x, b_y$</strong> — normalised top-left coordinates of the bounding box.</li>
+      <li><strong>$b_w, b_h$</strong> — normalised width and height of the bounding box.</li>
+      <li><strong>$c_1, c_2, \ldots, c_N$</strong> — one-hot (or softmax) class scores for the $N$ classes the network is trained on. Exactly one of them is 1 in the training label when an object is present.</li>
+    </ul>
+
+    <p>The full length of $Y$ is therefore $\mathbf{1 + 4 + N}$.</p>
+
+    <div class="callout">
+      <h4>Worked example — the slide's "Person" target (3 classes: Person, Cat, Car)</h4>
+      <p>Slide 9: a person in the image, box at normalised coords $(0.2,0.1,0.6,0.9)$. With three classes ordered Person, Cat, Car:</p>
+      <p>$$Y = [\,1,\;0.2,\;0.1,\;0.6,\;0.9,\;1,\;0,\;0\,]^T$$</p>
+      <p>The leading $1$ is $p_c$ (object present). The trailing $[1,0,0]$ says class = Person.</p>
+    </div>
+
+    <figure class="slide-figure">
+      <img src="../assets/slides/L05/page-009.png" alt="Lecture 5 — Y vector example: person label is [1, 0.2, 0.1, 0.6, 0.9, 1, 0, 0], page 9">
+      <figcaption>L05 · slide 9 — fully written-out label vector for the "Person" example.</figcaption>
+    </figure>
+  </div>
+
+  <div class="concept">
+    <h3>The "don't-care" idea: when $p_c = 0$ the box and class entries are meaningless</h3>
+    <p class="why">If the image is just a cat and our classes are {Person, Cat, Car} where Cat is also <em>not</em> in our learned set (i.e. just background), then the network's $b_x,b_y,b_w,b_h,c_1,\dots,c_N$ outputs are <em>undefined</em> — there is no box to predict. Marking them "don't care" is what allows training on negative examples without penalising arbitrary box predictions.</p>
+
+    <figure class="slide-figure">
+      <img src="../assets/slides/L05/page-010.png" alt="Lecture 5 — No-object label has pc=0 and all other entries are X (don't care), page 10">
+      <figcaption>L05 · slide 10 — for a cat / background image the target is $p_c=0$ and the rest of $Y$ is marked X (don't care).</figcaption>
+    </figure>
+
+    <p>So the labels come in two flavours:</p>
+    <ul class="list-disc ml-6">
+      <li><strong>Object present</strong> ($p_c=1$): full target $[1, b_x, b_y, b_w, b_h, c_1, \ldots, c_N]^T$.</li>
+      <li><strong>No object</strong> ($p_c=0$): target $[0, X, X, X, X, X, \ldots, X]^T$ — only the first entry is supervised.</li>
+    </ul>
+  </div>
+
+  <div class="concept">
+    <h3>The piecewise loss function $L(\hat Y, Y)$</h3>
+    <p class="why">Why it matters: this is the single equation that you must reproduce on the exam. It is also the reason YOLO can train on images containing no object without going crazy.</p>
+
+    <figure class="slide-figure">
+      <img src="../assets/slides/L05/page-011.png" alt="Lecture 5 — Loss when object exists: sum of squared errors on all 8 outputs, page 11">
+      <figcaption>L05 · slide 11 — when $p_c=1$: full squared-error loss on every component of $Y$.</figcaption>
+    </figure>
+
+    <figure class="slide-figure">
+      <img src="../assets/slides/L05/page-012.png" alt="Lecture 5 — Loss when no object: only the first term contributes; the rest are don't-care, page 12">
+      <figcaption>L05 · slide 12 — when $p_c=0$: only the squared error on $p_c$ contributes; everything else is "don't care".</figcaption>
+    </figure>
+
+    <p>Formally (sum-of-squared errors version from the slide):</p>
+    <p>$$L(\hat Y, Y) = \begin{cases} (\hat p_c - p_c)^2 & \text{if } p_c = 0 \\[6pt] \displaystyle\sum_{i=1}^{1+4+N} (\hat y_i - y_i)^2 & \text{if } p_c = 1 \end{cases}$$</p>
+
+    <p>Written out for $N=3$ classes when $p_c=1$:</p>
+    <p>$$L = (\hat p_c-1)^2 + (\hat b_x-b_x)^2 + (\hat b_y-b_y)^2 + (\hat b_w-b_w)^2 + (\hat b_h-b_h)^2 + (\hat c_1-c_1)^2 + (\hat c_2-c_2)^2 + (\hat c_3-c_3)^2$$</p>
+
+    <figure class="slide-figure">
+      <img src="../assets/slides/L05/page-013.png" alt="Lecture 5 — Full piecewise loss with log-error and logistic alternatives, page 13">
+      <figcaption>L05 · slide 13 — alternative loss components: <strong>Log-Error</strong> (cross-entropy) for the softmax class scores $c_1,\ldots,c_N$, and <strong>Logistic regression</strong> loss for the binary $p_c$.</figcaption>
+    </figure>
+
+    <div class="callout">
+      <h4>Worked example — slide's "Person" prediction</h4>
+      <p>True $Y = [1, 0.2, 0.1, 0.6, 0.9, 1, 0, 0]^T$, predicted $\hat Y = [1, 0.25, 0.14, 0.5, 0.8, 1, 0, 0]^T$. Because $p_c=1$:</p>
+      <p>$L = 0^2 + 0.05^2 + 0.04^2 + 0.10^2 + 0.10^2 + 0^2 + 0^2 + 0^2 = 0.0025 + 0.0016 + 0.01 + 0.01 = 0.0241$.</p>
+    </div>
+
+    <details class="reveal">
+      <summary>Worked example — slide 12, background image (cat or empty road)</summary>
+      <p>True $Y = [0, X,X,X,X, X,X,X]^T$, predicted $\hat Y = [0.2, 0.25, 0.14, 0.5, 0.8, 1, 0, 0]^T$.</p>
+      <p>Because $p_c=0$, only the first term counts:</p>
+      <p>$L = (0.2 - 0)^2 = 0.04$.</p>
+      <p>The wrong box and class predictions are <strong>not penalised</strong> — they are "don't care". Otherwise the gradient would chase a phantom box that doesn't exist, and training would diverge.</p>
+    </details>
+
+    <div class="callout trap">
+      <h4>Common exam traps</h4>
+      <ul class="list-disc ml-6">
+        <li>Forgetting the piecewise structure and summing all 8 squared errors even when $p_c=0$ — wrong. The slide explicitly says <em>"Other values are Don't Care"</em>.</li>
+        <li>Confusing $p_c$ with the class probabilities $c_i$. $p_c$ is binary (object vs no object); the $c_i$ pick <em>which</em> object.</li>
+        <li>Forgetting the "Background / None of the above" class is sometimes used <em>instead</em> of the $p_c$ trick. Both approaches exist.</li>
+        <li>Mixing up coordinate conventions: the slide uses top-left $(b_x,b_y)$. YOLO will switch to centre-of-box later — read the question carefully.</li>
+      </ul>
+    </div>
+
+    <div class="q">
+      <div class="stem">Q. With $N=3$ classes and an empty image, write the target $Y$ and the loss when the network outputs $\hat p_c = 0.4$ (everything else garbage).</div>
+      <details class="reveal"><summary>Answer</summary>$Y = [0, X, X, X, X, X, X, X]^T$, $L = (0.4 - 0)^2 = 0.16$. The garbage box/class outputs contribute zero because of the don't-care rule.</details>
+    </div>
+
+    <div class="q">
+      <div class="stem">Q. The image contains a car. Classes are {Person, Cat, Car} and the box is at normalised $(b_x,b_y,b_w,b_h)=(0.5,0.6,0.3,0.2)$. Write $Y$.</div>
+      <details class="reveal"><summary>Answer</summary>$Y = [1, 0.5, 0.6, 0.3, 0.2, 0, 0, 1]^T$.</details>
+    </div>
+  </div>
+
+  <div class="concept">
+    <h3>Bounding-box normalisation — pixel → $[0,1]$ worked example</h3>
+    <p class="why">Why it matters: nearly every exam problem starts in pixel coordinates and asks you to convert. Keep the conversion automatic.</p>
+
+    <p>Given an image of size $W\times H$ (in pixels) with a box at top-left pixel $(x_p, y_p)$ of pixel size $(w_p, h_p)$, the normalised coordinates are:</p>
+    <p>$$b_x = \frac{x_p}{W}, \quad b_y = \frac{y_p}{H}, \quad b_w = \frac{w_p}{W}, \quad b_h = \frac{h_p}{H}$$</p>
+
+    <details class="reveal">
+      <summary>Worked example — car in a 256×256 image, box at (160, 200), size (80, 60)</summary>
+      <p>Image $W=H=256$. With the slide's top-left-corner convention:</p>
+      <ul class="list-disc ml-6">
+        <li>$b_x = 160/256 = 0.625$</li>
+        <li>$b_y = 200/256 \approx 0.781$</li>
+        <li>$b_w = 80/256 = 0.3125$</li>
+        <li>$b_h = 60/256 \approx 0.234$</li>
+      </ul>
+      <p>With three classes ordered (Person, Cat, Car) and the car present:</p>
+      <p>$Y = [\,1,\;0.625,\;0.781,\;0.3125,\;0.234,\;0,\;0,\;1\,]^T$.</p>
+      <p>(If the convention had been box-centre, the centre would have been at pixel $(160+40, 200+30)=(200,230)$ → $b_x=200/256\approx 0.781$, $b_y=230/256\approx 0.898$.)</p>
+    </details>
+  </div>
+</section>
+
+<!-- =========================================== s5.3 =========================================== -->
+<section id="s5.3" class="mt-12">
+  <h2 class="text-2xl font-bold border-b pb-1 mb-3">s5.3 — Sliding Window Detector (Multiple Objects)</h2>
+
+  <div class="concept">
+    <h3>The detection problem: multiple objects, unknown positions</h3>
+    <p class="why">Why it matters: until now we assumed one object filling the frame. Real images have many objects of unknown size and location. The sliding-window detector is the simplest brute-force solution and the conceptual ancestor of every modern detector.</p>
+
+    <figure class="slide-figure">
+      <img src="../assets/slides/L05/page-014.png" alt="Lecture 5 — Object Detection title slide (multiple objects), page 14">
+      <figcaption>L05 · slide 14 — section title: multiple-object detection.</figcaption>
+    </figure>
+
+    <figure class="slide-figure">
+      <img src="../assets/slides/L05/page-015.png" alt="Lecture 5 — Three families: Sliding Window, YOLO, R-CNN family, page 15">
+      <figcaption>L05 · slide 15 — three families of detectors. Sliding Window (this lecture), YOLO (L07), R-CNN family (later).</figcaption>
+    </figure>
+  </div>
+
+  <div class="concept">
+    <h3>The sliding-window idea</h3>
+    <p class="why">Reduce detection to repeated classification. Slide a fixed-size window across the image, crop each window, feed it to a <em>single-object</em> classifier, and record the windows that fire.</p>
+
+    <figure class="slide-figure">
+      <img src="../assets/slides/L05/page-016.png" alt="Lecture 5 — Sliding Window Technique section title, page 16">
+      <figcaption>L05 · slide 16 — section title.</figcaption>
+    </figure>
+
+    <figure class="slide-figure">
+      <img src="../assets/slides/L05/page-017.png" alt="Lecture 5 — Sliding window must use multiple window sizes and a chosen stride, page 17">
+      <figcaption>L05 · slide 17 — two free parameters: <strong>window size</strong> (multiple sizes needed because objects come in many sizes) and <strong>stride</strong> (step in pixels; controls precision).</figcaption>
+    </figure>
+
+    <div class="callout">
+      <h4>Pseudocode — single-scale sliding window</h4>
+<pre>for each window size W_s in {small, medium, large, ...}:
+    for y in 0, stride, 2·stride, ... up to H − W_s:
+        for x in 0, stride, 2·stride, ... up to W − W_s:
+            patch = image[y : y+W_s, x : x+W_s]
+            patch = resize(patch, classifier_input_size)
+            ŷ = classifier(patch)            # outputs Y = [pc, bx, by, bw, bh, c1..cN]
+            if ŷ.p_c > threshold:
+                record(x, y, W_s, class = argmax(c1..cN))
+apply non-maxima suppression over all recorded boxes</pre>
+    </div>
+  </div>
+
+  <div class="concept">
+    <h3>Multi-scale by window size <em>or</em> by image pyramid</h3>
+    <p class="why">Cars near the camera look big; cars far away look tiny. A single window size cannot catch both, so we sweep many sizes.</p>
+
+    <figure class="slide-figure">
+      <img src="../assets/slides/L05/page-018.png" alt="Lecture 5 — Highway scene, scan with multiple window sizes, page 18">
+      <figcaption>L05 · slide 18 — input scene with many cars at many scales.</figcaption>
+    </figure>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L05/page-019.png" alt="Lecture 5 — Sliding window of size 1 sweeps across the image, page 19">
+      <figcaption>L05 · slide 19 — sweep with a small window; only the small distant cars fit.</figcaption>
+    </figure>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L05/page-020.png" alt="Lecture 5 — Window of size 2, page 20">
+      <figcaption>L05 · slide 20 — medium window: catches mid-sized objects.</figcaption>
+    </figure>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L05/page-021.png" alt="Lecture 5 — Window of size 3, page 21">
+      <figcaption>L05 · slide 21 — large window: catches near-camera cars.</figcaption>
+    </figure>
+
+    <figure class="slide-figure">
+      <img src="../assets/slides/L05/page-022.png" alt="Lecture 5 — Alternative: one window size, multiple image scales (image pyramid), page 22">
+      <figcaption>L05 · slide 22 — the <em>dual</em> trick: keep the window size fixed and instead build an image pyramid (downscale the image to several resolutions). Mathematically equivalent to varying the window.</figcaption>
+    </figure>
+
+    <details class="reveal">
+      <summary>Why the two are equivalent</summary>
+      Scaling the image by factor $s$ and using a window of size $w$ "sees" the same content as keeping the image and using a window of size $w/s$. So you can either grow the window or shrink the image; computational costs differ but detections agree.
+    </details>
+  </div>
+
+  <div class="concept">
+    <h3>Per-window classification — three ways to build the classifier</h3>
+    <p class="why">Whatever you choose, the contract is the same: <em>input = a fixed-size patch, output = an objectness score and (optionally) a class</em>. The lecture lists three options, classical → modern.</p>
+
+    <figure class="slide-figure">
+      <img src="../assets/slides/L05/page-023.png" alt="Lecture 5 — All cropped patches go one-by-one through Object Classification, page 23">
+      <figcaption>L05 · slide 23 — gather every cropped patch from every window position, then classify one by one.</figcaption>
+    </figure>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L05/page-024.png" alt="Lecture 5 — Classification + Localisation per patch; classical or DL technique, page 24">
+      <figcaption>L05 · slide 24 — same pipeline, except the per-patch network also outputs a refined box. Either classical or deep-learning techniques can fill the box.</figcaption>
+    </figure>
+
+    <figure class="slide-figure">
+      <img src="../assets/slides/L05/page-025.png" alt="Lecture 5 — Option [1] Template matching using autocorrelation, page 25">
+      <figcaption>L05 · slide 25 — <strong>[1] Template matching</strong> with auto-correlation. The car template is correlated with the image at every position; peaks above a threshold are detections. Need multiple template sizes for multi-scale.</figcaption>
+    </figure>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L05/page-026.png" alt="Lecture 5 — Option [2] Hand-crafted feature extraction (SIFT, HoG) + ML classifier — training, page 26">
+      <figcaption>L05 · slide 26 — <strong>[2] Feature extraction + ML classifier — training</strong>. Object and background patches → HoG/SIFT vectors → binary classifier (NN, SVM, …).</figcaption>
+    </figure>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L05/page-027.png" alt="Lecture 5 — Option [2] inference, page 27">
+      <figcaption>L05 · slide 27 — same option at inference. Each sliding-window patch at $(x,y)$ → feature vector → "Object" vs "Others".</figcaption>
+    </figure>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L05/page-028.png" alt="Lecture 5 — Option [3] CNN single-object training, page 28">
+      <figcaption>L05 · slide 28 — <strong>[3] CNN</strong>: convolutional filters do feature extraction, FC layers do binary classification (single object).</figcaption>
+    </figure>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L05/page-029.png" alt="Lecture 5 — CNN multi-object training, page 29">
+      <figcaption>L05 · slide 29 — same CNN but with a multi-class softmax head (so the per-window classifier can also tell us which object class).</figcaption>
+    </figure>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L05/page-030.png" alt="Lecture 5 — CNN multi-object inference on sliding window patches, page 30">
+      <figcaption>L05 · slide 30 — at inference: every sliding-window patch goes through the CNN to get its class.</figcaption>
+    </figure>
+  </div>
+
+  <div class="concept">
+    <h3>Speeding up: three techniques from the slides</h3>
+    <p class="why">Running a CNN once per window for thousands of windows per image is wildly slow. The slides outline three "tricks" — they later form the backbone of the OverFeat / YOLO speed-ups.</p>
+
+    <figure class="slide-figure">
+      <img src="../assets/slides/L05/page-031.png" alt="Lecture 5 — Speeding Up Techniques section title, page 31">
+      <figcaption>L05 · slide 31 — three speed-up techniques follow.</figcaption>
+    </figure>
+
+    <h4 class="font-bold mt-4">[1] Replace fully-connected layers with 1×1 convolutions</h4>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L05/page-032.png" alt="Lecture 5 — FC layers are heavy, page 32">
+      <figcaption>L05 · slide 32 — fully-connected layers do <em>heavy</em> calculations; they also pin the input size.</figcaption>
+    </figure>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L05/page-033.png" alt="Lecture 5 — Replace FC layers with 1x1 convolutions, page 33">
+      <figcaption>L05 · slide 33 — replace the FC head with $1\times 1$ convolutions. Same arithmetic, but the network now accepts <em>any</em> input size.</figcaption>
+    </figure>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L05/page-034.png" alt="Lecture 5 — Example architecture: 24x24x3 input, FC head, page 34">
+      <figcaption>L05 · slide 34 — example architecture with explicit FC head (180→200→200→3).</figcaption>
+    </figure>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L05/page-035.png" alt="Lecture 5 — Same architecture with FC replaced by 1x1 convolutions, page 35">
+      <figcaption>L05 · slide 35 — same architecture rewritten with $1\times 1$ convolutions: $200$ filters $(6\times 6\times 5)$ → $200$ filters $(1\times 1\times 200)$ → $3$ filters $(1\times 1\times 200)$. The output tensor is identical.</figcaption>
+    </figure>
+
+    <details class="reveal">
+      <summary>Why a 1×1 convolution can replace a fully-connected layer</summary>
+      A fully-connected layer is just a matrix multiply: out[i] = Σ W[i,j] · in[j]. If the input tensor before FC has shape $H_f\times W_f\times C$ and the FC has output size $K$, the FC weights are a matrix of shape $K\times (H_f W_f C)$. Replace it with a Conv2D using $K$ filters of spatial size $H_f\times W_f$ and $C$ input channels — at <em>this</em> spatial resolution the two are mathematically identical. Subsequent FC layers become $1\times 1$ convolutions in the same way. The win comes at inference time: the same conv head now works on <em>larger</em> inputs and produces a spatial grid of predictions in one shot.
+    </details>
+
+    <h4 class="font-bold mt-4">[2] Apply the CNN to the whole image at once — share computation across windows</h4>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L05/page-036.png" alt="Lecture 5 — 100x100 image scanned with a 21x21 window gives 6400 patches, page 36">
+      <figcaption>L05 · slide 36 — slide a 21×21 window across a 100×100 image with stride 1 → $80\times 80 = 6400$ patches.</figcaption>
+    </figure>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L05/page-037.png" alt="Lecture 5 — Classifying 6400 windows one-by-one has no parallelization (very slow), page 37">
+      <figcaption>L05 · slide 37 — running the network 6400 times has <strong>no parallelisation</strong> and is <em>very</em> slow.</figcaption>
+    </figure>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L05/page-038.png" alt="Lecture 5 — Apply a 21x21 filter to the 100x100 image with stride 1, no padding → 80x80 output, page 38">
+      <figcaption>L05 · slide 38 — instead, apply the 21×21 filter directly to the full 100×100 image (stride 1, no padding). The output is an $80\times 80$ map where each cell encodes "what the network thinks of the 21×21 patch underneath".</figcaption>
+    </figure>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L05/page-039.png" alt="Lecture 5 — N filters of size 21x21x3 produce an 80x80xN feature map, page 39">
+      <figcaption>L05 · slide 39 — stack $N$ filters → $80\times 80\times N$ feature map. Each spatial cell is an $N$-dim feature vector for its corresponding 21×21 window.</figcaption>
+    </figure>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L05/page-040.png" alt="Lecture 5 — One 1x1xN filter collapses the channel dim to a 80x80 classification map, page 40">
+      <figcaption>L05 · slide 40 — finish with a $1\times 1\times N$ classifier filter → $80\times 80$ classification map = 6400 classifications obtained in one forward pass. <strong>Shared computation parallelises classification of all sliding-window patches</strong>.</figcaption>
+    </figure>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L05/page-041.png" alt="Lecture 5 — But 21x21 filter is itself time consuming, page 41">
+      <figcaption>L05 · slide 41 — the catch: a single 21×21 filter is itself enormous (441 weights × $N$ filters × 3 channels = lots of multiplies). We still need to make the filter smaller.</figcaption>
+    </figure>
+
+    <h4 class="font-bold mt-4">[3] Filter factorisation — stack small filters instead of one big one</h4>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L05/page-042.png" alt="Lecture 5 — Review: a 5x5 convolution = two stacked 3x3 convolutions, 72% calculations, page 42">
+      <figcaption>L05 · slide 42 — review: a single $5\times 5$ convolution can be replaced by two stacked $3\times 3$ convolutions with the same receptive field. Calculations drop to <strong>72%</strong>.</figcaption>
+    </figure>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L05/page-043.png" alt="Lecture 5 — Factorize the 21x21 filter as five stacked 5x5 filters, page 43">
+      <figcaption>L05 · slide 43 — apply the same trick: <strong>five</strong> stacked $5\times 5$ convolutions are equivalent (in receptive field) to one $21\times 21$ convolution. After five 5×5 + N-filter stages, $100\times 100\times 3$ → $80\times 80\times N$. Finish with a $1\times 1$ classifier → $80\times 80 = 1600$ classification outputs.</figcaption>
+    </figure>
+
+    <details class="reveal">
+      <summary>The receptive-field arithmetic</summary>
+      Stacking $k$ convolutions of spatial size $f\times f$ (stride 1, no padding) gives a receptive field of $1 + k(f-1)$ pixels on the input. For $f=5, k=5$: $1 + 5\cdot 4 = 21$. ✓ So five 5×5 layers exactly cover the 21×21 footprint of the single big filter.
+    </details>
+  </div>
+
+  <div class="concept">
+    <h3>Overlapping detections → Non-Maxima Suppression</h3>
+    <p class="why">Because the windows overlap, the <em>same</em> object will fire many times at slightly different positions and scales. We need a post-processing step that keeps only the best box per object.</p>
+
+    <figure class="slide-figure">
+      <img src="../assets/slides/L05/page-044.png" alt="Lecture 5 — Multiple overlapping windows fire on the same car, page 44">
+      <figcaption>L05 · slide 44 — the same red car is detected by many overlapping windows. The remedy: <strong>Non-Maxima Suppression (NMS)</strong> — keep the highest-score box, suppress every other box that overlaps it more than some IoU threshold. (Algorithm itself is detailed in later lectures.)</figcaption>
+    </figure>
+  </div>
+
+  <div class="concept">
+    <h3>Putting it all together — sliding window for detection + localisation</h3>
+    <p class="why">Final picture: combine the sliding window of section s5.3 with the output vector $Y$ of section s5.2. Every window produces a full $Y$ and we keep the windows where $p_c$ is high.</p>
+
+    <figure class="slide-figure">
+      <img src="../assets/slides/L05/page-045.png" alt="Lecture 5 — Sliding window for both detection and localisation: different sizes, scan many times, page 45">
+      <figcaption>L05 · slide 45 — to also localise each detected object we use multiple window sizes and scan the image many times; the high-$p_c$ boxes become our detections.</figcaption>
+    </figure>
+    <figure class="slide-figure">
+      <img src="../assets/slides/L05/page-046.png" alt="Lecture 5 — Final filter is 1x1x8 for 3 classes (pc, bx, by, bw, bh, c1, c2, c3), page 46">
+      <figcaption>L05 · slide 46 — for 3 classes the final classifier filter is $1\times 1\times 8$ (one channel per entry of $Y$: $p_c, b_x, b_y, b_w, b_h, c_1, c_2, c_3$). Boxes where $p_c$ is high are real detections.</figcaption>
+    </figure>
+
+    <div class="callout">
+      <h4>Worked example — slide 46 output vectors</h4>
+      <p>Three detected positions:</p>
+      <ul class="list-disc ml-6">
+        <li>Left window (object): $[1, 0.3, 0.1, 0.6, 0.9, 1, 0, 0]^T$ → Person.</li>
+        <li>Right window (background): $[0, X,X,X,X, X,X,X]^T$ → discarded.</li>
+        <li>Bottom-centre window (object): $[0.7, 0.2, 0.2, 0.6, 0.9, 1, 0, 0]^T$ → Person, but borderline confidence.</li>
+      </ul>
+      <p>After NMS, overlapping high-$p_c$ boxes for the same person collapse into one.</p>
+    </div>
+  </div>
+
+  <div class="concept">
+    <h3>Limitations of sliding window → motivation for YOLO (L07)</h3>
+    <p class="why">Why it matters: every limitation here is a feature YOLO sets out to fix. Knowing them prepares you for L07.</p>
+
+    <figure class="slide-figure">
+      <img src="../assets/slides/L05/page-047.png" alt="Lecture 5 — Summary of sliding window drawbacks: very slow, many passes, large stride loses precision, page 47">
+      <figcaption>L05 · slide 47 — the three drawbacks summarised.</figcaption>
+    </figure>
+
+    <ul class="list-disc ml-6">
+      <li><strong>Very, very slow.</strong> Even with shared computation and factorised filters, multiple window sizes and multiple aspect ratios mean many passes per image.</li>
+      <li><strong>Many passes.</strong> Multi-scale ⇒ many window sizes ⇒ image scanned many times.</li>
+      <li><strong>Stride / precision trade-off.</strong> Small stride = many windows (slow). Large stride = miss the exact pixel location of an object (loss of localisation precision).</li>
+      <li><strong>Fixed-size classifier.</strong> Each crop must be resized before feeding the classifier — distorts aspect ratios for non-square objects (taxi vs bicycle).</li>
+      <li><strong>Brute-force aspect-ratio sweep.</strong> A "person" is tall and skinny; a "car" is short and wide. Either we use many window aspect ratios or we accept distortion.</li>
+      <li><strong>No end-to-end training.</strong> The classifier was trained on object/background patches; it never saw the geometry of <em>where</em> objects appear together.</li>
+    </ul>
+
+    <div class="callout">
+      <h4>What YOLO will fix (preview of L07)</h4>
+      <ul class="list-disc ml-6">
+        <li>Replace the brute-force window sweep with a <strong>single forward pass</strong> that divides the image into a grid and emits $Y$ for every cell at once.</li>
+        <li>Train end-to-end on the <em>full</em> image — the network learns spatial context.</li>
+        <li>Predict <em>multiple</em> boxes per cell with different aspect ratios via "anchor boxes".</li>
+        <li>Still ends with Non-Maxima Suppression.</li>
+      </ul>
+    </div>
+
+    <div class="callout trap">
+      <h4>Common exam traps</h4>
+      <ul class="list-disc ml-6">
+        <li>"Sliding window cannot detect multiple objects." — <strong>False</strong>. It can; it's just slow.</li>
+        <li>"A larger stride speeds up <em>and</em> improves precision." — False; stride trades speed for precision.</li>
+        <li>"Replacing FC with 1×1 conv changes the math." — False; it's an algebraic identity. The benefit is variable input size + spatial reuse, not new accuracy.</li>
+        <li>"Image pyramid and multi-window-size are different strategies." — They are mathematically equivalent.</li>
+      </ul>
+    </div>
+
+    <div class="q">
+      <div class="stem">Q. A 200×200 image is scanned by a 50×50 window with stride 10. How many window positions are evaluated (one scale only)?</div>
+      <details class="reveal"><summary>Answer</summary>Number of starts along one axis = $\lfloor (200 - 50)/10 \rfloor + 1 = 16$. Total positions = $16\times 16 = 256$.</details>
+    </div>
+    <div class="q">
+      <div class="stem">Q. Why does the slide-36 example use stride 1 and not stride 2?</div>
+      <details class="reveal"><summary>Answer</summary>Stride 1 maximises localisation precision; once we have the shared-computation trick of slide 40, stride 1 costs essentially the same as stride 2, so we may as well use it.</details>
+    </div>
+  </div>
+</section>
+
+<!-- =========================================== Practice =========================================== -->
+<section id="practice" class="mt-12">
+  <h2 class="text-2xl font-bold border-b pb-1 mb-3">Practice quiz — Lecture 5</h2>
+
+  <div class="q">
+    <div class="stem">1 (MCQ). Which task produces a per-pixel mask rather than a rectangle?</div>
+    <div>a) Classification &nbsp; b) Localisation &nbsp; c) Detection &nbsp; d) Segmentation</div>
+    <details class="reveal"><summary>Answer</summary>d) Segmentation. Localisation and detection produce rectangular bounding boxes.</details>
+  </div>
+
+  <div class="q">
+    <div class="stem">2 (MCQ). For 3 classes (Person, Cat, Car), what is the length of the output vector $Y$?</div>
+    <div>a) 3 &nbsp; b) 4 &nbsp; c) 7 &nbsp; d) 8</div>
+    <details class="reveal"><summary>Answer</summary>d) 8 = 1 ($p_c$) + 4 (box) + 3 (classes).</details>
+  </div>
+
+  <div class="q">
+    <div class="stem">3 (T/F). When $p_c = 0$ in the target, the loss still penalises the box coordinates $b_x, b_y, b_w, b_h$.</div>
+    <details class="reveal"><summary>Answer</summary>False. Those entries are "don't care"; only $(\hat p_c - p_c)^2$ contributes.</details>
+  </div>
+
+  <div class="q">
+    <div class="stem">4 (T/F). Sweeping multiple window sizes is mathematically equivalent to sweeping a single window over an image pyramid.</div>
+    <details class="reveal"><summary>Answer</summary>True. Scaling the image by $s$ and using window $w$ ≡ keeping the image and using window $w/s$.</details>
+  </div>
+
+  <div class="q">
+    <div class="stem">5 (Short). Write the target vector $Y$ for an image containing one car, with classes ordered (Person, Cat, Car) and a normalised box $(0.4, 0.5, 0.2, 0.3)$.</div>
+    <details class="reveal"><summary>Answer</summary>$Y = [1, 0.4, 0.5, 0.2, 0.3, 0, 0, 1]^T$.</details>
+  </div>
+
+  <div class="q">
+    <div class="stem">6 (Numeric). A 256×256 image has a car with top-left corner at pixel (160, 200) and pixel size (80, 60). Using the slide's top-left convention, write the normalised box.</div>
+    <details class="reveal"><summary>Answer</summary>$b_x = 160/256 = 0.625$, $b_y = 200/256 \approx 0.781$, $b_w = 80/256 = 0.3125$, $b_h = 60/256 \approx 0.234$.</details>
+  </div>
+
+  <div class="q">
+    <div class="stem">7 (Numeric). True $Y = [1, 0.5, 0.5, 0.4, 0.4, 0, 1, 0]^T$ (cat). Predicted $\hat Y = [0.9, 0.55, 0.45, 0.4, 0.35, 0.1, 0.8, 0.1]^T$. Compute the sum-of-squared-errors loss.</div>
+    <details class="reveal"><summary>Answer</summary>Components squared: $0.1^2 + 0.05^2 + 0.05^2 + 0^2 + 0.05^2 + 0.1^2 + 0.2^2 + 0.1^2 = 0.01 + 0.0025 + 0.0025 + 0 + 0.0025 + 0.01 + 0.04 + 0.01 = 0.0775$.</details>
+  </div>
+
+  <div class="q">
+    <div class="stem">8 (Scenario). Sliding window with stride 16 on a 320×320 image, fixed 64×64 window, single scale. (a) How many positions? (b) Name one drawback of using stride 16 instead of stride 4.</div>
+    <details class="reveal"><summary>Answer</summary>(a) Starts along one axis = $\lfloor (320-64)/16 \rfloor + 1 = 17$ → $17\times 17 = 289$ positions. (b) Reduced localisation precision: a true object whose top-left lies between two stride steps cannot be matched exactly; the predicted box can be off by up to 16 pixels.</details>
+  </div>
+
+  <div class="q">
+    <div class="stem">9 (Short). Why is the explicit "Background" / "None of the above" class useful in a classification network, and how does $p_c$ replace it in the localisation network?</div>
+    <details class="reveal"><summary>Answer</summary>A classification softmax always picks <em>some</em> class; without a "None" class it would force a label onto background patches. In the localisation network the binary $p_c$ output acts as that toggle — if $p_c$ is low, the patch is background and the class scores are ignored.</details>
+  </div>
+
+  <div class="q">
+    <div class="stem">10 (Identify). In the loss $L = (\hat p_c - p_c)^2 + (\hat b_x - b_x)^2 + (\hat c_1 - c_1)^2$, which terms become "don't care" when $p_c=0$?</div>
+    <details class="reveal"><summary>Answer</summary>$(\hat b_x - b_x)^2$ and $(\hat c_1 - c_1)^2$ (and the analogous $b_y, b_w, b_h, c_2, \ldots$). Only $(\hat p_c - p_c)^2$ is kept.</details>
+  </div>
+</section>
+
+<footer class="mt-16 pt-6 border-t text-sm text-slate-500 dark:text-slate-400 no-print">
+  Lecture 5 complete. <a href="./L06.html">Next → L06</a>
+</footer>
+</main>
+
+<script>
+document.getElementById('themeToggle').addEventListener('click', () => {
+  const cur = document.documentElement.getAttribute('data-theme');
+  const next = cur === 'dark' ? 'light' : 'dark';
+  document.documentElement.setAttribute('data-theme', next);
+  localStorage.setItem('theme', next);
+});
+// Mark lecture 5 as visited
+try { localStorage.setItem('lecture-L05-visited', '1'); } catch(e){}
+</script>
+</body>
+</html>

@@ -1,0 +1,480 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>2018 Final — Solved</title>
+<meta name="description" content="2018 Computer Vision final exam, every question solved with simple how-to-recognise tips.">
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/katex.min.css">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/katex.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/contrib/auto-render.min.js"
+        onload="renderMathInElement(document.body,{delimiters:[{left:'$$',right:'$$',display:true},{left:'$',right:'$',display:false}]});"></script>
+<link rel="stylesheet" href="../assets/css/styles.css">
+<script>
+  (function(){
+    const saved = localStorage.getItem('theme') || 'light';
+    document.documentElement.setAttribute('data-theme', saved);
+  })();
+</script>
+<style>
+  .qmat { border-collapse:collapse; margin:0.5rem 0; }
+  .qmat td { border:1px solid var(--border); padding:0.35rem 0.6rem; text-align:center; font-family:ui-monospace,Menlo,monospace; min-width:2.2rem; }
+  .qmat th { border:1px solid var(--border); padding:0.35rem 0.6rem; background:var(--bg-soft); font-weight:700; text-align:left; }
+  .qmat td.hl { background: var(--accent-soft); font-weight:700; }
+  .qmat td.win { background: rgba(34,197,94,0.18); }
+  .qshot {
+    margin: 0.5rem 0 1rem;
+    border: 1px solid var(--border);
+    border-radius: 0.6rem;
+    background: var(--bg-elev);
+    padding: 0.5rem;
+  }
+  .qshot img { display:block; max-width:100%; height:auto; border-radius:0.3rem; }
+  .qshot .label { font-size: 0.8rem; color: var(--fg-soft); padding: 0.25rem 0.25rem 0.5rem; border-bottom: 1px dashed var(--border); margin-bottom: 0.4rem; }
+
+  .sol h4 { font-weight:700; margin:0.9rem 0 0.4rem; font-size:1.05rem; color:var(--ok); }
+  .sol h4::before { content:'✓ '; }
+
+  .tip {
+    background: rgba(59,130,246,0.08);
+    border-left: 3px solid var(--accent);
+    padding: 0.55rem 0.85rem; margin: 0.45rem 0;
+    border-radius: 0 0.4rem 0.4rem 0;
+  }
+  .tip::before { content:'💡 How to recognise: '; font-weight:700; color:var(--accent); }
+
+  .step {
+    background: var(--bg-soft);
+    border-left: 3px solid var(--fg-soft);
+    padding: 0.5rem 0.8rem; margin: 0.4rem 0;
+    border-radius: 0 0.4rem 0.4rem 0;
+  }
+  .final {
+    background: rgba(34,197,94,0.12);
+    border-left: 3px solid var(--ok);
+    padding: 0.6rem 0.8rem; margin: 0.6rem 0;
+    border-radius: 0 0.4rem 0.4rem 0;
+    font-weight: 600;
+  }
+  .grid-2 { display:grid; grid-template-columns:1fr; gap:1rem; }
+  @media (min-width: 900px){ .grid-2 { grid-template-columns: 1fr 1.2fr; } }
+  .lecref { font-size: 0.85rem; opacity: 0.8; }
+  .syllabus-note {
+    background: rgba(234, 179, 8, 0.12);
+    border-left: 3px solid #eab308;
+    padding: 0.5rem 0.8rem; margin: 0.5rem 0;
+    border-radius: 0 0.4rem 0.4rem 0;
+    font-size: 0.9rem;
+  }
+  .syllabus-note::before { content: '⚠ Outside current syllabus: '; font-weight: 700; color: #b45309; }
+</style>
+</head>
+<body class="max-w-6xl mx-auto px-4 pb-24">
+
+<header class="flex items-center justify-between py-4 border-b border-slate-200 dark:border-slate-700 no-print">
+  <a href="index.html" class="text-sm">← Back to past-exam index</a>
+  <div class="flex items-center gap-3">
+    <a class="text-xs underline" href="../assets/past-exam/2018-final/final-sc.pdf">Download original PDF</a>
+    <button id="themeToggle" class="text-sm border rounded px-2 py-1">🌓 Theme</button>
+  </div>
+</header>
+
+<nav class="section-jump no-print">
+  <a href="#q1a">Q1·A T/F</a>
+  <a href="#q1b">Q1·B Brief</a>
+  <a href="#q2">Q2 Harris/SIFT/Grabcut</a>
+  <a href="#q3a">Q3·A SVM</a>
+  <a href="#q3b">Q3·B LoG</a>
+  <a href="#q3c">Q3·C Bayesian</a>
+  <a href="#q4">Q4 Hough</a>
+  <a href="#q5">Q5 Block diag &amp; Tracking</a>
+</nav>
+
+<main>
+<h1 class="text-3xl font-extrabold mt-4 mb-2">2018 Final — Solved</h1>
+<p class="text-slate-500 dark:text-slate-400 mb-6">Final exam, 26/5/2018, 65 marks, 3 hours. Screenshot on the left, plain-English solution on the right. Blue boxes are <em>"how to recognise"</em> tips. A few topics here (Hough, Mean-shift, Adaboost, Grabcut, Harris) sit outside the current Spring-2026 syllabus — they're answered briefly and flagged.</p>
+
+<!-- ===================================== Q1 ===================================== -->
+<section id="q1" class="mt-8">
+<h2 class="text-2xl font-bold border-b pb-1 mb-4">📝 Question 1 — True/False &amp; brief answers [20 Marks]</h2>
+
+<!-- Q1.A -->
+<article id="q1a" class="concept">
+  <h3>Q1·A — Ten True/False statements [10 Marks]</h3>
+  <div class="grid-2">
+    <figure class="qshot"><div class="label">Question (as printed)</div><img src="../assets/past-exam/2018-final/q/q1a.png" alt="Q1 part A"></figure>
+    <div class="sol">
+      <h4>Solution</h4>
+
+      <div class="tip">For T/F items, the trick is usually one small clause that's deliberately wrong. Read the sentence twice; if any one piece (a word like <em>"always"</em>, a wrong direction of effect, or a swapped concept) is off, the whole thing is False.</div>
+
+      <table class="qmat text-left">
+        <tr><th>#</th><th>Statement (paraphrased)</th><th>T/F</th><th>Why</th></tr>
+        <tr><td>1</td><td>A non-linearly separable set can be made linearly separable in another (higher-dim) feature space.</td><td><strong>True</strong></td><td>Exactly the kernel-trick / lifting idea behind SVMs.</td></tr>
+        <tr><td>2</td><td>When Gaussian filtering, kernel size is the most important because it defines the scale.</td><td><strong>False</strong></td><td>It's <strong>σ</strong> that defines the scale. Kernel size just has to be large enough (≈6σ) to fit the bell.</td></tr>
+        <tr><td>3</td><td>Adaboost handles outliers by <em>lowering</em> the weight of repeatedly-misclassified points.</td><td><strong>False</strong></td><td>Adaboost <em>increases</em> the weight of misclassified points — outliers actually become problematic for Adaboost.</td></tr>
+        <tr><td>4</td><td>Averaging smooths images by assuming noise is independent.</td><td><strong>True</strong></td><td>Averaging cancels zero-mean independent noise; that's the whole intuition.</td></tr>
+        <tr><td>5</td><td>Gaussian filter is edge-preserving.</td><td><strong>False</strong></td><td>It blurs everything including edges. Bilateral / median are edge-preserving.</td></tr>
+        <tr><td>6</td><td>For Sobel, correlation and convolution give the same result.</td><td><strong>False</strong></td><td>Sobel is <em>not</em> symmetric (it's anti-symmetric), so flipping the kernel changes the sign.</td></tr>
+        <tr><td>7</td><td>k-NN has no explicit training step.</td><td><strong>True</strong></td><td>It's a lazy learner — training is just storing the data.</td></tr>
+        <tr><td>8</td><td>Mean-shift with the same window size but different starts always converges to the same solution.</td><td><strong>False</strong></td><td>Different starting points climb to <em>different</em> local modes.</td></tr>
+        <tr><td>9</td><td>For Gaussian denoising, the noise magnitude decreases as σ <em>decreases</em>.</td><td><strong>False</strong></td><td>The opposite — bigger σ = more blur = more noise suppression.</td></tr>
+        <tr><td>10</td><td>Removing a support vector makes the SVM margin <em>increase</em>.</td><td><strong>False</strong></td><td>Support vectors define the margin; removing one normally <em>widens</em> the candidate margin in one direction, but the new margin from re-solving usually <em>shrinks</em> overall because a constraint that was pinning it is gone. Standard taught answer: <strong>False — the margin generally decreases (or stays the same)</strong>.</td></tr>
+      </table>
+
+      <div class="syllabus-note">Adaboost and Mean-shift aren't covered in the current syllabus; they appeared in the 2018 lectures.</div>
+      <p class="lecref">📚 <a href="../lectures/L01.html#s1.3">L01 — Smoothing/Sobel</a> · <a href="../lectures/L05.html#s5.1">L05 — k-NN / classifiers</a>.</p>
+    </div>
+  </div>
+</article>
+
+<!-- Q1.B -->
+<article id="q1b" class="concept">
+  <h3>Q1·B — Brief questions i–vi [10 Marks]</h3>
+  <div class="grid-2">
+    <figure class="qshot"><div class="label">Question — items i–vi (with k-means image &amp; RANSAC intro)</div><img src="../assets/past-exam/2018-final/q/q1b.png" alt="Q1 part B"></figure>
+    <div class="sol">
+      <h4>i. What is template matching? How can it be done with filters?</h4>
+      <div class="tip">Template matching = sliding a small reference patch over the image and recording, at every position, "how similar are we?" The similarity can be normalised cross-correlation, sum-of-squared-differences, etc.</div>
+      <div class="final">A template (small image) is convolved/correlated with the input image. Peaks in the response map indicate where the template matched best. Implementation: use the template directly as a filter kernel and compute correlation.</div>
+
+      <h4>ii. Arithmetic operation to sharpen an image (example using filters) [2 Marks]</h4>
+      <div class="tip">Sharpen = "original + edges". The arithmetic op is <strong>addition</strong> (image + high-pass version of it). Equivalent kernel: a Laplacian-with-+1-centre.</div>
+      <div class="final">
+        Sharpened = Original + Laplacian(Original). Example 3×3 mask:
+        <table class="qmat inline-block ml-2">
+          <tr><td>0</td><td>−1</td><td>0</td></tr>
+          <tr><td>−1</td><td>5</td><td>−1</td></tr>
+          <tr><td>0</td><td>−1</td><td>0</td></tr>
+        </table>
+      </div>
+
+      <h4>iii. Two methods for deciding whether two feature descriptors match [2 Marks]</h4>
+      <div class="final">
+        <ol class="list-decimal ml-5">
+          <li><strong>Threshold on distance</strong> (e.g. Euclidean or SSD) — if it's below T, declare a match.</li>
+          <li><strong>Lowe's ratio test</strong> — keep the match only if (nearest-neighbour distance) / (2nd-nearest distance) &lt; 0.8. This rejects ambiguous matches.</li>
+        </ol>
+      </div>
+
+      <h4>iv. How many point correspondences are needed to fit a 2D translational model? [1 Mark]</h4>
+      <div class="tip">A 2D translation has only 2 unknowns (t<sub>x</sub>, t<sub>y</sub>). Each correspondence gives 2 equations. So one point pair already gives 2 equations for 2 unknowns.</div>
+      <div class="final"><strong>1 correspondence</strong> (the absolute minimum).</div>
+
+      <h4>v. K-means: pixels of similar colour in disjoint regions belong to different clusters — what features?</h4>
+      <div class="tip">If you cluster on colour alone, all pixels of the same colour end up in one cluster no matter where they are. To split by region you must add <em>position</em>.</div>
+      <div class="final">Use a 5-D feature vector <strong>(R, G, B, x, y)</strong> — colour together with pixel coordinates. The spatial term pulls pixels of similar colour but distant location into different clusters.</div>
+
+      <h4>vi. RANSAC pseudo-code completion [2 Marks]</h4>
+      <p>The missing inner block iterates the points outside <code>CurrentSet</code> and adds the inliers to the consensus set; the second missing block updates the best model.</p>
+      <p class="lecref">See solution for the RANSAC fill-in in the next box →</p>
+    </div>
+  </div>
+</article>
+
+<!-- Q1.B RANSAC -->
+<article id="q1b-ransac" class="concept">
+  <h3>Q1·B (vi) — RANSAC pseudo-code fill-in</h3>
+  <div class="grid-2">
+    <figure class="qshot"><div class="label">RANSAC pseudo-code (page 2)</div><img src="../assets/past-exam/2018-final/q/q1b-ransac.png" alt="Q1 RANSAC pseudo code"></figure>
+    <div class="sol">
+      <h4>The two missing blocks</h4>
+
+      <div class="tip">RANSAC's loop has two phases per iteration: (a) test every point against the current model, growing the consensus set if it fits within tolerance <code>t</code>; (b) at the end, if the consensus set is bigger than <code>d</code>, re-fit on it and keep it if it beats the best one so far.</div>
+
+      <pre class="bg-slate-100 dark:bg-slate-800 p-3 rounded text-sm overflow-x-auto"><code>FOR every data point not in CurrentSet
+    IF this point fits CurrentModel with error &lt; t THEN
+        add it to ConsensusSet
+    END IF
+END FOR
+IF #(ConsensusSet) &gt; d
+    re-fit BetterModel on ConsensusSet
+    measure its error on ConsensusSet
+    IF this error &lt; best error so far
+        BestModel := BetterModel
+    END IF
+END IF</code></pre>
+
+      <div class="final">Inner loop = count inliers. Outer if = re-fit and update best model. After all iterations, return BestModel.</div>
+      <div class="syllabus-note">RANSAC isn't in the current syllabus list; appears here only for completeness.</div>
+    </div>
+  </div>
+</article>
+</section>
+
+<!-- ===================================== Q2 ===================================== -->
+<section id="q2sec" class="mt-12">
+<h2 class="text-2xl font-bold border-b pb-1 mb-4">📝 Question 2 — Harris, SIFT, Grabcut [10 Marks]</h2>
+
+<article id="q2" class="concept">
+  <h3>Q2·A·B·C — Harris detector / SIFT / Grabcut</h3>
+  <div class="grid-2">
+    <figure class="qshot"><div class="label">Question (as printed)</div><img src="../assets/past-exam/2018-final/q/q2.png" alt="Q2"></figure>
+    <div class="sol">
+      <h4>A. Harris detector for corner detection — main steps [3 Marks]</h4>
+      <div class="tip">Corners = where the image looks "different" in <em>both</em> directions when you shift a window. Harris quantifies this with the second-moment matrix M of image gradients and reads its two eigenvalues.</div>
+      <ol class="list-decimal ml-6 space-y-1">
+        <li>Compute image gradients I<sub>x</sub>, I<sub>y</sub> (e.g. with Sobel).</li>
+        <li>For every pixel form the 2×2 matrix
+            M = w ∗ [[I<sub>x</sub>², I<sub>x</sub>I<sub>y</sub>], [I<sub>x</sub>I<sub>y</sub>, I<sub>y</sub>²]]
+            where <em>w</em> is a Gaussian window.</li>
+        <li>Compute the response R = det(M) − k·trace(M)² with k ≈ 0.04–0.06.</li>
+        <li>Threshold R and apply non-max suppression — surviving pixels are corners.</li>
+      </ol>
+      <p class="text-sm opacity-80">Parameters: gradient operator size, window σ for w, k, response threshold, NMS radius.</p>
+
+      <h4>B. SIFT descriptor [3 Marks]</h4>
+      <div class="tip">After a keypoint is detected, SIFT builds a small "fingerprint" describing the local gradient pattern around it, in a way that survives rotation, scale and brightness changes.</div>
+      <ol class="list-decimal ml-6 space-y-1">
+        <li>Take a 16×16 patch around the keypoint, rotated to the keypoint's dominant orientation (rotation invariance).</li>
+        <li>Split it into a 4×4 grid of 4×4 cells. In each cell build an 8-bin gradient orientation histogram weighted by gradient magnitude and a Gaussian.</li>
+        <li>Concatenate the 16 histograms into a 128-D vector and L2-normalise (illumination invariance).</li>
+      </ol>
+      <p class="font-semibold mt-1">ii. SIFT is invariant to (any three of):</p>
+      <div class="final">Scale · Rotation · Illumination (brightness/contrast) · Small viewpoint/affine changes · Translation.</div>
+
+      <h4>C. Grabcut [4 Marks]</h4>
+      <div class="tip">Grabcut is the "draw a rectangle around the object" cut-out method. It refines an initial guess with iterated graph-cut.</div>
+      <ol class="list-decimal ml-6 space-y-1">
+        <li><strong>What image features?</strong> Pixel <strong>colour</strong> (RGB / Lab).</li>
+        <li><strong>Initial segmentation?</strong> User draws a rectangle: everything <em>outside</em> = sure background, everything <em>inside</em> = "possibly foreground".</li>
+        <li><strong>Model representation?</strong> A Gaussian Mixture Model (GMM) per class — one GMM for foreground colours, one for background colours (typically 5 components each).</li>
+        <li><strong>Graph partitioning technique?</strong> <strong>Min-cut / max-flow</strong> on the pixel graph (Boykov–Kolmogorov).</li>
+      </ol>
+      <div class="syllabus-note">Harris, SIFT descriptor details, and Grabcut are partly outside this year's syllabus (SIFT keypoint detection is in L04; descriptor stage less so; Grabcut not at all).</div>
+      <p class="lecref">📚 <a href="../lectures/L04.html#s4.4">L04 — SIFT</a>.</p>
+    </div>
+  </div>
+</article>
+</section>
+
+<!-- ===================================== Q3 ===================================== -->
+<section id="q3sec" class="mt-12">
+<h2 class="text-2xl font-bold border-b pb-1 mb-4">📝 Question 3 — SVM, LoG, Bayesian [15 Marks]</h2>
+
+<!-- Q3.A SVM -->
+<article id="q3a" class="concept">
+  <h3>Q3·A — Linear SVM on a tiny dataset [5 Marks]</h3>
+  <div class="grid-2">
+    <figure class="qshot"><div class="label">Question — 5 data points</div><img src="../assets/past-exam/2018-final/q/q3a.png" alt="Q3 part A"></figure>
+    <div class="sol">
+      <h4>Data points (x₁, x₂, t)</h4>
+      <table class="qmat">
+        <tr><th>x₁</th><th>x₂</th><th>t (class)</th></tr>
+        <tr><td>1</td><td>1</td><td>−1</td></tr>
+        <tr><td>0</td><td>0</td><td>−1</td></tr>
+        <tr><td>2</td><td>1</td><td>−1</td></tr>
+        <tr><td>2</td><td>3</td><td>+1</td></tr>
+        <tr><td>1</td><td>2</td><td>+1</td></tr>
+      </table>
+
+      <h4>i. Visualize on a 2-D plot</h4>
+      <div class="tip">Plot the three negatives at (1,1), (0,0), (2,1) (lower-right cluster) and the two positives at (1,2) and (2,3) (upper-left cluster). The two groups are separated by a roughly diagonal gap.</div>
+
+      <h4>ii. Which points are support vectors?</h4>
+      <div class="tip">Support vectors are the points <em>closest to the boundary</em> — the ones the margin "rests on" from each side.</div>
+      <div class="final">From class −1: <strong>(2, 1)</strong> and <strong>(1, 1)</strong>. From class +1: <strong>(1, 2)</strong>. Those three lie on the two margin lines.</div>
+
+      <h4>iii. Decision boundary and margin M</h4>
+      <div class="step">
+        With three SVs the maximum-margin separator is the perpendicular bisector of the segment from (2,1) (closest −1) to (1,2) (closest +1). Mid-point = (1.5, 1.5). The segment has direction (−1, +1), so the boundary has direction (1, 1).<br><br>
+        Boundary line: <strong>x₂ − x₁ = 0</strong> (i.e. x₂ = x₁).<br>
+        Equivalently w·x + b = 0 with w = (−1, 1), b = 0.
+      </div>
+      <div class="step">
+        Distance from (2,1) to the line x₂ − x₁ = 0 is |1 − 2| / √2 = 1/√2. Doubling it gives the full margin width.
+      </div>
+      <div class="final">Decision boundary: <strong>x₂ = x₁</strong> &nbsp;·&nbsp; Margin width <strong>M = 2/√2 = √2 ≈ 1.41</strong>.</div>
+      <p class="lecref">📚 <a href="../lectures/L05.html#s5.2">L05 — Linear SVM</a>.</p>
+    </div>
+  </div>
+</article>
+
+<!-- Q3.B LoG -->
+<article id="q3b" class="concept">
+  <h3>Q3·B — The operator ∇²h<sub>σ</sub>(x; y) [6 Marks]</h3>
+  <div class="grid-2">
+    <figure class="qshot"><div class="label">Question — items i–iv</div><img src="../assets/past-exam/2018-final/q/q3b.png" alt="Q3 part B"></figure>
+    <div class="sol">
+      <h4>i. General name &amp; purpose</h4>
+      <div class="tip">∇² applied to a Gaussian h<sub>σ</sub> gives the famous "Mexican-hat" filter — the <strong>Laplacian-of-Gaussian (LoG)</strong>. Convolving it with an image gives strong responses at <em>blobs</em> and <em>edges</em> at scale σ.</div>
+      <div class="final"><strong>Name:</strong> Laplacian-of-Gaussian (LoG). <strong>Purpose:</strong> blob / edge detection at a chosen scale σ (and used inside DoG-based SIFT).</div>
+
+      <h4>ii. What does g(x,y) = 0 correspond to in I(x,y)?</h4>
+      <div class="tip">Zero-crossings of the second derivative happen exactly where the first derivative has an extremum — i.e. at <strong>edges</strong>.</div>
+      <div class="final">Pixels where g = 0 (zero-crossings of the LoG response) correspond to <strong>edge locations</strong> in I.</div>
+
+      <h4>iii. Significance of σ. Increase σ ⇒ more or fewer zero-crossings?</h4>
+      <div class="tip">σ is the <strong>scale</strong>: bigger σ blurs more, so only large-scale features survive.</div>
+      <div class="final">Increasing σ ⇒ <strong>fewer</strong> zero-crossings — fine-scale edges get smoothed away, only the strong/long edges remain.</div>
+
+      <h4>iv. Which is preferable: ∇²[h<sub>σ</sub> ∗ I] or [∇²h<sub>σ</sub>] ∗ I, and why?</h4>
+      <div class="tip">Convolution is associative and linear. Both forms give the same result, but the second one lets you <em>precompute</em> the LoG kernel <strong>once</strong> and convolve with the image directly — that's a single convolution.</div>
+      <div class="final">Prefer <strong>(b)</strong>: ∇²h<sub>σ</sub>(x;y) ∗ I(x;y). One convolution with a precomputed LoG kernel is far cheaper than first blurring, then taking the Laplacian numerically.</div>
+      <p class="lecref">📚 <a href="../lectures/L04.html#s4.2">L04 — LoG / DoG scale space</a>.</p>
+    </div>
+  </div>
+</article>
+
+<!-- Q3.C Bayesian -->
+<article id="q3c" class="concept">
+  <h3>Q3·C — Bayesian classification [4 Marks]</h3>
+  <div class="grid-2">
+    <figure class="qshot"><div class="label">Question</div><img src="../assets/past-exam/2018-final/q/q3c.png" alt="Q3 part C"></figure>
+    <div class="sol">
+      <h4>i. Name &amp; meaning of the three terms</h4>
+      <div class="tip">Bayes' rule has the same three pieces every time — posterior, likelihood, prior — divided by the evidence. Memorise the names.</div>
+      <table class="qmat text-left">
+        <tr><th>Symbol</th><th>Name</th><th>Meaning in words</th></tr>
+        <tr><td>P(C<sub>k</sub> | x)</td><td><strong>Posterior</strong></td><td>How probable class C<sub>k</sub> is <em>after seeing</em> the observation x. The quantity we want.</td></tr>
+        <tr><td>P(x | C<sub>k</sub>)</td><td><strong>Likelihood</strong> (class-conditional density)</td><td>How likely we would observe x if the true class were C<sub>k</sub>. Learned from training data.</td></tr>
+        <tr><td>P(C<sub>k</sub>)</td><td><strong>Prior</strong></td><td>Belief about class C<sub>k</sub> <em>before</em> seeing the data (e.g. base rates).</td></tr>
+      </table>
+
+      <h4>ii. Decision rule that minimises misclassification</h4>
+      <div class="tip">To minimise the chance of being wrong, pick the class that has the largest posterior probability. The evidence P(x) is the same for every class so it can be dropped.</div>
+      <div class="final"><strong>MAP rule:</strong> assign x to class <em>k*</em> where k* = argmax<sub>k</sub> P(C<sub>k</sub>|x) = argmax<sub>k</sub> P(x|C<sub>k</sub>) · P(C<sub>k</sub>).</div>
+      <p class="lecref">📚 <a href="../lectures/L05.html#s5.1">L05 — Bayesian classification</a>.</p>
+    </div>
+  </div>
+</article>
+</section>
+
+<!-- ===================================== Q4 ===================================== -->
+<section id="q4sec" class="mt-12">
+<h2 class="text-2xl font-bold border-b pb-1 mb-4">📝 Question 4 — Hough Transform [12 Marks]</h2>
+
+<article id="q4" class="concept">
+  <h3>Q4 — Hough transform on a set of 9 points</h3>
+  <div class="grid-2">
+    <figure class="qshot"><div class="label">Question (as printed)</div><img src="../assets/past-exam/2018-final/q/q4.png" alt="Q4"></figure>
+    <div class="sol">
+      <div class="syllabus-note">Hough Transform isn't covered in the current syllabus. Solved briefly.</div>
+
+      <h4>A. Points: (1,1),(5,1),(2,2),(4,2),(3,3),(2,4),(4,4),(1,5),(3,5)</h4>
+      <div class="tip">In image space you have a set of dots. In <em>parameter space</em> (slope, intercept) every dot becomes a line "all the (m,c) values that produce a line through this point". Where many parameter-space lines cross = a real line in the image.</div>
+
+      <p><strong>i. Image space:</strong> Plot the 9 points. You'll notice the points (1,5), (2,4), (3,3), (4,2), (5,1) lie on the line x + y = 6 (slope = −1, intercept = 6), and the points (1,1), (2,2), (3,3), (4,4), (1,5),(3,5) etc. contain the diagonal y = x (1,1),(2,2),(3,3),(4,4).</p>
+
+      <p><strong>ii. Optimal parameters in (m, c) space:</strong></p>
+      <ul class="ml-5 list-disc">
+        <li>Line 1: y = −x + 6 → m = −1, c = 6 (passes through (1,5),(2,4),(3,3),(4,2),(5,1)).</li>
+        <li>Line 2: y = x → m = 1, c = 0 (passes through (1,1),(2,2),(3,3),(4,4)).</li>
+      </ul>
+
+      <p><strong>iii. Lines drawn back in image space:</strong> draw the two diagonals above.</p>
+
+      <h4>B. Polar Hough using θ ∈ {−45°, 0°, 45°, 90°}</h4>
+      <div class="tip">For each pixel, plug into r = x·cosθ + y·sinθ for each θ. Then in the (r, θ) accumulator, the cell with the biggest vote = the strongest line.</div>
+
+      <p><strong>i. r-values per pixel:</strong> (cos/sin of −45,0,45,90 are −√2/2,1,√2/2,0 and √2/2,0,√2/2,1):</p>
+      <table class="qmat">
+        <tr><th>(x,y)</th><th>θ=−45°</th><th>θ=0°</th><th>θ=45°</th><th>θ=90°</th></tr>
+        <tr><td>(1,1)</td><td>0</td><td>1</td><td>√2 ≈ 1.41</td><td>1</td></tr>
+        <tr><td>(5,1)</td><td>−2.83</td><td>5</td><td>4.24</td><td>1</td></tr>
+        <tr><td>(2,2)</td><td>0</td><td>2</td><td>2.83</td><td>2</td></tr>
+        <tr><td>(4,2)</td><td>−1.41</td><td>4</td><td>4.24</td><td>2</td></tr>
+        <tr><td>(3,3)</td><td>0</td><td>3</td><td>4.24</td><td>3</td></tr>
+        <tr><td>(2,4)</td><td>1.41</td><td>2</td><td>4.24</td><td>4</td></tr>
+        <tr><td>(4,4)</td><td>0</td><td>4</td><td>5.66</td><td>4</td></tr>
+        <tr><td>(1,5)</td><td>2.83</td><td>1</td><td>4.24</td><td>5</td></tr>
+        <tr><td>(3,5)</td><td>1.41</td><td>3</td><td>5.66</td><td>5</td></tr>
+      </table>
+
+      <p><strong>ii. Accumulator (count of each (r, θ) value):</strong></p>
+      <div class="tip">Look down each column and count repeats — those are the votes.</div>
+      <ul class="ml-5 list-disc text-sm">
+        <li>θ = −45°, r = 0 → 4 votes (the diagonal y = x). <strong>← strong</strong></li>
+        <li>θ = 45°, r = 4.24 → 5 votes (line x + y = 6). <strong>← strongest</strong></li>
+        <li>others ≤ 2 each.</li>
+      </ul>
+
+      <p><strong>iii. Largest values &amp; corresponding lines:</strong></p>
+      <div class="final">
+        (r, θ) = <strong>(4.24, 45°)</strong> with 5 votes → line x cos 45° + y sin 45° = 4.24 ⇔ x + y = 6.<br>
+        (r, θ) = <strong>(0, −45°)</strong> with 4 votes → line −x cos 45° + y sin 45° = 0 ⇔ y = x.
+      </div>
+    </div>
+  </div>
+</article>
+</section>
+
+<!-- ===================================== Q5 ===================================== -->
+<section id="q5sec" class="mt-12">
+<h2 class="text-2xl font-bold border-b pb-1 mb-4">📝 Question 5 — Hough block diagram &amp; Tracking [8 Marks]</h2>
+
+<article id="q5" class="concept">
+  <h3>Q5 — Longest-line detection &amp; object-tracking methods</h3>
+  <div class="grid-2">
+    <figure class="qshot"><div class="label">Question (as printed)</div><img src="../assets/past-exam/2018-final/q/q5.png" alt="Q5"></figure>
+    <div class="sol">
+      <div class="syllabus-note">Hough Transform &amp; classical object-tracking methods are outside the current syllabus. Brief answer given.</div>
+
+      <h4>A. Block diagram — longest-line detection (r<sub>m</sub>, θ<sub>m</sub>)</h4>
+      <pre class="bg-slate-100 dark:bg-slate-800 p-3 rounded text-sm overflow-x-auto"><code>Input image
+   ↓
+Gaussian smoothing
+   ↓
+Edge detection (Sobel / Canny)
+   ↓
+Binarise (threshold edge map)
+   ↓
+Polar Hough Transform:
+   for every edge pixel (x, y), for each θ
+     r = x cos θ + y sin θ
+   accumulate vote in H(r, θ)
+   ↓
+Find maximum bin → (r_m, θ_m)
+   ↓
+Draw line corresponding to (r_m, θ_m)</code></pre>
+
+      <h4>B. Explanation of the Hough algorithm used in (A)</h4>
+      <div class="tip">Each edge pixel "votes" for every line that could possibly pass through it. The line that the most edge pixels agree on becomes the winner.</div>
+      <ol class="list-decimal ml-6 space-y-1">
+        <li>Discretise (r, θ) into a 2-D accumulator.</li>
+        <li>For each edge pixel, sweep θ and compute r = x cos θ + y sin θ. Increment H[r,θ].</li>
+        <li>After all pixels, the bin with the highest vote count is the dominant line; (r<sub>m</sub>, θ<sub>m</sub>) = argmax H.</li>
+        <li>Convert (r, θ) back to the line in image space.</li>
+      </ol>
+
+      <h4>C. Types of object tracking methods (draw &amp; explain)</h4>
+      <div class="tip">Object trackers fall into three classical families: <em>point</em>, <em>kernel/template</em>, and <em>silhouette/contour</em>.</div>
+      <table class="qmat text-left">
+        <tr><th>Family</th><th>Idea</th><th>Examples</th></tr>
+        <tr><td><strong>Point tracking</strong></td><td>Represent the object as one or a few points; predict next position with a motion model and match across frames.</td><td>Kalman filter, particle filter, optical-flow point tracking.</td></tr>
+        <tr><td><strong>Kernel / appearance tracking</strong></td><td>Represent the object as a template (bounding box + appearance model); search the next frame for the best match.</td><td>Mean-shift tracker, KLT, correlation filters.</td></tr>
+        <tr><td><strong>Silhouette / contour tracking</strong></td><td>Track the object's outline or full mask; update its shape frame-by-frame.</td><td>Active contours (snakes), level-sets, shape matching.</td></tr>
+      </table>
+      <div class="final">Modern deep-learning trackers (Siamese networks, ByteTrack, etc.) extend these classical categories.</div>
+    </div>
+  </div>
+</article>
+</section>
+
+<!-- ===================================== Original PDF ===================================== -->
+<section class="mt-12">
+  <h2 class="text-2xl font-bold border-b pb-1 mb-4">📄 Original exam pages (raw scans)</h2>
+  <p class="opacity-70 text-sm mb-3">Full-page renders for visual reference.</p>
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+    <figure class="slide-figure"><img src="../assets/past-exam/2018-final/final-sc-001.png" alt="2018 Final — page 1"><figcaption>Page 1 — Q1 (T/F &amp; brief)</figcaption></figure>
+    <figure class="slide-figure"><img src="../assets/past-exam/2018-final/final-sc-002.png" alt="2018 Final — page 2"><figcaption>Page 2 — RANSAC, Q2, Q3·A</figcaption></figure>
+    <figure class="slide-figure"><img src="../assets/past-exam/2018-final/final-sc-003.png" alt="2018 Final — page 3"><figcaption>Page 3 — Q3·B/C, Q4, Q5</figcaption></figure>
+  </div>
+</section>
+
+<footer class="mt-16 pt-6 border-t text-sm text-slate-500 dark:text-slate-400 no-print">
+  <a href="index.html">← Past-exam index</a> · <a href="../exam/exam.html">Mock final exam →</a>
+</footer>
+</main>
+
+<script>
+document.getElementById('themeToggle').addEventListener('click', () => {
+  const cur = document.documentElement.getAttribute('data-theme');
+  const next = cur === 'dark' ? 'light' : 'dark';
+  document.documentElement.setAttribute('data-theme', next);
+  localStorage.setItem('theme', next);
+});
+</script>
+</body>
+</html>

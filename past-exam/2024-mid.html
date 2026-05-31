@@ -1,0 +1,216 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>2024 Midterm — Solved</title>
+<meta name="description" content="2024 Computer Vision midterm (Dr. Dina Khattab, 14/11/2023) — every question solved with simple how-to-recognise tips.">
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/katex.min.css">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/katex.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/contrib/auto-render.min.js"
+        onload="renderMathInElement(document.body,{delimiters:[{left:'$$',right:'$$',display:true},{left:'$',right:'$',display:false}]});"></script>
+<link rel="stylesheet" href="../assets/css/styles.css">
+<script>
+  (function(){
+    const saved = localStorage.getItem('theme') || 'light';
+    document.documentElement.setAttribute('data-theme', saved);
+  })();
+</script>
+<style>
+  .qmat { border-collapse:collapse; margin:0.5rem 0; }
+  .qmat td { border:1px solid var(--border); padding:0.35rem 0.6rem; text-align:center; font-family:ui-monospace,Menlo,monospace; min-width:2.2rem; }
+  .qmat th { border:1px solid var(--border); padding:0.35rem 0.6rem; background:var(--bg-soft); font-weight:700; text-align:left; }
+  .qmat td.hl { background: var(--accent-soft); font-weight:700; }
+  .qmat td.win { background: rgba(34,197,94,0.18); }
+  .qshot {
+    margin: 0.5rem 0 1rem;
+    border: 1px solid var(--border);
+    border-radius: 0.6rem;
+    background: var(--bg-elev);
+    padding: 0.5rem;
+  }
+  .qshot img { display:block; max-width:100%; height:auto; border-radius:0.3rem; }
+  .qshot .label { font-size: 0.8rem; color: var(--fg-soft); padding: 0.25rem 0.25rem 0.5rem; border-bottom: 1px dashed var(--border); margin-bottom: 0.4rem; }
+
+  .sol h4 { font-weight:700; margin:0.9rem 0 0.4rem; font-size:1.05rem; color:var(--ok); }
+  .sol h4::before { content:'✓ '; }
+
+  .tip {
+    background: rgba(59,130,246,0.08);
+    border-left: 3px solid var(--accent);
+    padding: 0.55rem 0.85rem; margin: 0.45rem 0;
+    border-radius: 0 0.4rem 0.4rem 0;
+  }
+  .tip::before { content:'💡 How to recognise: '; font-weight:700; color:var(--accent); }
+
+  .step {
+    background: var(--bg-soft);
+    border-left: 3px solid var(--fg-soft);
+    padding: 0.5rem 0.8rem; margin: 0.4rem 0;
+    border-radius: 0 0.4rem 0.4rem 0;
+  }
+  .final {
+    background: rgba(34,197,94,0.12);
+    border-left: 3px solid var(--ok);
+    padding: 0.6rem 0.8rem; margin: 0.6rem 0;
+    border-radius: 0 0.4rem 0.4rem 0;
+    font-weight: 600;
+  }
+  .grid-2 { display:grid; grid-template-columns:1fr; gap:1rem; }
+  @media (min-width: 900px){ .grid-2 { grid-template-columns: 1fr 1.2fr; } }
+  .lecref { font-size: 0.85rem; opacity: 0.8; }
+</style>
+</head>
+<body class="max-w-6xl mx-auto px-4 pb-24">
+
+<header class="flex items-center justify-between py-4 border-b border-slate-200 dark:border-slate-700 no-print">
+  <a href="index.html" class="text-sm">← Back to past-exam index</a>
+  <div class="flex items-center gap-3">
+    <a class="text-xs underline" href="../assets/past-exam/2024-mid/solution.pdf">Download original PDF</a>
+    <button id="themeToggle" class="text-sm border rounded px-2 py-1">🌓 Theme</button>
+  </div>
+</header>
+
+<nav class="section-jump no-print">
+  <a href="#qA">A · True/False</a>
+  <a href="#qB">B · 1D conv</a>
+  <a href="#qC">C · Harris</a>
+</nav>
+
+<main>
+<h1 class="text-3xl font-extrabold mt-4 mb-2">2024 Midterm — Solved</h1>
+<p class="text-slate-500 dark:text-slate-400 mb-6">Dr. Dina Khattab · 14/11/2023 · 30 minutes · 15 marks. Screenshot on the left, plain-English solution on the right. Blue boxes are <em>"how to recognise"</em> tips.</p>
+
+<!-- ===================================== MIDTERM ===================================== -->
+<section id="midterm" class="mt-8">
+<h2 class="text-2xl font-bold border-b pb-1 mb-4">📝 2024 Midterm</h2>
+
+<!-- Q-A : 8 True/False statements -->
+<article id="qA" class="concept">
+  <h3>Question A — Eight True / False statements (8 marks)</h3>
+  <div class="grid-2">
+    <figure class="qshot"><div class="label">Question (as printed)</div><img src="../assets/past-exam/2024-mid/q/q1.png" alt="2024 midterm Q-A"></figure>
+    <div class="sol">
+      <h4>Solution — verdict per statement</h4>
+
+      <div class="tip">For Gaussian / Laplacian / Sobel / Canny statements, anchor yourself on three rules:
+        <ul class="ml-5 list-disc">
+          <li>For a Gaussian, the <strong>σ</strong> (not the kernel size) is what controls the smoothing scale — the size only needs to be big enough to hold ≈ ±3σ.</li>
+          <li>A Sobel kernel has <strong>positive on one side, zero in the middle, negative on the other side</strong>. The zero column tells you which gradient direction is being measured: zero in the x-column → horizontal change → <em>vertical-edge</em> detector; zero in the y-row → vertical change → <em>horizontal-edge</em> detector.</li>
+          <li>Canny uses the <strong>1st derivative</strong> of a Gaussian, Marr–Hildreth uses the <strong>2nd derivative</strong> (LoG). Don't confuse them.</li>
+        </ul>
+      </div>
+
+      <table class="qmat text-left">
+        <tr><th>#</th><th>Statement (short)</th><th>Answer</th><th>Why</th></tr>
+        <tr><td>1</td><td>Gaussian filter size is the most important parameter (it defines the smoothing scale).</td><td><strong>False</strong></td><td>It's the <strong>σ</strong> that defines the smoothing scale. The size just has to be wide enough (~6σ) to hold the bell.</td></tr>
+        <tr><td>2</td><td>Averaging is intuitive because it assumes noise is independent.</td><td><strong>True</strong></td><td>If neighbouring pixels carry independent noise samples, averaging them lets the noise cancel out and the signal stays.</td></tr>
+        <tr><td>3</td><td>Linear-filter complexity depends on image size <em>and</em> filter size.</td><td><strong>True</strong></td><td>Cost = (#pixels) × (kernel cells) = O(M·N·k²).</td></tr>
+        <tr><td>4</td><td>Sobel is used as an edge detector, not a sharpener.</td><td><strong>True</strong></td><td>Sobel is a first-derivative kernel — its output highlights edges. Sharpening is done with Laplacian-based masks.</td></tr>
+        <tr><td>5</td><td>Canny is based on the 1st derivative of a Gaussian.</td><td><strong>True</strong></td><td>Canny smooths with a Gaussian then takes the first derivative (gradient magnitude + non-max suppression + hysteresis).</td></tr>
+        <tr><td>6</td><td>It's important to convolve with a Gaussian <em>before</em> a Laplacian.</td><td><strong>False</strong></td><td>Convolution is associative: G ∗ (L ∗ I) = (G ∗ L) ∗ I. The order doesn't matter mathematically — in practice we just merge them into the LoG kernel.</td></tr>
+        <tr><td>7</td><td>The kernel <code>[[1,0,-1],[2,0,-2],[1,0,-1]]</code> detects <em>horizontal</em> edges.</td><td><strong>False</strong></td><td>The zero column is in the middle of x → it measures the <em>x-derivative</em> → it detects <strong>vertical</strong> edges (changes left-to-right). Horizontal-edge Sobel has the zero row in the middle.</td></tr>
+        <tr><td>8</td><td>Lowering both Canny thresholds gives more <em>discontinuous</em> edges.</td><td><strong>False</strong></td><td>Lowering the thresholds lets more weak pixels survive and lets more of them get linked to strong ones — so you get <em>longer, more continuous</em> edges (and more noise).</td></tr>
+      </table>
+
+      <div class="final">Pattern of answers: 1·F, 2·T, 3·T, 4·T, 5·T, 6·F, 7·F, 8·F.</div>
+      <p class="lecref">📚 <a href="../lectures/L01.html#s1.3">L01 — Gaussian, Sobel, Laplacian, Canny</a>.</p>
+    </div>
+  </div>
+</article>
+
+<!-- Q-B : 1D second-derivative convolution -->
+<article id="qB" class="concept">
+  <h3>Question B — 1D second-derivative convolution (3 marks)</h3>
+  <div class="grid-2">
+    <figure class="qshot"><div class="label">Question (as printed)</div><img src="../assets/past-exam/2024-mid/q/q2.png" alt="2024 midterm Q-B"></figure>
+    <div class="sol">
+      <h4>Solution</h4>
+
+      <div class="tip">The kernel <code>[-1, 2, -1]</code> is the discrete <strong>second derivative</strong> (Laplacian in 1D). It outputs <strong>zero</strong> on any flat region (the two −1's cancel the centre 2·v), a <strong>positive</strong> spike just <em>before</em> a step up, and a <strong>negative</strong> spike just <em>after</em>. That's why you only get non-zero values right at the edges of the box.</div>
+
+      <h4>Step 1 — slide the kernel and compute each output</h4>
+
+      <div class="step">For convolution, you flip the kernel before sliding. <code>[-1, 2, -1]</code> flipped is itself (it's symmetric), so the operation is the same as correlation. At each output position <em>i</em>: <code>out[i] = −input[i−1] + 2·input[i] − input[i+1]</code>.</div>
+
+      <table class="qmat">
+        <tr><th>i</th><td>0</td><td>1</td><td>2</td><td>3</td><td>4</td><td>5</td><td>6</td><td>7</td><td>8</td><td>9</td><td>10</td><td>11</td><td>12</td></tr>
+        <tr><th>input</th><td>0</td><td>0</td><td>0</td><td>0</td><td>5</td><td>5</td><td>5</td><td>5</td><td>5</td><td>0</td><td>0</td><td>0</td><td>0</td></tr>
+        <tr><th>output</th><td>0</td><td>0</td><td>0</td><td class="win">−5</td><td class="win">5</td><td>0</td><td>0</td><td>0</td><td class="win">5</td><td class="win">−5</td><td>0</td><td>0</td><td>0</td></tr>
+      </table>
+
+      <p class="text-sm mt-1 opacity-80">Worked sample at i = 3: <code>−input[2] + 2·input[3] − input[4] = −0 + 0 − 5 = −5</code>. At i = 4: <code>−0 + 2·5 − 5 = 5</code>. Inside the plateau (i = 5–7) every neighbourhood is <code>[5,5,5]</code> → output = −5 + 10 − 5 = 0.</p>
+
+      <div class="final">Output row: <strong>0, 0, 0, −5, 5, 0, 0, 0, 5, −5, 0, 0, 0</strong> — a positive/negative pair at each edge of the step, zeros everywhere else.</div>
+
+      <h4>Step 2 — would correlation give a different answer?</h4>
+
+      <div class="tip">Correlation skips the flip step. So convolution and correlation differ <strong>only when the kernel is asymmetric</strong>. <code>[-1, 2, -1]</code> reads the same forwards and backwards → it's symmetric → flipping changes nothing.</div>
+
+      <div class="final"><strong>No</strong> — the result is identical, because the kernel <code>[-1, 2, -1]</code> is symmetric, so flipping it (which is the only step that distinguishes convolution from correlation) leaves it unchanged.</div>
+      <p class="lecref">📚 <a href="../lectures/L01.html#s1.3">L01 — Convolution vs. correlation; 2nd-derivative edge detection</a>.</p>
+    </div>
+  </div>
+</article>
+
+<!-- Q-C : Harris corners -->
+<article id="qC" class="concept">
+  <h3>Question C — Harris detector: which pair, and is M a corner? (4 marks)</h3>
+  <div class="grid-2">
+    <figure class="qshot"><div class="label">Question (as printed)</div><img src="../assets/past-exam/2024-mid/q/q3.png" alt="2024 midterm Q-C"></figure>
+    <div class="sol">
+      <h4>Part i — Which image pair is appropriate for Harris?</h4>
+
+      <div class="tip">Harris is <strong>invariant to rotation and to (small) intensity change</strong>, but it is <strong>NOT invariant to scale</strong>. So look at what changes between the two pictures:
+        <ul class="ml-5 list-disc">
+          <li>If one image is a <em>rotated</em> version of the other → Harris is fine.</li>
+          <li>If one image is a <em>zoomed-in / zoomed-out</em> version → Harris fails, you need SIFT (scale-invariant).</li>
+        </ul>
+      </div>
+
+      <div class="step">In Pair 1 the second kitten image is rotated relative to the first. In Pair 2 the horse is at a different <em>scale</em> (zoom).</div>
+
+      <div class="final"><strong>Pair 1</strong>, because Harris is invariant to rotation but not to scale, and Pair 1 differs only by rotation. Pair 2 needs a scale-invariant detector (SIFT) instead.</div>
+
+      <h4>Part ii — Does M = [[29, 97], [97, 353]] correspond to a corner?</h4>
+
+      <div class="tip">Read the diagonal of the Harris moment matrix <code>M = [[Σ Iₓ², Σ Iₓ I_y], [Σ Iₓ I_y, Σ I_y²]]</code>. A <strong>corner</strong> needs <em>both</em> eigenvalues large, i.e. <strong>Σ Iₓ² and Σ I_y² should be comparable</strong>. An edge has <em>one</em> diagonal entry much larger than the other (gradient lives along only one direction).</div>
+
+      <div class="step">Here Σ Iₓ² = <strong>29</strong> while Σ I_y² = <strong>353</strong>. The y-direction gradient dominates by more than 10×, so the image patch has strong intensity change in y but almost none in x — that's the signature of a <em>horizontal edge</em>, not a corner.</div>
+
+      <p class="text-sm opacity-80">Cross-check with eigenvalues: trace = 29 + 353 = 382, det = 29·353 − 97·97 = 10,237 − 9,409 = 828. So λ ≈ (382 ± √(382² − 4·828))/2 ≈ (382 ± √142,612)/2 ≈ (382 ± 377.6)/2 → λ₁ ≈ 379.8, λ₂ ≈ 2.2. One huge, one tiny → <em>edge</em> response, exactly matching the I_y ≫ Iₓ reasoning.</p>
+
+      <div class="final"><strong>No, it does not correspond to a corner</strong> — because I_y ≫ Iₓ (353 vs 29). One eigenvalue is large, the other near zero, so Harris would label this patch an <em>edge</em>, not a corner.</div>
+      <p class="lecref">📚 <a href="../lectures/L04.html#s4.1">L04 — Harris corner detector &amp; the moment matrix M</a>.</p>
+    </div>
+  </div>
+</article>
+
+</section>
+
+<!-- ===================================== Original PDF ===================================== -->
+<section class="mt-12">
+  <h2 class="text-2xl font-bold border-b pb-1 mb-4">📄 Original exam pages (raw scans)</h2>
+  <p class="opacity-70 text-sm mb-3">Full-page renders for visual reference.</p>
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+    <figure class="slide-figure"><img src="../assets/past-exam/2024-mid/solution-001.png" alt="2024 midterm — page 1"><figcaption>Page 1 — Questions A &amp; B</figcaption></figure>
+    <figure class="slide-figure"><img src="../assets/past-exam/2024-mid/solution-002.png" alt="2024 midterm — page 2"><figcaption>Page 2 — Question C</figcaption></figure>
+  </div>
+</section>
+
+<footer class="mt-16 pt-6 border-t text-sm text-slate-500 dark:text-slate-400 no-print">
+  <a href="index.html">← Past-exam index</a> · <a href="../exam/exam.html">Mock final exam →</a>
+</footer>
+</main>
+
+<script>
+document.getElementById('themeToggle').addEventListener('click', () => {
+  const cur = document.documentElement.getAttribute('data-theme');
+  const next = cur === 'dark' ? 'light' : 'dark';
+  document.documentElement.setAttribute('data-theme', next);
+  localStorage.setItem('theme', next);
+});
+</script>
+</body>
+</html>

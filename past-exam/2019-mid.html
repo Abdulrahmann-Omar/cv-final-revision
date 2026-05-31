@@ -1,0 +1,339 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>2019 Midterm — Solved</title>
+<meta name="description" content="Computer Vision 2018/2019 Midterm — every question solved in plain English with how-to-recognise tips.">
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/katex.min.css">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/katex.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/contrib/auto-render.min.js"
+        onload="renderMathInElement(document.body,{delimiters:[{left:'$$',right:'$$',display:true},{left:'$',right:'$',display:false}]});"></script>
+<link rel="stylesheet" href="../assets/css/styles.css">
+<script>
+  (function(){
+    const saved = localStorage.getItem('theme') || 'light';
+    document.documentElement.setAttribute('data-theme', saved);
+  })();
+</script>
+<style>
+  .qmat { border-collapse:collapse; margin:0.5rem 0; }
+  .qmat td { border:1px solid var(--border); padding:0.35rem 0.6rem; text-align:center; font-family:ui-monospace,Menlo,monospace; min-width:2.2rem; }
+  .qmat th { border:1px solid var(--border); padding:0.35rem 0.6rem; background:var(--bg-soft); font-weight:700; text-align:left; }
+  .qmat td.hl { background: var(--accent-soft); font-weight:700; }
+  .qmat td.win { background: rgba(34,197,94,0.18); }
+  .qshot {
+    margin: 0.5rem 0 1rem;
+    border: 1px solid var(--border);
+    border-radius: 0.6rem;
+    background: var(--bg-elev);
+    padding: 0.5rem;
+  }
+  .qshot img { display:block; max-width:100%; height:auto; border-radius:0.3rem; }
+  .qshot .label { font-size: 0.8rem; color: var(--fg-soft); padding: 0.25rem 0.25rem 0.5rem; border-bottom: 1px dashed var(--border); margin-bottom: 0.4rem; }
+
+  .sol h4 { font-weight:700; margin:0.9rem 0 0.4rem; font-size:1.05rem; color:var(--ok); }
+  .sol h4::before { content:'✓ '; }
+
+  .tip {
+    background: rgba(59,130,246,0.08);
+    border-left: 3px solid var(--accent);
+    padding: 0.55rem 0.85rem; margin: 0.45rem 0;
+    border-radius: 0 0.4rem 0.4rem 0;
+  }
+  .tip::before { content:'💡 How to recognise: '; font-weight:700; color:var(--accent); }
+
+  .step {
+    background: var(--bg-soft);
+    border-left: 3px solid var(--fg-soft);
+    padding: 0.5rem 0.8rem; margin: 0.4rem 0;
+    border-radius: 0 0.4rem 0.4rem 0;
+  }
+  .final {
+    background: rgba(34,197,94,0.12);
+    border-left: 3px solid var(--ok);
+    padding: 0.6rem 0.8rem; margin: 0.6rem 0;
+    border-radius: 0 0.4rem 0.4rem 0;
+    font-weight: 600;
+  }
+  .grid-2 { display:grid; grid-template-columns:1fr; gap:1rem; }
+  @media (min-width: 900px){ .grid-2 { grid-template-columns: 1fr 1.2fr; } }
+  .lecref { font-size: 0.85rem; opacity: 0.8; }
+</style>
+</head>
+<body class="max-w-6xl mx-auto px-4 pb-24">
+
+<header class="flex items-center justify-between py-4 border-b border-slate-200 dark:border-slate-700 no-print">
+  <a href="index.html" class="text-sm">← Back to past-exam index</a>
+  <div class="flex items-center gap-3">
+    <a class="text-xs underline" href="../assets/past-exam/2019-mid/midterm.pdf">Download original PDF</a>
+    <button id="themeToggle" class="text-sm border rounded px-2 py-1">🌓 Theme</button>
+  </div>
+</header>
+
+<nav class="section-jump no-print">
+  <a href="#midterm">Midterm 2019</a>
+  <a href="#m-q1a">Q1·A Mean Shift</a>
+  <a href="#m-q1b">Q1·B RANSAC</a>
+  <a href="#m-q2a">Q2·A SIFT</a>
+  <a href="#m-q2b">Q2·B Skin/Bayes</a>
+  <a href="#m-q2c">Q2·C AdaBoost</a>
+</nav>
+
+<main>
+<h1 class="text-3xl font-extrabold mt-4 mb-2">2019 Midterm — Solved</h1>
+<p class="text-slate-500 dark:text-slate-400 mb-6">Computer Vision, Ain Shams University, MidTerm 21/11/2018 (academic year 2018/2019). Screenshot on the left, plain-English solution on the right. Blue boxes are <em>"how to recognise"</em> tips.</p>
+
+<p class="text-sm opacity-75 mb-4 italic">Heads-up: this exam predates the current syllabus, so a few topics here (Mean Shift, RANSAC, Bayesian classifier, AdaBoost) are classical-CV rather than the deep-learning-heavy L01–L12. The closest matches in this revision pack are linked at the bottom of each part.</p>
+
+<!-- ===================================== MIDTERM ===================================== -->
+<section id="midterm" class="mt-8">
+<h2 class="text-2xl font-bold border-b pb-1 mb-4">📝 Midterm — 2018/2019</h2>
+
+<!-- ============ Q1 A — Mean Shift ============ -->
+<article id="m-q1a" class="concept">
+  <h3>Question 1 · Part A — Mean Shift for image segmentation</h3>
+  <div class="grid-2">
+    <figure class="qshot"><div class="label">Question (as printed)</div><img src="../assets/past-exam/2019-mid/q/q1a.png" alt="2019 Midterm Q1A Mean Shift"></figure>
+    <div class="sol">
+      <h4>i. Main steps of Mean Shift segmentation</h4>
+
+      <div class="tip">Mean Shift treats every pixel as a point in feature space (e.g. (x, y, R, G, B)), drops a window on each point, and keeps sliding that window <strong>uphill toward the densest region</strong>. Points that climb to the same peak get the same label. The one knob you set is the <strong>window (bandwidth) size</strong>.</div>
+
+      <div class="step">
+        <strong>Step 1.</strong> Put every pixel into a feature vector — usually 5-D: <em>(x, y, R, G, B)</em>. This is the "feature space" the algorithm searches in.
+      </div>
+      <div class="step">
+        <strong>Step 2.</strong> Around each point, place a window of the chosen bandwidth. Compute the mean of all points inside that window.
+      </div>
+      <div class="step">
+        <strong>Step 3.</strong> Move the window so its centre lands on that mean. This is the "mean shift" step — it nudges the window toward the locally densest area.
+      </div>
+      <div class="step">
+        <strong>Step 4.</strong> Repeat Step 2/3 until the window stops moving (a mode of the density). Tag the starting pixel with the mode it landed on.
+      </div>
+      <div class="step">
+        <strong>Step 5.</strong> Pixels that converge to the <em>same</em> mode form one segment. That's the segmentation.
+      </div>
+
+      <div class="final"><strong>Parameter to set:</strong> the <strong>window (kernel) size / bandwidth</strong> — this is the single most important knob.</div>
+
+      <h4>ii. Sensitivity to the window size</h4>
+
+      <div class="tip">Big window = looks at a lot of pixels at once → fewer steps to converge, but the mode it lands on is fuzzy (over-smooths, merges segments). Small window = sees fine detail and stays accurate, but each pixel walks slowly and the algorithm takes much longer.</div>
+
+      <table class="qmat text-left">
+        <tr><th>Window size</th><th>Convergence time</th><th>Accuracy / detail</th></tr>
+        <tr><td><strong>Too big</strong></td><td>Fast (low complexity)</td><td>Low — over-smooths, merges segments</td></tr>
+        <tr><td><strong>Too small</strong></td><td>Slow (high complexity)</td><td>High — preserves detail, but may over-segment</td></tr>
+      </table>
+
+      <div class="final">Sweet spot: just big enough to span one homogeneous region, but no bigger.</div>
+      <p class="lecref">📚 Closest in this pack: <a href="../lectures/L01.html">L01 — Spatial / pixel-space operations</a>. (Mean Shift itself isn't in the new L01–L12; this is classical-CV material.)</p>
+    </div>
+  </div>
+</article>
+
+<!-- ============ Q1 B — RANSAC ============ -->
+<article id="m-q1b" class="concept">
+  <h3>Question 1 · Part B — Fit a line with RANSAC</h3>
+  <div class="grid-2">
+    <figure class="qshot"><div class="label">Question (as printed)</div><img src="../assets/past-exam/2019-mid/q/q1b.png" alt="2019 Midterm Q1B RANSAC"></figure>
+    <div class="sol">
+      <h4>i. Using RANSAC to fit a line to a noisy 2-D point cloud</h4>
+
+      <div class="tip">RANSAC = "guess a model from a tiny random sample, count how many points agree with it, repeat, keep the best". For a line you only need <strong>2 points</strong> to define a candidate. Outliers can't all line up by accident, so the winning model is the one most real points support.</div>
+
+      <div class="step">
+        <strong>Step 1.</strong> Pick 2 random points from the cloud and fit the line that passes through them — that's your candidate model.
+      </div>
+      <div class="step">
+        <strong>Step 2.</strong> Check every other point: if its perpendicular distance to the line is below a small threshold <em>t</em>, it's an <strong>inlier</strong>, otherwise it's an outlier.
+      </div>
+      <div class="step">
+        <strong>Step 3.</strong> Score this candidate by the number of inliers (the "consensus set").
+      </div>
+      <div class="step">
+        <strong>Step 4.</strong> Repeat <em>N</em> times with fresh random pairs. Keep the candidate with the largest consensus set.
+      </div>
+      <div class="step">
+        <strong>Step 5.</strong> Re-fit the line using <em>least squares</em> on the inliers of the winning candidate. That's your final line.
+      </div>
+
+      <h4>ii. Minimum iterations <em>N</em> for 60% inliers, 95% confidence</h4>
+
+      <div class="tip">Use the standard RANSAC formula:
+        $$N \;\geq\; \frac{\log(1-p)}{\log\!\big(1-(1-e)^{s}\big)}$$
+        where <em>p</em> = wanted probability of one clean sample, <em>e</em> = outlier ratio, <em>s</em> = sample size (here 2 for a line).</div>
+
+      <div class="step">
+        <strong>Plug in:</strong> <em>p</em> = 0.95, outlier ratio <em>e</em> = 1 − 0.6 = 0.4, <em>s</em> = 2.
+      </div>
+      <div class="step">
+        Inner term: $(1-e)^{s} = 0.6^{2} = 0.36$, so $1 - 0.36 = 0.64$.
+      </div>
+      <div class="step">
+        $N \geq \dfrac{\log(0.05)}{\log(0.64)} = \dfrac{-1.301}{-0.194} \approx 6.71$.
+      </div>
+
+      <div class="final">Round <em>up</em>: <strong>N = 7 iterations</strong> are enough to hit a clean (outlier-free) pair with 95% probability.</div>
+      <p class="lecref">📚 Closest in this pack: <a href="../lectures/L04.html">L04 — Feature matching &amp; robust estimation</a>. (RANSAC predates the new syllabus.)</p>
+    </div>
+  </div>
+</article>
+
+<!-- ============ Q2 A — SIFT rotation invariance ============ -->
+<article id="m-q2a" class="concept">
+  <h3>Question 2 · Part A — Which detector for rotation + zoom? Why is SIFT rotation-invariant?</h3>
+  <div class="grid-2">
+    <figure class="qshot"><div class="label">Question (as printed) — spans the bottom of p.1 and top of p.2</div><img src="../assets/past-exam/2019-mid/q/q2a.png" alt="2019 Midterm Q2A SIFT"></figure>
+    <div class="sol">
+      <h4>Detector to use: SIFT</h4>
+
+      <div class="tip">Whenever a question says "<em>different rotation and zoom</em>", you need a detector that is both <strong>scale-invariant</strong> and <strong>rotation-invariant</strong>. SIFT is built specifically for that combo: scale via DoG pyramid, rotation via a canonical orientation per keypoint.</div>
+
+      <div class="final">Answer: <strong>SIFT</strong> (Scale-Invariant Feature Transform) — robust to scale, rotation, and moderate illumination/viewpoint change.</div>
+
+      <h4>How SIFT achieves rotation invariance (the steps that matter)</h4>
+
+      <div class="step">
+        <strong>Step 1 — Around each keypoint, compute image gradients.</strong> In a small window around the keypoint, compute the gradient magnitude and orientation at every pixel (weighted by a Gaussian centred on the keypoint).
+      </div>
+
+      <div class="step">
+        <strong>Step 2 — Build an orientation histogram.</strong> Bin the orientations into 36 bins of 10° each. Each pixel votes into its bin, weighted by its gradient magnitude. The result is a 36-bin histogram saying "which direction is dominant here?".
+      </div>
+
+      <div class="step">
+        <strong>Step 3 — Pick the dominant orientation.</strong> The tallest bin in that histogram is the keypoint's <strong>canonical orientation θ</strong>. (Any bin within 80% of the peak gets its own duplicate keypoint — that's why some keypoints have multiple orientations.)
+      </div>
+
+      <div class="step">
+        <strong>Step 4 — Rotate the descriptor frame by −θ.</strong> Before computing the 128-D descriptor, every gradient direction is rotated so the dominant direction lines up with "up". From then on, the descriptor lives in a coordinate frame attached to <em>the feature itself</em>, not to the image axes.
+      </div>
+
+      <div class="final">Why this gives rotation invariance: rotate the image by any angle α — the keypoint's gradients all rotate by α too, so its dominant orientation also rotates by α. Subtracting θ wipes out that rotation, leaving the descriptor unchanged. Two photos of the same patch taken at different rotations end up with the <em>same</em> 128-D vector.</div>
+      <p class="lecref">📚 <a href="../lectures/L04.html">L04 — SIFT (scale-space, orientation assignment, descriptor)</a>.</p>
+    </div>
+  </div>
+</article>
+
+<!-- ============ Q2 B — Skin colour + Bayes ============ -->
+<article id="m-q2b" class="concept">
+  <h3>Question 2 · Part B — Skin-colour recognition with a Bayesian classifier</h3>
+  <div class="grid-2">
+    <figure class="qshot"><div class="label">Question (as printed)</div><img src="../assets/past-exam/2019-mid/q/q2b.png" alt="2019 Midterm Q2B skin colour Bayesian"></figure>
+    <div class="sol">
+      <h4>i. Low-level feature to extract</h4>
+
+      <div class="tip">"Skin" is a colour cue, not a shape cue. RGB mixes brightness with colour, so it's a bad feature when lighting varies. The <strong>Hue channel of HSV</strong> isolates pure colour from intensity — exactly what you want for skin detection.</div>
+
+      <div class="final">Use the <strong>Hue / colour value</strong> (e.g. the H channel of HSV) of each pixel as the feature <em>x</em>. Skin has a fairly narrow hue range, mostly independent of how brightly the scene is lit.</div>
+
+      <h4>ii. Plugging in expert knowledge with a Bayesian classifier</h4>
+
+      <div class="tip">Bayes lets you combine "what does skin look like?" (the likelihood) with "how often does skin appear?" (the prior). The prior is exactly where you bake in expert knowledge such as "in face photos, ~20% of pixels are skin".</div>
+
+      <div class="step">
+        For a pixel with feature <em>x</em> and a class <em>C<sub>k</sub></em> ∈ {skin, not-skin}, Bayes gives:
+        $$P(C_k\mid x) \;=\; \frac{P(x\mid C_k)\,P(C_k)}{P(x)}$$
+      </div>
+
+      <div class="step">
+        <strong>P(x | C<sub>k</sub>) — the likelihood.</strong> Learnt from training pixels — typically a 1-D histogram or a small Gaussian over hue, fitted on a labelled skin dataset.
+      </div>
+
+      <div class="step">
+        <strong>P(C<sub>k</sub>) — the prior.</strong> This is the slot for expert knowledge: set P(skin) to the rough fraction of skin pixels you expect (e.g. 0.2 for face photos, 0.05 for street scenes). Larger prior → classifier is more willing to call a pixel skin.
+      </div>
+
+      <div class="step">
+        <strong>Decision rule.</strong> Pixel is "skin" if P(skin | x) > P(not-skin | x). Because P(x) is the same in both, you can drop it and just compare P(x | C<sub>k</sub>)·P(C<sub>k</sub>).
+      </div>
+
+      <div class="final">In short: <strong>likelihood is learnt from data, prior carries the expert knowledge about skin frequency</strong>. Multiply them; pick the bigger one.</div>
+      <p class="lecref">📚 Closest in this pack: <a href="../lectures/L01.html">L01 — Pixel-level operations &amp; colour features</a>. (Bayes classifier isn't in the new L01–L12.)</p>
+    </div>
+  </div>
+</article>
+
+<!-- ============ Q2 C — AdaBoost ============ -->
+<article id="m-q2c" class="concept">
+  <h3>Question 2 · Part C — AdaBoost on a 1-D 2-class problem</h3>
+  <div class="grid-2">
+    <figure class="qshot"><div class="label">Question (as printed) — the 8 points along a line, alternating +/−</div><img src="../assets/past-exam/2019-mid/q/q2c.png" alt="2019 Midterm Q2C AdaBoost"></figure>
+    <div class="sol">
+      <h4>The setup, in plain English</h4>
+
+      <div class="tip">All 8 points lie on the x-axis (the y-coordinate is irrelevant). Reading their x-values from left to right:
+        <ul class="ml-5 list-disc">
+          <li>x = −3, −1, 1, 3 (top row): classes are <strong>−1, +1, +1, −1</strong>.</li>
+          <li>x = −3, −1, 1, 3 (bottom row): same pattern.</li>
+        </ul>
+        So along the axis: <strong>(−, +, +, −)</strong> repeated. A single vertical line ("is x &lt; threshold?") can <em>never</em> separate this pattern — the classes alternate. Classic XOR-like layout.
+      </div>
+
+      <h4>i. First weak learner + weight update</h4>
+
+      <div class="step">
+        <strong>Initial weights.</strong> Every point starts equal: <em>w<sub>i</sub></em> = 1/8 = <strong>0.125</strong>.
+      </div>
+
+      <div class="step">
+        <strong>Pick the best weak learner.</strong> A weak learner here is a vertical decision stump "predict +1 if x &gt; θ, else −1" (or the reverse). The most "balanced" placement is the one in the <strong>middle</strong> (e.g. θ = 0). With that boundary, exactly 4 of the 8 points are misclassified — the two outer-left and outer-right ones still match, but the inner two pairs don't.
+      </div>
+
+      <div class="step">
+        <strong>Weighted error.</strong> $\text{err} = \dfrac{\sum_i w_i \cdot \mathbf{1}[y_i \neq g_m(x_i)]}{\sum_i w_i} = \dfrac{4 \times 0.125}{1} = \mathbf{0.5}$.
+      </div>
+
+      <div class="step">
+        <strong>Update rule for the misclassified points:</strong>
+        $$w_i^{(m)} = w_i^{(m-1)} \cdot \frac{1-\text{err}}{\text{err}} = 0.125 \cdot \frac{1-0.5}{0.5} = 0.125.$$
+        Correctly-classified points keep their old weight (also 0.125). So <strong>every weight stays at 0.125</strong> — nothing changed.
+      </div>
+
+      <div class="final">First weak learner: vertical line in the middle. err = 0.5. Update: <em>every</em> weight remains 0.125 — AdaBoost is stuck.</div>
+
+      <h4>ii. Is one weak learner enough? What's needed?</h4>
+
+      <div class="tip">A weak learner's voting weight is α = ½ ln((1 − err)/err). When err = 0.5, α = 0 — that classifier contributes nothing. And because all sample weights stayed equal, the next iteration will pick the same useless boundary forever.</div>
+
+      <div class="final">
+        <strong>No, one weak learner is not enough.</strong> err = 0.5 means the stump is no better than random, so its α = 0 and the final classifier is identically 0.<br><br>
+        <strong>What's needed:</strong> at least <strong>three weak learners</strong> — typically two stumps that split the line into the three regions {x &lt; −2}, {−2 ≤ x ≤ 2}, {x &gt; 2}, plus a third that acts as a <em>bias</em> term to flip the middle region's sign. Equivalently: lift the data into 2-D (e.g. add x², or use a non-linear weak learner) so a linear stump can actually separate the alternating pattern.
+      </div>
+      <p class="lecref">📚 Closest in this pack: <a href="../lectures/L01.html">L01 — Classical classifiers</a>. (AdaBoost isn't covered in the new L01–L12.)</p>
+    </div>
+  </div>
+</article>
+
+</section>
+
+<!-- ===================================== Original PDF ===================================== -->
+<section class="mt-12">
+  <h2 class="text-2xl font-bold border-b pb-1 mb-4">📄 Original exam pages (raw scans)</h2>
+  <p class="opacity-70 text-sm mb-3">Full-page renders for visual reference.</p>
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+    <figure class="slide-figure"><img src="../assets/past-exam/2019-mid/midterm-001.png" alt="2019 Midterm — page 1"><figcaption>Page 1 — Q1 (Mean Shift, RANSAC) &amp; start of Q2</figcaption></figure>
+    <figure class="slide-figure"><img src="../assets/past-exam/2019-mid/midterm-002.png" alt="2019 Midterm — page 2"><figcaption>Page 2 — Q2 (SIFT, skin colour / Bayes, AdaBoost)</figcaption></figure>
+    <figure class="slide-figure"><img src="../assets/past-exam/2019-mid/midterm-003.png" alt="2019 Midterm — page 3"><figcaption>Page 3 — sign-off</figcaption></figure>
+  </div>
+</section>
+
+<footer class="mt-16 pt-6 border-t text-sm text-slate-500 dark:text-slate-400 no-print">
+  <a href="index.html">← Past-exam index</a> · <a href="../exam/exam.html">Mock final exam →</a>
+</footer>
+</main>
+
+<script>
+document.getElementById('themeToggle').addEventListener('click', () => {
+  const cur = document.documentElement.getAttribute('data-theme');
+  const next = cur === 'dark' ? 'light' : 'dark';
+  document.documentElement.setAttribute('data-theme', next);
+  localStorage.setItem('theme', next);
+});
+</script>
+</body>
+</html>

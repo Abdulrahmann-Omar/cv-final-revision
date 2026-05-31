@@ -1,0 +1,450 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>2021 Midterm &amp; Final — Solved</title>
+<meta name="description" content="2020/2021 Computer Vision midterm and final, every question solved with simple how-to-recognise tips.">
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/katex.min.css">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/katex.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/contrib/auto-render.min.js"
+        onload="renderMathInElement(document.body,{delimiters:[{left:'$$',right:'$$',display:true},{left:'$',right:'$',display:false}]});"></script>
+<link rel="stylesheet" href="../assets/css/styles.css">
+<script>
+  (function(){
+    const saved = localStorage.getItem('theme') || 'light';
+    document.documentElement.setAttribute('data-theme', saved);
+  })();
+</script>
+<style>
+  .qmat { border-collapse:collapse; margin:0.5rem 0; }
+  .qmat td { border:1px solid var(--border); padding:0.35rem 0.6rem; text-align:center; font-family:ui-monospace,Menlo,monospace; min-width:2.2rem; }
+  .qmat th { border:1px solid var(--border); padding:0.35rem 0.6rem; background:var(--bg-soft); font-weight:700; text-align:left; }
+  .qmat td.hl { background: var(--accent-soft); font-weight:700; }
+  .qmat td.win { background: rgba(34,197,94,0.18); }
+  .qshot {
+    margin: 0.5rem 0 1rem;
+    border: 1px solid var(--border);
+    border-radius: 0.6rem;
+    background: var(--bg-elev);
+    padding: 0.5rem;
+  }
+  .qshot img { display:block; max-width:100%; height:auto; border-radius:0.3rem; }
+  .qshot .label { font-size: 0.8rem; color: var(--fg-soft); padding: 0.25rem 0.25rem 0.5rem; border-bottom: 1px dashed var(--border); margin-bottom: 0.4rem; }
+
+  .sol h4 { font-weight:700; margin:0.9rem 0 0.4rem; font-size:1.05rem; color:var(--ok); }
+  .sol h4::before { content:'✓ '; }
+
+  .tip {
+    background: rgba(59,130,246,0.08);
+    border-left: 3px solid var(--accent);
+    padding: 0.55rem 0.85rem; margin: 0.45rem 0;
+    border-radius: 0 0.4rem 0.4rem 0;
+  }
+  .tip::before { content:'💡 How to recognise: '; font-weight:700; color:var(--accent); }
+
+  .step {
+    background: var(--bg-soft);
+    border-left: 3px solid var(--fg-soft);
+    padding: 0.5rem 0.8rem; margin: 0.4rem 0;
+    border-radius: 0 0.4rem 0.4rem 0;
+  }
+  .final {
+    background: rgba(34,197,94,0.12);
+    border-left: 3px solid var(--ok);
+    padding: 0.6rem 0.8rem; margin: 0.6rem 0;
+    border-radius: 0 0.4rem 0.4rem 0;
+    font-weight: 600;
+  }
+  .grid-2 { display:grid; grid-template-columns:1fr; gap:1rem; }
+  @media (min-width: 900px){ .grid-2 { grid-template-columns: 1fr 1.2fr; } }
+  .lecref { font-size: 0.85rem; opacity: 0.8; }
+</style>
+</head>
+<body class="max-w-6xl mx-auto px-4 pb-24">
+
+<header class="flex items-center justify-between py-4 border-b border-slate-200 dark:border-slate-700 no-print">
+  <a href="../index.html" class="text-sm">← Back to index</a>
+  <div class="flex items-center gap-3">
+    <a class="text-xs underline" href="../assets/past-exam/2021-exam/midandfinal.pdf">Original questions PDF</a>
+    <a class="text-xs underline" href="../assets/past-exam/2021-exam/answers.pdf">Official answers PDF</a>
+    <button id="themeToggle" class="text-sm border rounded px-2 py-1">🌓 Theme</button>
+  </div>
+</header>
+
+<nav class="section-jump no-print">
+  <a href="#midterm">Midterm</a>
+  <a href="#m-q1">M·Q1</a>
+  <a href="#final">Final</a>
+  <a href="#f-q2">F·Q2</a> <a href="#f-q3">F·Q3</a> <a href="#f-q4">F·Q4</a> <a href="#f-q5">F·Q5</a>
+</nav>
+
+<main>
+<h1 class="text-3xl font-extrabold mt-4 mb-2">2021 Midterm &amp; Final — Solved</h1>
+<p class="text-slate-500 dark:text-slate-400 mb-6">Academic year 2020/2021. Screenshot on the left, plain-English solution on the right. Blue boxes are <em>"how to recognise"</em> tips.</p>
+
+<!-- ===================================== MIDTERM ===================================== -->
+<section id="midterm" class="mt-8">
+<h2 class="text-2xl font-bold border-b pb-1 mb-4">📝 Midterm — 2021 (30 min · 10 marks · 1 question)</h2>
+
+<!-- M-Q1 part A -->
+<article id="m-q1" class="concept">
+  <h3>Midterm · Question 1·A — SIFT: scale space, DoG, orientation, normalisation</h3>
+  <div class="grid-2">
+    <figure class="qshot"><div class="label">Question 1·A (5 marks) — as printed</div><img src="../assets/past-exam/2021-exam/q/m-q1-a.png" alt="Midterm Q1 part A — SIFT"></figure>
+    <div class="sol">
+      <h4>Solution — the four SIFT building blocks</h4>
+
+      <div class="tip">Memorise SIFT as a four-step pipeline: <strong>blur stack</strong> → <strong>find blobs across scale</strong> → <strong>rotate the patch</strong> → <strong>describe it</strong>. The four items in the question map to these four pieces in order.</div>
+
+      <h4>i. Scale space</h4>
+      <div class="step">A stack of progressively blurred versions of the image (Gaussian with increasing σ), arranged in <strong>octaves</strong> (each octave is half the resolution of the one above). It lets the same keypoint be found whether the object is photographed close-up or far away.</div>
+      <div class="final"><strong>Purpose:</strong> represent the image at <em>multiple scales</em> so we can find features that are invariant to image scale (zoom in / zoom out).</div>
+
+      <h4>ii. Difference of Gaussian (DoG)</h4>
+      <div class="step">Inside each octave, subtract neighbouring blurred images: DoG(σ) = G(kσ) − G(σ). The result approximates the <strong>scale-normalised Laplacian-of-Gaussian</strong> at that σ.</div>
+      <div class="final"><strong>Purpose:</strong> a cheap approximation of the Laplacian used to <em>detect blob-like keypoints</em> as local extrema in 3D (x, y, scale). Less computation than computing LoG directly.</div>
+
+      <h4>iii. Orientation assignment</h4>
+      <div class="step">Around each keypoint, build a histogram of gradient orientations weighted by gradient magnitude and a Gaussian window. The peak of the histogram becomes the keypoint's <strong>canonical direction</strong>.</div>
+      <div class="final"><strong>Purpose:</strong> gives the keypoint <em>rotation invariance</em>. Everything described after this step is measured relative to that canonical direction, so a rotated copy of the same patch produces the same descriptor.</div>
+
+      <h4>iv. Normalisation of the window's rotation and scale</h4>
+      <div class="step">Take the local 16×16 window, <strong>rotate</strong> it so the dominant direction points "up" and <strong>resize</strong> it to a fixed size relative to the keypoint's scale. Only then is the gradient histogram (the 128-D descriptor) computed.</div>
+      <div class="final"><strong>Purpose:</strong> aligns every patch into the <em>same canonical scale and orientation</em> before description, so two views of the same point produce nearly identical descriptors.</div>
+
+      <p class="lecref">📚 <a href="../lectures/L04.html#s4.2">L04 — Scale space &amp; DoG</a>, <a href="../lectures/L04.html#s4.4">L04 — Orientation assignment &amp; descriptor</a>.</p>
+    </div>
+  </div>
+</article>
+
+<!-- M-Q1 part B -->
+<article id="m-q1-b" class="concept">
+  <h3>Midterm · Question 1·B — Siamese Network with triplet loss (face verification)</h3>
+  <div class="grid-2">
+    <figure class="qshot"><div class="label">Question 1·B (5 marks) — as printed</div><img src="../assets/past-exam/2021-exam/q/m-q1-b.png" alt="Midterm Q1 part B — Siamese / triplet loss"></figure>
+    <div class="sol">
+      <h4>Architecture</h4>
+
+      <div class="tip">A Siamese network for verification is really <strong>one CNN used three times in parallel</strong> (shared weights) that produces an embedding f(x). Training pulls embeddings of the same person together and pushes embeddings of different people apart.</div>
+
+      <div class="step">
+        <strong>Sketch:</strong> three image inputs feed three copies of the same CNN (weights tied) → each output is a feature embedding <em>f(x)</em> ∈ ℝ<sup>d</sup>. Distances are L2 distances between embeddings.
+        <ul class="ml-5 list-disc">
+          <li>Anchor image A → f(A)</li>
+          <li>Positive image P (same person as A) → f(P)</li>
+          <li>Negative image N (different person) → f(N)</li>
+        </ul>
+        For two images of the <em>same</em> person, ‖f(x⁽¹⁾) − f(x⁽²⁾)‖² is small; for two images of <em>different</em> people, it is large.
+      </div>
+
+      <h4>Training procedure (the three ingredients)</h4>
+
+      <p class="font-semibold mt-2">1. Input</p>
+      <div class="step"><strong>Triplets</strong> (A, P, N). Each triplet is: an anchor image, a positive image of the same class, and a negative image of a different class.</div>
+
+      <p class="font-semibold">2. Learning objective</p>
+      <div class="step">Minimise the distance between the anchor and the positive, and at the same time maximise the distance between the anchor and the negative — by at least a margin α.</div>
+
+      <p class="font-semibold">3. Loss function — Triplet loss</p>
+      <div class="step">
+        $$\mathcal{L}(A, P, N) = \max\!\big(\, \|f(A) - f(P)\|_2^2 \;-\; \|f(A) - f(N)\|_2^2 \;+\; \alpha,\; 0 \,\big)$$
+        The <code>max(·, 0)</code> means: once the negative is already further than the positive by margin α, the triplet contributes zero loss (it's already "easy"). Training focuses on the hard / semi-hard triplets where the margin is not yet satisfied.
+      </div>
+
+      <div class="final">At test time you compare f(query) with each enrolled f(template) — if the distance is below a threshold, the two faces are declared the same person.</div>
+      <p class="lecref">📚 <a href="../lectures/L08.html#siamese">L08 — Siamese networks &amp; triplet loss</a> (lec 8, slide 48 per answer key).</p>
+    </div>
+  </div>
+</article>
+
+</section>
+
+<!-- ===================================== FINAL ===================================== -->
+<section id="final" class="mt-12">
+<h2 class="text-2xl font-bold border-b pb-1 mb-4">📝 Final — 2021 (2 hours · 65 marks · 4 questions, numbered Q2–Q5)</h2>
+
+<!-- F-Q2 -->
+<article id="f-q2" class="concept">
+  <h3>Final · Question 2 — Nine True/False statements (18 marks)</h3>
+  <div class="grid-2">
+    <figure class="qshot"><div class="label">Question 2 — as printed</div><img src="../assets/past-exam/2021-exam/q/f-q2.png" alt="Final Q2 — true/false"></figure>
+    <div class="sol">
+      <h4>Solution — answer + reason for each</h4>
+
+      <div class="tip">For True/False, look for the single load-bearing word that makes the sentence wrong. "k-means" instead of "non-max suppression", "softmax" instead of "sigmoid", "each cell can have multiple classes" instead of "one class" — that's usually where the trap is.</div>
+
+      <table class="qmat text-left">
+        <tr><th>#</th><th>Statement (paraphrased)</th><th>Answer</th><th>Why</th></tr>
+        <tr><td>1</td>
+            <td>Initialise k-means with the same number of clusters for different starting points; the algorithm always converges to the same solution.</td>
+            <td><strong>F</strong></td>
+            <td>k-means is sensitive to initialisation — different seeds give different local optima. That's why k-means++ exists.</td></tr>
+        <tr><td>2</td>
+            <td>The Harris corner detector is stable under image rotation.</td>
+            <td><strong>T</strong></td>
+            <td>Harris response depends on eigenvalues of the structure tensor, which are rotation-invariant. <em>(Lec 4, slide 64.)</em></td></tr>
+        <tr><td>3</td>
+            <td>(Not in our scope.)</td>
+            <td>—</td>
+            <td>Answer key marks this as outside the syllabus (مش علينا).</td></tr>
+        <tr><td>4</td>
+            <td>Instance segmentation is needed to build a hybrid technique between image classification and object detection methods.</td>
+            <td><strong>F</strong></td>
+            <td>That hybrid is <strong>semantic segmentation</strong> and <strong>object detection</strong>, not instance segmentation.</td></tr>
+        <tr><td>5</td>
+            <td>In the image-classification methods where each image belongs to one class of objects, the Histogram of Oriented Gradients (HOG) is a reasonable feature extractor.</td>
+            <td><strong>T</strong></td>
+            <td>HOG is a classic, robust hand-crafted feature for whole-image classification (pedestrian detection, etc.).</td></tr>
+        <tr><td>6</td>
+            <td>Visual Words help in encoding images by representing them as distributions / histograms of feature occurrences.</td>
+            <td><strong>T</strong></td>
+            <td>That is exactly the Bag-of-Visual-Words pipeline.</td></tr>
+        <tr><td>7</td>
+            <td>The YOLO algorithm for object detection &amp; localisation can predict the overlapped object locations in images.</td>
+            <td><strong>F</strong></td>
+            <td>Classic YOLO: <strong>each cell can only predict one class</strong>. Two strongly overlapping objects falling in the same cell cannot both be detected.</td></tr>
+        <tr><td>8</td>
+            <td>In the U-Net architecture for semantic segmentation, the up-sampling operation is based mainly on deconvolution operation.</td>
+            <td><strong>T</strong></td>
+            <td>U-Net's decoder uses transposed (de-)convolutions to up-sample feature maps.</td></tr>
+        <tr><td>9</td>
+            <td>(Not in our scope — Eigenfaces / PCA.)</td>
+            <td>—</td>
+            <td>Answer key marks this as outside the syllabus (مش علينا).</td></tr>
+      </table>
+
+      <div class="final">Quick recap of the answer key: <strong>F · T · — · F · T · T · F · T · —</strong>.</div>
+      <p class="lecref">📚 <a href="../lectures/L04.html#s4.1">L04 — Harris &amp; rotation invariance</a>, <a href="../lectures/L07.html#s7.4">L07 — YOLO one-class-per-cell</a>, <a href="../lectures/L12.html#s12.1">L12 — U-Net deconvolution</a>.</p>
+    </div>
+  </div>
+</article>
+
+<!-- F-Q3 -->
+<article id="f-q3" class="concept">
+  <h3>Final · Question 3 — Optical flow &amp; Bayes background modelling (17 marks)</h3>
+
+  <!-- Q3 A -->
+  <div class="grid-2">
+    <figure class="qshot"><div class="label">Question 3·A (13 marks) — optical flow on multiple frames</div><img src="../assets/past-exam/2021-exam/q/f-q3-a.png" alt="Final Q3·A — optical flow"></figure>
+    <div class="sol">
+      <h4>Part A·i — Algorithm &amp; constraints (NOT covered in our current syllabus)</h4>
+      <div class="tip">Per the official answer key, Question 3·A is marked "مش علينا" — outside our 2025/2026 scope. The classical answer would describe Lucas–Kanade optical flow under <strong>brightness constancy</strong> and <strong>small-motion</strong> assumptions, solved per local window in least-squares form.</div>
+
+      <h4>Part A·ii — Big shifts (≥ 1 pixel) and the iterative resolution</h4>
+      <div class="step">The "small-motion" assumption (one-pixel Taylor expansion) breaks for large displacements. The fix is the <strong>pyramidal (coarse-to-fine) Lucas–Kanade</strong>: build a Gaussian pyramid, estimate flow at the coarsest level (where the motion <em>is</em> small in pixels), then warp and refine going down the pyramid.</div>
+      <div class="final">Equivalent alternative the question hints at: <em>down-sample first to shrink the pixel motion</em>, solve, then up-sample and iterate — the same idea expressed as iterative refinement on a pyramid.</div>
+      <p class="lecref">📚 (Not in 2025/2026 scope — included for completeness.)</p>
+    </div>
+  </div>
+
+  <!-- Q3 B -->
+  <div class="grid-2 mt-4">
+    <figure class="qshot"><div class="label">Question 3·B (4 marks) — blue-screen FG/BG with Bayes</div><img src="../assets/past-exam/2021-exam/q/f-q3-b.png" alt="Final Q3·B — Bayes FG/BG"></figure>
+    <div class="sol">
+      <h4>Solution — Naive Bayes classifier on pixel colour</h4>
+
+      <div class="tip">When a single colour test (pure blue) fails, model the <em>distribution</em> of background colours and the <em>distribution</em> of foreground colours separately. Then for every new pixel, ask: "is this colour more likely to come from FG or BG?" That's Bayes.</div>
+
+      <ol class="list-decimal ml-6 space-y-1">
+        <li><strong>Extract features x</strong> from each pixel (e.g. RGB values, or a small colour histogram of the local patch).</li>
+        <li><strong>Background posterior:</strong> $p(B \mid x) \;\propto\; p(x \mid B)\, p(B)$, where p(x|B) is learned from the background pixels in the training images T and p(B) is the prior fraction of background pixels.</li>
+        <li><strong>Foreground posterior:</strong> $p(F \mid x) \;\propto\; p(x \mid F)\, p(F)$ — same construction on the foreground pixels.</li>
+        <li><strong>Classify</strong> pixel x as background if $p(B \mid x) &gt; p(F \mid x)$, otherwise foreground.</li>
+      </ol>
+
+      <div class="final">Once a pixel is labelled background, replace it with the corresponding pixel of the computer-generated world. Foreground pixels (the actor) are kept. This is exactly the recipe the answer key gives.</div>
+      <p class="lecref">📚 <a href="../lectures/L05.html#bayes">L05 — Bayesian classification &amp; background modelling</a>.</p>
+    </div>
+  </div>
+</article>
+
+<!-- F-Q4 -->
+<article id="f-q4" class="concept">
+  <h3>Final · Question 4 — Fast R-CNN → Faster R-CNN &amp; Mean Shift (17 marks)</h3>
+
+  <!-- Q4 A -->
+  <div class="grid-2">
+    <figure class="qshot"><div class="label">Question 4·A (6 marks) — Fast R-CNN diagram</div><img src="../assets/past-exam/2021-exam/q/f-q4-a.png" alt="Final Q4·A — Fast R-CNN"></figure>
+    <div class="sol">
+      <h4>i. Function of the ROI pooling layer</h4>
+
+      <div class="tip">The fully-connected layers after the backbone need a <strong>fixed-size</strong> input. But region proposals come at all shapes and sizes. ROI pooling is the gadget that takes any rectangular crop of the feature map and outputs a tensor with a fixed spatial size (e.g. 7×7).</div>
+
+      <div class="final">ROI pooling <strong>resizes / warps every region proposal to a fixed feature-map size</strong> by dividing the proposal into a fixed grid of cells and max-pooling inside each cell. This lets one shared classifier+regressor head work on regions of any original size.</div>
+
+      <h4>ii. Sketch the Faster R-CNN modification</h4>
+      <div class="step">
+        Faster R-CNN replaces the "selective search" ROI extractor (the slow, CPU-only part of Fast R-CNN) with a small <strong>Region Proposal Network (RPN)</strong> that shares the backbone features. Conceptually:
+        <ul class="ml-5 list-disc">
+          <li>Backbone CNN (shared) → feature map.</li>
+          <li>RPN slides over the feature map, predicting <em>objectness</em> + box offsets for K anchors per location.</li>
+          <li>Top-N RPN proposals → ROI pooling on the same feature map → FCs → softmax classifier + bounding-box regressor.</li>
+        </ul>
+      </div>
+
+      <h4>iii. Main changes between Fast R-CNN and Faster R-CNN</h4>
+      <ol class="list-decimal ml-6 space-y-1">
+        <li><strong>ROI extractor is learned.</strong> Selective search (hand-engineered, slow, runs on CPU) is replaced by the RPN — a small CNN head that produces proposals from the backbone feature map.</li>
+        <li><strong>Single network, end-to-end trainable.</strong> RPN and detector share the same backbone and are trained together with a multi-task loss.</li>
+        <li><strong>Speed.</strong> Faster R-CNN runs near real-time because proposal generation is no longer the bottleneck.</li>
+        <li><strong>Anchors.</strong> Proposals are generated from a small set of anchor boxes (different scales × ratios) at every feature-map location — a fixed, dense, learnable grid instead of a few thousand selective-search rectangles.</li>
+      </ol>
+      <p class="lecref">📚 <a href="../lectures/L09.html#s9.3">L09 — Fast R-CNN &amp; ROI pooling</a>, <a href="../lectures/L10.html#s10.2">L10 — RPN &amp; Faster R-CNN</a>.</p>
+    </div>
+  </div>
+
+  <!-- Q4 B -->
+  <div class="grid-2 mt-4">
+    <figure class="qshot"><div class="label">Question 4·B (11 marks) — Mean Shift segmentation</div><img src="../assets/past-exam/2021-exam/q/f-q4-b.png" alt="Final Q4·B — Mean Shift"></figure>
+    <div class="sol">
+      <h4>i. Mean Shift for image segmentation — main steps</h4>
+
+      <div class="tip">Mean Shift is a <strong>mode-seeking</strong> algorithm: every pixel "climbs" toward the densest spot in feature space (colour, or colour+position). Pixels that climb to the same peak are assigned to the same segment.</div>
+
+      <ol class="list-decimal ml-6 space-y-1">
+        <li><strong>Find features</strong> for every pixel (colour, gradients, texture, …). A common choice is (L, a, b) colour + (x, y) location.</li>
+        <li><strong>Initialise windows</strong> centred at each feature point (each pixel).</li>
+        <li><strong>Perform mean shift</strong> for each window: shift the window's centre to the mean of the points inside it, then repeat until the centre stops moving (converges to a local mode).</li>
+        <li><strong>Merge windows</strong> that converged to the same peak — those pixels form one segment.</li>
+      </ol>
+
+      <p class="font-semibold mt-2">Parameter that must be set:</p>
+      <div class="step"><strong>Window (bandwidth) size</strong> — the radius of the search window in feature space.</div>
+
+      <h4>ii. Sensitivity to the bandwidth</h4>
+
+      <div class="tip">Think of the bandwidth as the "smoothing strength" applied to the colour density. Too big → everything merges. Too small → every speck is its own segment.</div>
+
+      <table class="qmat text-left">
+        <tr><th>Bandwidth</th><th>Effect</th></tr>
+        <tr><td><strong>Very large</strong></td><td><strong>Fast but not accurate.</strong> Distant points are pulled into the same mode, so distinct objects get merged into one segment (under-segmentation).</td></tr>
+        <tr><td><strong>Very small</strong></td><td><strong>Slower but more accurate</strong> — though if it is too small, noise pixels become their own modes and you get over-segmentation: noise detected as separate "objects".</td></tr>
+      </table>
+
+      <div class="final">Practical choice: pick a bandwidth large enough that pixel-level noise gets averaged out, but small enough that distinct objects stay in different modes.</div>
+      <p class="lecref">📚 <a href="../lectures/L05.html#meanshift">L05 — Mean Shift segmentation</a>.</p>
+    </div>
+  </div>
+</article>
+
+<!-- F-Q5 -->
+<article id="f-q5" class="concept">
+  <h3>Final · Question 5 — RANSAC line fit &amp; CBIR Average Precision (13 marks)</h3>
+
+  <!-- Q5 A -->
+  <div class="grid-2">
+    <figure class="qshot"><div class="label">Question 5·A (7.5 marks) — fit a line with RANSAC</div><img src="../assets/past-exam/2021-exam/q/f-q5-a.png" alt="Final Q5·A — RANSAC"></figure>
+    <div class="sol">
+      <h4>i. RANSAC for the line-fitting task</h4>
+
+      <div class="tip">RANSAC's recipe in one sentence: <em>guess a model from a tiny random sample, score it by counting points that agree, repeat many times, keep the best</em>. For line fitting the "tiny sample" is <strong>2 points</strong> — that's the minimum to define a line.</div>
+
+      <ol class="list-decimal ml-6 space-y-1">
+        <li><strong>Sample</strong> 2 points uniformly at random from the point cloud.</li>
+        <li><strong>Solve</strong> for the line passing through those 2 points (model parameters).</li>
+        <li><strong>Score</strong> by counting how many of the remaining points lie within a preset distance threshold of this line — those are the <em>inliers</em>.</li>
+        <li><strong>Repeat</strong> steps 1–3 for N iterations; keep the line with the highest inlier count.</li>
+        <li>(Optional refinement.) Re-fit the line with least-squares on all the inliers of the best model.</li>
+      </ol>
+      <p class="lecref">📚 <a href="../lectures/L06.html#ransac">L06 — RANSAC</a> (lec 6, slide 24 per answer key).</p>
+
+      <h4>ii. Minimum number of iterations for 60% inliers, P = 0.9</h4>
+
+      <div class="tip">The standard RANSAC formula tells you how many random samples you need before you can be at least P confident that <em>at least one</em> sample contained no outlier:
+        $$N \;>\; \frac{\log(1-P)}{\log\!\big(1 - (1-e)^{s}\big)}$$
+        where <em>e</em> = outlier fraction, <em>s</em> = points per sample (= 2 for a line), <em>P</em> = required confidence.</div>
+
+      <div class="step">
+        <strong>Plug in the numbers:</strong><br>
+        e = 1 − inliers = 1 − 0.6 = <strong>0.4</strong><br>
+        P = 0.9<br>
+        s = 2 (a line needs 2 points)
+      </div>
+
+      <div class="step">
+        $$N \;&gt;\; \frac{\log(1-0.9)}{\log\!\big(1-(1-0.4)^{2}\big)} \;=\; \frac{\log(0.1)}{\log(1-0.36)} \;=\; \frac{\log(0.1)}{\log(0.64)} \;\approx\; 5.15$$
+      </div>
+
+      <div class="final">Round up — you need at least <strong>N = 6 iterations</strong> to hit the 90% confidence target.</div>
+    </div>
+  </div>
+
+  <!-- Q5 B -->
+  <div class="grid-2 mt-4">
+    <figure class="qshot"><div class="label">Question 5·B (5.5 marks) — CBIR semantic gap &amp; AP</div><img src="../assets/past-exam/2021-exam/q/f-q5-b.png" alt="Final Q5·B — CBIR &amp; AP"></figure>
+    <div class="sol">
+      <h4>i. The "semantic gap" in CBIR</h4>
+
+      <div class="tip">CBIR retrieves images using <em>low-level visual features</em> (colour histograms, textures, deep embeddings). Users, however, query with <em>high-level intent</em> ("show me playful cats"). The mismatch between those two worlds is the semantic gap.</div>
+
+      <div class="final"><strong>Semantic gap:</strong> the difference between what the <em>user means / intends</em> and what can actually be <em>extracted from the image</em> using the available features. <em>(Lec 8, slide 35.)</em></div>
+
+      <h4>ii. Average Precision (AP) for both models — K = 6, GTP = 3</h4>
+
+      <div class="tip">For a ranked list of K results, AP@K = (1/GTP) × Σ (Precision@i) over only the positions i where a relevant ("cat") result was retrieved. Non-relevant positions contribute 0 to the sum.</div>
+
+      <div class="step"><strong>Formula:</strong> $\displaystyle AP_K \;=\; \frac{1}{GTP}\sum_{i=1}^{K}\frac{TP_{seen}}{i}$ where the sum runs over all K positions but only relevant ones contribute. K = 6 (results count), GTP = 3 (only 3 cat images exist in the database).</div>
+
+      <p class="font-semibold mt-3">Model 1 — ranks: (<span class="bg-green-200 dark:bg-green-900 px-1">cat</span>, dog, dog, <span class="bg-green-200 dark:bg-green-900 px-1">cat</span>, <span class="bg-green-200 dark:bg-green-900 px-1">cat</span>, car, …)</p>
+      <table class="qmat">
+        <tr><th>Rank i</th><td>1</td><td>2</td><td>3</td><td>4</td><td>5</td><td>6</td></tr>
+        <tr><th>Result</th><td class="hl">cat</td><td>dog</td><td>dog</td><td class="hl">cat</td><td class="hl">cat</td><td>car</td></tr>
+        <tr><th>TP seen so far</th><td>1</td><td>1</td><td>1</td><td>2</td><td>3</td><td>3</td></tr>
+        <tr><th>Precision @ i (used only if relevant)</th><td>1/1</td><td>0</td><td>0</td><td>2/4</td><td>3/5</td><td>0</td></tr>
+      </table>
+      <div class="step">
+        $$AP_6 \;=\; \tfrac{1}{3}\Big(\tfrac{1}{1} + 0 + 0 + \tfrac{2}{4} + \tfrac{3}{5} + 0\Big) \;=\; \tfrac{1}{3}\,(1 + 0.5 + 0.6) \;=\; \tfrac{2.1}{3} \;=\; \mathbf{0.7}$$
+      </div>
+
+      <p class="font-semibold mt-3">Model 2 — ranks: (<span class="bg-green-200 dark:bg-green-900 px-1">cat</span>, <span class="bg-green-200 dark:bg-green-900 px-1">cat</span>, <span class="bg-green-200 dark:bg-green-900 px-1">cat</span>, dog, car, car, …)</p>
+      <table class="qmat">
+        <tr><th>Rank i</th><td>1</td><td>2</td><td>3</td><td>4</td><td>5</td><td>6</td></tr>
+        <tr><th>Result</th><td class="hl">cat</td><td class="hl">cat</td><td class="hl">cat</td><td>dog</td><td>car</td><td>car</td></tr>
+        <tr><th>TP seen so far</th><td>1</td><td>2</td><td>3</td><td>3</td><td>3</td><td>3</td></tr>
+        <tr><th>Precision @ i (used only if relevant)</th><td>1/1</td><td>2/2</td><td>3/3</td><td>0</td><td>0</td><td>0</td></tr>
+      </table>
+      <div class="step">
+        $$AP_6 \;=\; \tfrac{1}{3}\Big(\tfrac{1}{1} + \tfrac{2}{2} + \tfrac{3}{3} + 0 + 0 + 0\Big) \;=\; \tfrac{1}{3}\,(1 + 1 + 1) \;=\; \mathbf{1.0}$$
+      </div>
+
+      <div class="final"><strong>Model 2 is more accurate</strong> — it returns all three cat images in the very top positions (AP = 1.0), versus Model 1's AP = 0.7. AP rewards relevant results being ranked high; Model 2 does that perfectly.</div>
+      <p class="lecref">📚 <a href="../lectures/L08.html#cbir">L08 — CBIR &amp; Average Precision</a>.</p>
+    </div>
+  </div>
+</article>
+
+</section>
+
+<!-- ===================================== Original PDF ===================================== -->
+<section class="mt-12">
+  <h2 class="text-2xl font-bold border-b pb-1 mb-4">📄 Original exam pages (raw scans)</h2>
+  <p class="opacity-70 text-sm mb-3">Full-page renders for visual reference — questions then official answers.</p>
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+    <figure class="slide-figure"><img src="../assets/past-exam/2021-exam/midandfinal-001.png" alt="2021 — questions page 1"><figcaption>Questions p. 1 — Midterm Q1 &amp; Final Q2</figcaption></figure>
+    <figure class="slide-figure"><img src="../assets/past-exam/2021-exam/midandfinal-002.png" alt="2021 — questions page 2"><figcaption>Questions p. 2 — Final Q3 &amp; Q4·A</figcaption></figure>
+    <figure class="slide-figure"><img src="../assets/past-exam/2021-exam/midandfinal-003.png" alt="2021 — questions page 3"><figcaption>Questions p. 3 — Final Q4·B &amp; Q5</figcaption></figure>
+    <figure class="slide-figure"><img src="../assets/past-exam/2021-exam/answers-001.png" alt="2021 — official answers page 1"><figcaption>Answers p. 1 — Midterm Q1 (SIFT, Siamese)</figcaption></figure>
+    <figure class="slide-figure"><img src="../assets/past-exam/2021-exam/answers-002.png" alt="2021 — official answers page 2"><figcaption>Answers p. 2 — Q2 T/F &amp; Q3·B Bayes</figcaption></figure>
+    <figure class="slide-figure"><img src="../assets/past-exam/2021-exam/answers-003.png" alt="2021 — official answers page 3"><figcaption>Answers p. 3 — Q4 ROI Pooling &amp; Mean Shift</figcaption></figure>
+    <figure class="slide-figure"><img src="../assets/past-exam/2021-exam/answers-004.png" alt="2021 — official answers page 4"><figcaption>Answers p. 4 — Q5·A RANSAC + N calculation</figcaption></figure>
+    <figure class="slide-figure"><img src="../assets/past-exam/2021-exam/answers-005.png" alt="2021 — official answers page 5"><figcaption>Answers p. 5 — Q5·B Semantic gap &amp; AP</figcaption></figure>
+  </div>
+</section>
+
+<footer class="mt-16 pt-6 border-t text-sm text-slate-500 dark:text-slate-400 no-print">
+  <a href="../index.html">← Index</a> · <a href="../exam/exam.html">Mock final exam →</a>
+</footer>
+</main>
+
+<script>
+document.getElementById('themeToggle').addEventListener('click', () => {
+  const cur = document.documentElement.getAttribute('data-theme');
+  const next = cur === 'dark' ? 'light' : 'dark';
+  document.documentElement.setAttribute('data-theme', next);
+  localStorage.setItem('theme', next);
+});
+</script>
+</body>
+</html>

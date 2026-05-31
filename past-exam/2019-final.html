@@ -1,0 +1,425 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>2019 Final — Solved</title>
+<meta name="description" content="2019 Final (Selected Topic / Computer Vision), every question solved with plain-English how-to-recognise tips, using the official answer key as ground truth.">
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/katex.min.css">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/katex.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/contrib/auto-render.min.js"
+        onload="renderMathInElement(document.body,{delimiters:[{left:'$$',right:'$$',display:true},{left:'$',right:'$',display:false}]});"></script>
+<link rel="stylesheet" href="../assets/css/styles.css">
+<script>
+  (function(){
+    const saved = localStorage.getItem('theme') || 'light';
+    document.documentElement.setAttribute('data-theme', saved);
+  })();
+</script>
+<style>
+  .qmat { border-collapse:collapse; margin:0.5rem 0; }
+  .qmat td { border:1px solid var(--border); padding:0.35rem 0.6rem; text-align:center; font-family:ui-monospace,Menlo,monospace; min-width:2.2rem; }
+  .qmat th { border:1px solid var(--border); padding:0.35rem 0.6rem; background:var(--bg-soft); font-weight:700; text-align:left; }
+  .qmat td.hl { background: var(--accent-soft); font-weight:700; }
+  .qmat td.win { background: rgba(34,197,94,0.18); }
+  .qshot {
+    margin: 0.5rem 0 1rem;
+    border: 1px solid var(--border);
+    border-radius: 0.6rem;
+    background: var(--bg-elev);
+    padding: 0.5rem;
+  }
+  .qshot img { display:block; max-width:100%; height:auto; border-radius:0.3rem; }
+  .qshot .label { font-size: 0.8rem; color: var(--fg-soft); padding: 0.25rem 0.25rem 0.5rem; border-bottom: 1px dashed var(--border); margin-bottom: 0.4rem; }
+
+  .sol h4 { font-weight:700; margin:0.9rem 0 0.4rem; font-size:1.05rem; color:var(--ok); }
+  .sol h4::before { content:'✓ '; }
+
+  .tip {
+    background: rgba(59,130,246,0.08);
+    border-left: 3px solid var(--accent);
+    padding: 0.55rem 0.85rem; margin: 0.45rem 0;
+    border-radius: 0 0.4rem 0.4rem 0;
+  }
+  .tip::before { content:'💡 How to recognise: '; font-weight:700; color:var(--accent); }
+
+  .step {
+    background: var(--bg-soft);
+    border-left: 3px solid var(--fg-soft);
+    padding: 0.5rem 0.8rem; margin: 0.4rem 0;
+    border-radius: 0 0.4rem 0.4rem 0;
+  }
+  .final {
+    background: rgba(34,197,94,0.12);
+    border-left: 3px solid var(--ok);
+    padding: 0.6rem 0.8rem; margin: 0.6rem 0;
+    border-radius: 0 0.4rem 0.4rem 0;
+    font-weight: 600;
+  }
+  .grid-2 { display:grid; grid-template-columns:1fr; gap:1rem; }
+  @media (min-width: 900px){ .grid-2 { grid-template-columns: 1fr 1.2fr; } }
+  .lecref { font-size: 0.85rem; opacity: 0.8; }
+</style>
+</head>
+<body class="max-w-6xl mx-auto px-4 pb-24">
+
+<header class="flex items-center justify-between py-4 border-b border-slate-200 dark:border-slate-700 no-print">
+  <a href="../index.html" class="text-sm">← Back to index</a>
+  <div class="flex items-center gap-3">
+    <a class="text-xs underline" href="../assets/past-exam/2019-final/final-sc.pdf">Download original PDF</a>
+    <a class="text-xs underline" href="../assets/past-exam/2019-final/answers-sc.pdf">Official answers</a>
+    <button id="themeToggle" class="text-sm border rounded px-2 py-1">🌓 Theme</button>
+  </div>
+</header>
+
+<nav class="section-jump no-print">
+  <a href="#q1">Q1</a>
+  <a href="#q2">Q2</a>
+  <a href="#q3a">Q3·A</a>
+  <a href="#q3b">Q3·B</a>
+  <a href="#q4">Q4</a>
+</nav>
+
+<main>
+<h1 class="text-3xl font-extrabold mt-4 mb-2">2019 Final — Solved</h1>
+<p class="text-slate-500 dark:text-slate-400 mb-2">Screenshot on the left, plain-English solution on the right. Blue boxes are <em>"how to recognise"</em> tips. Green boxes are the final answer.</p>
+<p class="text-sm text-slate-500 dark:text-slate-400 mb-6">
+  Ground truth: the official <a class="underline" href="../assets/past-exam/2019-final/answers-sc.pdf">SC answer key</a>. The key only covers Q1·B, parts of Q2·B, and marks Q3 + Q4 as "<em>مش علينا</em>" (not in scope). We still solve every question here.
+  <br><span class="opacity-80">There is also a parallel CS-track paper (<a class="underline" href="../assets/past-exam/2019-final/final-cs.pdf">final-cs.pdf</a>) that swaps two questions: Q1 covers <strong>SVMs &amp; RANSAC</strong> instead of background subtraction, and Q4 asks about <strong>BoVW / Lucas-Kanade / HoG</strong>. The other questions match.</span>
+</p>
+
+<!-- ===================================== Q1 ===================================== -->
+<section id="q1-section" class="mt-8">
+<article id="q1" class="concept">
+  <h3>Question 1 — Background subtraction &amp; feature invariance [16 Marks]</h3>
+  <div class="grid-2">
+    <figure class="qshot"><div class="label">Question 1 (as printed)</div><img src="../assets/past-exam/2019-final/q/q1.png" alt="2019 Final Q1"></figure>
+    <div class="sol">
+
+      <h4>Part A — Two ways to estimate the background image B(x, y, t)</h4>
+
+      <div class="tip">A "background image" is what the scene would look like with no moving objects. You either grab one clean frame, or you average many frames so the moving stuff washes out. Each trick has a clear downside — that's what the question wants you to name.</div>
+
+      <table class="qmat text-left">
+        <tr><th>Method</th><th>Idea (one line)</th><th>Disadvantage</th></tr>
+        <tr><td><strong>1. Static reference frame</strong></td>
+            <td>Take a single frame of the empty scene before any object enters, and use that as B(x, y, t) for every later frame.</td>
+            <td>It is wrong the moment anything in the scene changes — lighting shifts, a chair gets moved, the camera nudges. Any permanent change leaks in as fake foreground.</td></tr>
+        <tr><td><strong>2. Running average / median of recent frames</strong></td>
+            <td>Update B(x, y, t) every frame as a weighted blend of the previous background and the new frame (or take the temporal median over a window).</td>
+            <td>If an object stays still for a while it gets absorbed into the background; if an object moves very slowly it can leave a "ghost" trail; you also need a learning rate that's neither too sticky nor too fast.</td></tr>
+      </table>
+
+      <h4>Part B — Feature invariance, detectors and descriptors</h4>
+
+      <h4>i. What does "invariant to a transformation X" mean? (with two examples)</h4>
+      <div class="final">It means you can apply X to the image and the <em>same feature</em> still pops out at the same place with the same description. Two examples of X: <strong>translation</strong> (shifting the image left/right) and <strong>rotation</strong> (turning the image).</div>
+
+      <h4>ii. Why is invariance a desirable property?</h4>
+      <div class="tip">If a feature dies the moment the camera tilts or the object shifts, it's useless for matching across two photos of the same scene.</div>
+      <div class="final">So the same physical point in the world produces the <strong>same feature vector</strong> across different views — which is what makes matching, tracking and recognition work in real conditions.</div>
+
+      <h4>iii. Detector vs descriptor (one example each)</h4>
+      <table class="qmat text-left">
+        <tr><th></th><th>Detector</th><th>Descriptor</th></tr>
+        <tr><td>Job</td>
+            <td>Find <em>where</em> the interesting points are. It scans the image and flags locally distinctive structures (corners, blobs, ...).</td>
+            <td>Once a location is given, summarise <em>what it looks like</em> as a compact vector that throws away irrelevant info but keeps enough to match.</td></tr>
+        <tr><td>Example</td><td><strong>Harris corner detector</strong></td><td><strong>SIFT descriptor</strong></td></tr>
+      </table>
+
+      <h4>iv. How to make SIFT rotation invariant</h4>
+      <div class="tip">The trick is to give every keypoint its own "north" — a canonical orientation — and describe the patch <em>relative</em> to it. Then a rotated copy of the same patch ends up with the same descriptor.</div>
+      <ol class="list-decimal ml-6 space-y-1">
+        <li>Around the keypoint, compute the gradient direction at each pixel of the local window.</li>
+        <li>Build a 36-bin histogram of those directions (10° per bin), weighted by gradient magnitude and by a Gaussian centred on the keypoint.</li>
+        <li>The <strong>highest peak</strong> of that histogram is the keypoint's canonical orientation.</li>
+        <li><strong>Rotate the window so that orientation points "up"</strong>, then compute the descriptor on the rotated window.</li>
+      </ol>
+      <div class="final">Because the descriptor is always computed in the keypoint's own frame, the same physical patch produces the same descriptor no matter how the image is rotated.</div>
+      <p class="lecref">📚 <a href="../lectures/L04.html">L04 — SIFT (scale-space, orientation assignment, descriptor)</a>.</p>
+    </div>
+  </div>
+</article>
+</section>
+
+<!-- ===================================== Q2 ===================================== -->
+<section id="q2-section" class="mt-8">
+<article id="q2" class="concept">
+  <h3>Question 2 — Meanshift tracking &amp; CV term defs [22 Marks]</h3>
+  <div class="grid-2">
+    <figure class="qshot"><div class="label">Question 2 (as printed)</div><img src="../assets/past-exam/2019-final/q/q2.png" alt="2019 Final Q2"></figure>
+    <div class="sol">
+
+      <h4>Part A — Mean-shift for object tracking, step by step</h4>
+
+      <div class="tip">Mean-shift is "follow the centre of mass". Build a colour (or feature) histogram of the object in frame 1, then in every later frame slide a search window towards the place that matches that histogram best. No model retraining, just iterative centre-of-mass updates.</div>
+
+      <ol class="list-decimal ml-6 space-y-1">
+        <li><strong>Initialise (frame 0).</strong> User (or detector) puts a box around the target. Compute the colour histogram of the pixels inside that box — this is the <em>target model</em>.</li>
+        <li><strong>New frame arrives.</strong> Start the search window at the last known location.</li>
+        <li><strong>Back-project.</strong> For every pixel in the new frame, look up its colour in the target histogram and replace the pixel by its histogram weight. Pixels that look like the target become bright, the rest become dark.</li>
+        <li><strong>Compute the centre of mass</strong> of that weighted map inside the search window.</li>
+        <li><strong>Shift the window</strong> so its centre lands on that centre of mass.</li>
+        <li><strong>Repeat 4 – 5</strong> until the window stops moving (convergence) — usually 2 – 5 iterations.</li>
+        <li>The converged centre is the new (x, y) of the object; carry it as the start for the next frame.</li>
+      </ol>
+
+      <h4>Part B — Define + explain each term</h4>
+
+      <h4>i. Second moment matrix</h4>
+      <div class="tip">It's the 2 × 2 matrix of squared/mixed image gradients summed over a small window. Its eigenvalues tell you: both small → flat region, one large → edge, both large → corner.</div>
+      <div class="final"><strong>Use:</strong> the <strong>Harris corner detector</strong> builds the second-moment matrix for every pixel; the "corner-ness" score is computed from its eigenvalues to flag corners as keypoints. (This is exactly the official answer.)</div>
+
+      <h4>ii. Gaussian pyramid</h4>
+      <div class="tip">Repeatedly blur with a Gaussian then downsample by 2 ⇒ a stack of progressively smaller, smoother copies of the same image.</div>
+      <div class="final"><strong>Use:</strong> <strong>scale-invariant feature detection</strong> (SIFT keypoints) and <strong>coarse-to-fine search</strong>. By detecting features at every level of the pyramid, you find the same feature whether the object is photographed close-up or far away. Also used to pre-filter for sub-sampling without aliasing.</div>
+
+      <h4>iii. Bag of Words (BoVW)</h4>
+      <div class="tip">Treat an image like a paragraph: extract local descriptors (SIFT), cluster them into "visual words", then represent the image by the <em>histogram</em> of which words appear. Throws away spatial layout, keeps composition.</div>
+      <div class="final"><strong>Use:</strong> <strong>image classification / object recognition</strong> — a classifier (e.g. SVM) is trained on these word-histograms. The official key phrases it as "a way to simplify object representation as a collection of their subparts for purposes such as classification."</div>
+
+      <h4>iv. Kernel trick</h4>
+      <div class="tip">Instead of explicitly mapping data into a high-dimensional space, replace every inner product ⟨x, x′⟩ by a kernel K(x, x′) that <em>equals</em> that inner product in the higher space. You get the power of the non-linear lift without ever computing the lift.</div>
+      <div class="final"><strong>Use:</strong> <strong>non-linear SVM classifiers</strong> for object recognition — RBF/poly kernels let a linear SVM separate classes that are not linearly separable in pixel/feature space. Same trick powers kernel PCA and kernel ridge regression.</div>
+
+      <h4>v. Dynamics of a moving object</h4>
+      <div class="tip">A model of how the object's state (position, velocity, ...) evolves between consecutive frames — e.g. constant velocity, constant acceleration.</div>
+      <div class="final"><strong>Use:</strong> <strong>visual tracking with a Kalman filter / particle filter</strong>. The dynamics give a <em>prediction</em> of where the object will be in the next frame; the observation (detection) then <em>corrects</em> that prediction. This is what makes trackers smooth and robust to short missed detections.</div>
+      <p class="lecref">📚 Harris / second-moment → <a href="../lectures/L04.html">L04</a>; pyramid → <a href="../lectures/L04.html">L04</a>; BoVW + kernel + SVM → <a href="../lectures/L05.html">L05</a>.</p>
+
+      <p class="text-xs opacity-60 mt-3">The official key only ticks B·i and B·iii; the rest are marked "<em>مش علينا</em>". The answers above use the standard course-book definitions.</p>
+    </div>
+  </div>
+</article>
+</section>
+
+<!-- ===================================== Q3·A ===================================== -->
+<section id="q3a-section" class="mt-8">
+<article id="q3a" class="concept">
+  <h3>Question 3·A — GrabCut for foreground–background segmentation [8 Marks]</h3>
+  <div class="grid-2">
+    <figure class="qshot"><div class="label">Question 3·A (as printed)</div><img src="../assets/past-exam/2019-final/q/q3a.png" alt="2019 Final Q3 part A"></figure>
+    <div class="sol">
+
+      <h4>i. What features can be used for segmentation?</h4>
+      <div class="tip">"Features" in segmentation just means anything per-pixel that helps tell foreground from background — and the most powerful signal in a still photo is <strong>colour</strong>.</div>
+      <div class="final">Per-pixel <strong>colour</strong> (typically RGB or Lab), optionally augmented by texture/gradient or spatial position. GrabCut as taught uses colour only.</div>
+
+      <h4>ii. How is the initial segmentation done?</h4>
+      <div class="tip">The user gives a rough hint — usually a single rectangle around the object — and that hint seeds the first labelling.</div>
+      <div class="final">The user draws a <strong>bounding rectangle</strong> around the object. Everything <em>outside</em> the rectangle is marked as definite background; everything <em>inside</em> the rectangle is marked as probable foreground. (Optional brush strokes can mark sure-foreground/sure-background pixels.)</div>
+
+      <h4>iii. What model represents the two classes?</h4>
+      <div class="tip">You need a soft probabilistic model — "how likely is this colour to come from the object vs the background?" GrabCut uses a Gaussian mixture for each class.</div>
+      <div class="final">A <strong>Gaussian Mixture Model (GMM)</strong> per class — usually 5 Gaussians for the foreground colours and 5 for the background colours. Each iteration re-fits the two GMMs on the pixels currently assigned to each class.</div>
+
+      <h4>iv. What technique partitions the graph?</h4>
+      <div class="tip">Once every pixel is a graph node connected to a "foreground" terminal and a "background" terminal (with weights from the GMMs and edge weights to neighbours), cutting the graph at minimum total weight gives the best labelling.</div>
+      <div class="final"><strong>Graph cut</strong> — specifically the min-cut / max-flow algorithm. GrabCut iterates GMM re-fit → graph-cut → repeat, until the labelling stops changing.</div>
+      <p class="lecref">📚 <a href="../lectures/L05.html">L05 — segmentation, GMM, graph cut</a>.</p>
+    </div>
+  </div>
+</article>
+</section>
+
+<!-- ===================================== Q3·B ===================================== -->
+<section id="q3b-section" class="mt-8">
+<article id="q3b" class="concept">
+  <h3>Question 3·B — Track a face by skin colour [7 Marks]</h3>
+  <div class="grid-2">
+    <figure class="qshot"><div class="label">Question 3·B (as printed)</div><img src="../assets/past-exam/2019-final/q/q3b.png" alt="2019 Final Q3 part B"></figure>
+    <div class="sol">
+
+      <h4>Solution — full pipeline (offline prep + per-frame loop)</h4>
+
+      <div class="tip">When the cue is "skin colour" and the target is "one face in every frame", the textbook answer is: build a <strong>skin-colour model offline</strong>, and at runtime <strong>back-project + mean-shift</strong> to lock onto the centre. State the inputs and outputs clearly — examiners reward that.</div>
+
+      <h4>Inputs and outputs</h4>
+      <ul class="ml-5 list-disc">
+        <li><strong>Input:</strong> a sequence of video frames I<sub>t</sub>(x, y) (one face in each, facing camera).</li>
+        <li><strong>Output:</strong> for each frame, the (x, y) coordinates of the face centre.</li>
+      </ul>
+
+      <h4>Offline preparation (done once)</h4>
+      <ol class="list-decimal ml-6 space-y-1">
+        <li><strong>Collect skin patches</strong> from a few face photos (or the first frame).</li>
+        <li>Convert to a colour space that separates chrominance from brightness — typically <strong>HSV</strong> or <strong>YCbCr</strong> — so lighting changes have less effect.</li>
+        <li><strong>Build a skin-colour histogram</strong> (or a small GMM) from those patches. This is the target model.</li>
+      </ol>
+
+      <h4>Initialisation (frame 0)</h4>
+      <ol class="list-decimal ml-6 space-y-1">
+        <li>Run a face detector once (e.g. Viola–Jones) <em>or</em> back-project the skin histogram on frame 0 and take the largest skin blob.</li>
+        <li>Place a search window around that blob. This is the starting box.</li>
+      </ol>
+
+      <h4>Per-frame tracking loop</h4>
+      <ol class="list-decimal ml-6 space-y-1">
+        <li>Convert the new frame to HSV/YCbCr.</li>
+        <li><strong>Back-project</strong> the skin histogram → a probability map where bright pixels = skin-coloured.</li>
+        <li>Run <strong>mean-shift</strong> on that map, starting from the previous frame's window, to find the new centre of mass.</li>
+        <li><strong>Output (x, y)</strong> = converged window centre.</li>
+        <li>Carry the window into the next frame.</li>
+      </ol>
+
+      <div class="final">In one sentence: train a skin-colour histogram offline → for each frame back-project it and run mean-shift → return the converged window centre as (x, y).</div>
+      <p class="lecref">📚 Skin / colour models &amp; histogram back-projection → <a href="../lectures/L05.html">L05</a>; mean-shift tracker → <a href="../lectures/L05.html">L05</a>.</p>
+    </div>
+  </div>
+</article>
+</section>
+
+<!-- ===================================== Q4 ===================================== -->
+<section id="q4-section" class="mt-8">
+<article id="q4" class="concept">
+  <h3>Question 4 — Two iterations of AdaBoost [12 Marks]</h3>
+  <div class="grid-2">
+    <figure class="qshot"><div class="label">Question 4 (as printed)</div><img src="../assets/past-exam/2019-final/q/q4.png" alt="2019 Final Q4"></figure>
+    <div class="sol">
+
+      <h4>The three equations first (fill the top table)</h4>
+
+      <div class="tip">Memorise these three formulas — AdaBoost is just running them in a loop:</div>
+
+      <table class="qmat text-left">
+        <tr><th>Quantity</th><th>Equation</th><th>Plain-English</th></tr>
+        <tr><td><strong>Error rate</strong> err<sub>m</sub></td>
+            <td>err<sub>m</sub> = (sum of weights of misclassified points) / (sum of all weights)</td>
+            <td>How much weight is currently sitting on the points this learner got wrong.</td></tr>
+        <tr><td><strong>Voting power</strong> α<sub>m</sub></td>
+            <td>α<sub>m</sub> = ½ · ln((1 − err<sub>m</sub>) / err<sub>m</sub>)</td>
+            <td>How much this round's learner gets to "vote". Small err ⇒ big α.</td></tr>
+        <tr><td><strong>Weight update</strong> w<sub>i</sub></td>
+            <td>w<sub>i</sub> ← w<sub>i</sub> · exp(α<sub>m</sub>) if i misclassified, w<sub>i</sub> · exp(−α<sub>m</sub>) if i correct; then renormalise so all w<sub>i</sub> sum to 1.</td>
+            <td>Misclassified points get up-weighted, correctly classified points get down-weighted.</td></tr>
+      </table>
+
+      <h4>Set-up</h4>
+      <p>Six training points {A, B, C, D, E, F}. Initial weights are uniform: <strong>w = 1/6 ≈ 0.1667</strong> for each. Misclassifications:</p>
+      <table class="qmat text-left">
+        <tr><th>Learner</th><th>Misclassifies</th></tr>
+        <tr><td>h<sub>1</sub></td><td>A, D, F</td></tr>
+        <tr><td>h<sub>2</sub></td><td>D</td></tr>
+        <tr><td>h<sub>3</sub></td><td>B, C</td></tr>
+        <tr><td>h<sub>4</sub></td><td>A, B, F</td></tr>
+        <tr><td>h<sub>5</sub></td><td>B, C, D</td></tr>
+      </table>
+
+      <h4>Iteration 1</h4>
+      <p>All weights are 1/6, so each error rate is just (count of misclassified) × 1/6:</p>
+      <table class="qmat text-left">
+        <tr><th>Learner</th><th>err<sub>1</sub></th></tr>
+        <tr><td>h<sub>1</sub></td><td>3/6 = 0.500</td></tr>
+        <tr><td>h<sub>2</sub></td><td><strong>1/6 ≈ 0.1667</strong> ← lowest, pick this one</td></tr>
+        <tr><td>h<sub>3</sub></td><td>2/6 ≈ 0.3333</td></tr>
+        <tr><td>h<sub>4</sub></td><td>3/6 = 0.500</td></tr>
+        <tr><td>h<sub>5</sub></td><td>3/6 = 0.500</td></tr>
+      </table>
+
+      <div class="step">
+        <strong>Selected:</strong> h<sub>2</sub>. <br>
+        <strong>α<sub>1</sub></strong> = ½ ln((1 − 1/6) / (1/6)) = ½ ln(5) ≈ <strong>0.8047</strong>.
+      </div>
+
+      <div class="step">
+        <strong>Update the weights.</strong> Only point D was misclassified by h<sub>2</sub>.
+        <ul class="ml-5 list-disc">
+          <li>D (wrong): 1/6 · e<sup>+0.8047</sup> = 1/6 · √5 ≈ 0.3727</li>
+          <li>A, B, C, E, F (right): 1/6 · e<sup>−0.8047</sup> = 1/6 · 1/√5 ≈ 0.0745</li>
+        </ul>
+        Sum = 0.3727 + 5 · 0.0745 = 0.7454. Renormalise (divide by sum):
+        <ul class="ml-5 list-disc">
+          <li>D → 0.3727 / 0.7454 = <strong>0.500</strong></li>
+          <li>each of A, B, C, E, F → 0.0745 / 0.7454 = <strong>0.100</strong></li>
+        </ul>
+        Sanity check: 0.5 + 5·0.1 = 1.0 ✓
+      </div>
+
+      <h4>Iteration 2</h4>
+      <p>Recompute err<sub>2</sub> with the new weights. Add up the weights of each learner's misclassified set:</p>
+      <table class="qmat text-left">
+        <tr><th>Learner</th><th>Mis-classified</th><th>Sum of their weights</th></tr>
+        <tr><td>h<sub>1</sub></td><td>A, D, F</td><td>0.1 + 0.5 + 0.1 = 0.700</td></tr>
+        <tr><td>h<sub>2</sub></td><td>D</td><td>0.500</td></tr>
+        <tr><td>h<sub>3</sub></td><td>B, C</td><td>0.1 + 0.1 = <strong>0.200</strong> ← lowest</td></tr>
+        <tr><td>h<sub>4</sub></td><td>A, B, F</td><td>0.1 + 0.1 + 0.1 = 0.300</td></tr>
+        <tr><td>h<sub>5</sub></td><td>B, C, D</td><td>0.1 + 0.1 + 0.5 = 0.700</td></tr>
+      </table>
+
+      <div class="step">
+        <strong>Selected:</strong> h<sub>3</sub>. <br>
+        <strong>α<sub>2</sub></strong> = ½ ln((1 − 0.2) / 0.2) = ½ ln(4) = <strong>ln(2) ≈ 0.6931</strong>.
+      </div>
+
+      <h4>Filled-in answer tables</h4>
+
+      <p class="font-semibold mt-3">Equations row</p>
+      <table class="qmat text-left">
+        <tr><th>Equation of err<sub>m</sub></th><td>(Σ w<sub>i</sub> over misclassified i) / (Σ w<sub>i</sub> over all i)</td></tr>
+        <tr><th>Equation of α<sub>m</sub></th><td>½ · ln((1 − err<sub>m</sub>) / err<sub>m</sub>)</td></tr>
+        <tr><th>Equation of w<sub>i</sub></th><td>w<sub>i</sub> ← w<sub>i</sub> · e<sup>±α<sub>m</sub></sup> (+ if wrong, − if right), then renormalise to sum to 1</td></tr>
+      </table>
+
+      <p class="font-semibold mt-3">Per-point weights</p>
+      <table class="qmat text-left">
+        <tr><th></th><th>Iteration 1</th><th>Iteration 2</th></tr>
+        <tr><td>Weight<sub>A</sub></td><td>1/6 ≈ 0.1667</td><td>0.100</td></tr>
+        <tr><td>Weight<sub>B</sub></td><td>1/6 ≈ 0.1667</td><td>0.100</td></tr>
+        <tr><td>Weight<sub>C</sub></td><td>1/6 ≈ 0.1667</td><td>0.100</td></tr>
+        <tr><td>Weight<sub>D</sub></td><td>1/6 ≈ 0.1667</td><td><strong>0.500</strong></td></tr>
+        <tr><td>Weight<sub>E</sub></td><td>1/6 ≈ 0.1667</td><td>0.100</td></tr>
+        <tr><td>Weight<sub>F</sub></td><td>1/6 ≈ 0.1667</td><td>0.100</td></tr>
+      </table>
+
+      <p class="font-semibold mt-3">Error rate of each weak learner per iteration</p>
+      <table class="qmat text-left">
+        <tr><th></th><th>Iteration 1</th><th>Iteration 2</th></tr>
+        <tr><td>h<sub>1</sub> (err<sub>m</sub>)</td><td>0.500</td><td>0.700</td></tr>
+        <tr><td>h<sub>2</sub> (err<sub>m</sub>)</td><td><strong>0.1667</strong></td><td>0.500</td></tr>
+        <tr><td>h<sub>3</sub> (err<sub>m</sub>)</td><td>0.333</td><td><strong>0.200</strong></td></tr>
+        <tr><td>h<sub>4</sub> (err<sub>m</sub>)</td><td>0.500</td><td>0.300</td></tr>
+        <tr><td>h<sub>5</sub> (err<sub>m</sub>)</td><td>0.500</td><td>0.700</td></tr>
+        <tr><td><strong>Selected weak learner</strong></td><td><strong>h<sub>2</sub></strong></td><td><strong>h<sub>3</sub></strong></td></tr>
+        <tr><td><strong>Voting power α<sub>m</sub></strong></td><td>½ ln 5 ≈ <strong>0.8047</strong></td><td>½ ln 4 = ln 2 ≈ <strong>0.6931</strong></td></tr>
+      </table>
+
+      <div class="final">
+        After two boosting rounds the ensemble is <strong>F(x) = 0.8047 · h<sub>2</sub>(x) + 0.6931 · h<sub>3</sub>(x)</strong>. Point D — the only one misclassified in round 1 — is now the heaviest point in round 2, which forced the algorithm to switch to a learner that gets D right (h<sub>3</sub>).
+      </div>
+      <p class="lecref">📚 <a href="../lectures/L05.html">L05 — AdaBoost / boosting for classification</a>.</p>
+    </div>
+  </div>
+</article>
+</section>
+
+<!-- ===================================== Original PDF ===================================== -->
+<section class="mt-12">
+  <h2 class="text-2xl font-bold border-b pb-1 mb-4">📄 Original exam pages (raw scans)</h2>
+  <p class="opacity-70 text-sm mb-3">Full-page renders for visual reference.</p>
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+    <figure class="slide-figure"><img src="../assets/past-exam/2019-final/final-sc-001.png" alt="2019 Final SC — page 1"><figcaption>Page 1 — Q1, Q2, Q3·A (SC track)</figcaption></figure>
+    <figure class="slide-figure"><img src="../assets/past-exam/2019-final/final-sc-002.png" alt="2019 Final SC — page 2"><figcaption>Page 2 — Q3·B, Q4 (SC track)</figcaption></figure>
+    <figure class="slide-figure"><img src="../assets/past-exam/2019-final/answers-sc-001.png" alt="Official answer key — page 1"><figcaption>Answer key — page 1</figcaption></figure>
+    <figure class="slide-figure"><img src="../assets/past-exam/2019-final/answers-sc-002.png" alt="Official answer key — page 2"><figcaption>Answer key — page 2</figcaption></figure>
+    <figure class="slide-figure"><img src="../assets/past-exam/2019-final/final-cs-001.png" alt="2019 Final CS — page 1"><figcaption>CS-track variant — page 1 (Q1 = SVM, Q2 = RANSAC)</figcaption></figure>
+    <figure class="slide-figure"><img src="../assets/past-exam/2019-final/final-cs-002.png" alt="2019 Final CS — page 2"><figcaption>CS-track variant — page 2 (BoVW / LK / HoG)</figcaption></figure>
+  </div>
+</section>
+
+<footer class="mt-16 pt-6 border-t text-sm text-slate-500 dark:text-slate-400 no-print">
+  <a href="index.html">← Past-exam index</a> · <a href="../exam/exam.html">Mock final exam →</a>
+</footer>
+</main>
+
+<script>
+document.getElementById('themeToggle').addEventListener('click', () => {
+  const cur = document.documentElement.getAttribute('data-theme');
+  const next = cur === 'dark' ? 'light' : 'dark';
+  document.documentElement.setAttribute('data-theme', next);
+  localStorage.setItem('theme', next);
+});
+</script>
+</body>
+</html>

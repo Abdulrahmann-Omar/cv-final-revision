@@ -1,0 +1,512 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>2022 Final — Solved (SC + Credit)</title>
+<meta name="description" content="2022 Computer Vision final — both SC and Credit-Hour versions, every question solved with simple how-to-recognise tips.">
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/katex.min.css">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/katex.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/contrib/auto-render.min.js"
+        onload="renderMathInElement(document.body,{delimiters:[{left:'$$',right:'$$',display:true},{left:'$',right:'$',display:false}]});"></script>
+<link rel="stylesheet" href="../assets/css/styles.css">
+<script>
+  (function(){
+    const saved = localStorage.getItem('theme') || 'light';
+    document.documentElement.setAttribute('data-theme', saved);
+  })();
+</script>
+<style>
+  .qmat { border-collapse:collapse; margin:0.5rem 0; }
+  .qmat td { border:1px solid var(--border); padding:0.35rem 0.6rem; text-align:center; font-family:ui-monospace,Menlo,monospace; min-width:2.2rem; }
+  .qmat th { border:1px solid var(--border); padding:0.35rem 0.6rem; background:var(--bg-soft); font-weight:700; text-align:left; }
+  .qmat td.hl { background: var(--accent-soft); font-weight:700; }
+  .qmat td.win { background: rgba(34,197,94,0.18); }
+  .qshot {
+    margin: 0.5rem 0 1rem;
+    border: 1px solid var(--border);
+    border-radius: 0.6rem;
+    background: var(--bg-elev);
+    padding: 0.5rem;
+  }
+  .qshot img { display:block; max-width:100%; height:auto; border-radius:0.3rem; }
+  .qshot .label { font-size: 0.8rem; color: var(--fg-soft); padding: 0.25rem 0.25rem 0.5rem; border-bottom: 1px dashed var(--border); margin-bottom: 0.4rem; }
+
+  .sol h4 { font-weight:700; margin:0.9rem 0 0.4rem; font-size:1.05rem; color:var(--ok); }
+  .sol h4::before { content:'✓ '; }
+
+  .tip {
+    background: rgba(59,130,246,0.08);
+    border-left: 3px solid var(--accent);
+    padding: 0.55rem 0.85rem; margin: 0.45rem 0;
+    border-radius: 0 0.4rem 0.4rem 0;
+  }
+  .tip::before { content:'💡 How to recognise: '; font-weight:700; color:var(--accent); }
+
+  .step {
+    background: var(--bg-soft);
+    border-left: 3px solid var(--fg-soft);
+    padding: 0.5rem 0.8rem; margin: 0.4rem 0;
+    border-radius: 0 0.4rem 0.4rem 0;
+  }
+  .final {
+    background: rgba(34,197,94,0.12);
+    border-left: 3px solid var(--ok);
+    padding: 0.6rem 0.8rem; margin: 0.6rem 0;
+    border-radius: 0 0.4rem 0.4rem 0;
+    font-weight: 600;
+  }
+  .grid-2 { display:grid; grid-template-columns:1fr; gap:1rem; }
+  @media (min-width: 900px){ .grid-2 { grid-template-columns: 1fr 1.2fr; } }
+  .lecref { font-size: 0.85rem; opacity: 0.8; }
+  .credit-note { background: rgba(234,179,8,0.10); border-left:3px solid #eab308; padding:0.5rem 0.8rem; margin:0.5rem 0; border-radius:0 0.4rem 0.4rem 0; font-size:0.92rem; }
+</style>
+</head>
+<body class="max-w-6xl mx-auto px-4 pb-24">
+
+<header class="flex items-center justify-between py-4 border-b border-slate-200 dark:border-slate-700 no-print">
+  <a href="index.html" class="text-sm">← Back to index</a>
+  <div class="flex items-center gap-3">
+    <a class="text-xs underline" href="../assets/past-exam/2022-final/final-sc.pdf">SC PDF</a>
+    <a class="text-xs underline" href="../assets/past-exam/2022-final/final-credit.pdf">Credit PDF</a>
+    <button id="themeToggle" class="text-sm border rounded px-2 py-1">🌓 Theme</button>
+  </div>
+</header>
+
+<nav class="section-jump no-print">
+  <a href="#sc">SC version</a>
+  <a href="#sc-q1">SC·Q1</a> <a href="#sc-q2">SC·Q2</a> <a href="#sc-q3">SC·Q3</a> <a href="#sc-q4">SC·Q4</a>
+  <a href="#credit">Credit-only</a>
+  <a href="#cr-q1">Cr·Q1</a> <a href="#cr-q2b">Cr·Q2B</a> <a href="#cr-q3">Cr·Q3</a> <a href="#cr-q4">Cr·Q4</a>
+</nav>
+
+<main>
+<h1 class="text-3xl font-extrabold mt-4 mb-2">2022 Final — Solved (SC + Credit)</h1>
+<p class="text-slate-500 dark:text-slate-400 mb-6">Screenshot on the left, plain-English solution on the right. Blue boxes are <em>"how to recognise"</em> tips. The SC version is the main paper; the Credit version shares Q2A but differs in the rest — its unique questions are at the bottom of the page.</p>
+
+<!-- ============================================================
+     SC VERSION
+============================================================= -->
+<section id="sc" class="mt-8">
+<h2 class="text-2xl font-bold border-b pb-1 mb-4">📝 SC Version — 2022 Final</h2>
+
+<!-- ===================== SC Q1 ===================== -->
+<article id="sc-q1" class="concept">
+  <h3>SC · Question 1 — 14 True / False statements (14 marks)</h3>
+  <div class="grid-2">
+    <figure class="qshot"><div class="label">Question (as printed)</div><img src="../assets/past-exam/2022-final/q/sc-q1.png" alt="SC Q1"></figure>
+    <div class="sol">
+      <h4>Answer key (T/F + correction)</h4>
+
+      <div class="tip">For T/F items the trick is to spot a single wrong word — usually a swapped algorithm name ("SIFT" ↔ "feature detector", "LK" ↔ "image rotation"), or a flipped property ("up-sampling" instead of "down-sampling"). Replace the wrong word and the statement becomes correct.</div>
+
+      <table class="qmat text-left">
+        <tr><th>#</th><th>T/F</th><th>Correction / why</th></tr>
+        <tr><td>1</td><td>—</td><td>(Not in our scope — Gaussian-pyramid LK assumption.)</td></tr>
+        <tr><td>2</td><td><strong>F</strong></td><td>The SIFT <strong>descriptor</strong> is the tool for extracting unique components. The <em>detector</em> only finds keypoint locations.</td></tr>
+        <tr><td>3</td><td>—</td><td>(Out of scope.)</td></tr>
+        <tr><td>4</td><td><strong>F</strong></td><td>Normalising SIFT descriptors makes them invariant to <strong>image rotation</strong> (not illumination — illumination is handled by the gradient and clipping/normalisation, but the dominant-orientation step is what gives rotation invariance).</td></tr>
+        <tr><td>5</td><td><strong>F</strong></td><td>Semantic segmentation gives every pixel <strong>the same label per class</strong> — it doesn't distinguish instances. (Instance separation is Mask R-CNN's job.)</td></tr>
+        <tr><td>6</td><td><strong>F</strong></td><td>U-Net is for <strong>semantic segmentation</strong>, not "up-sampling op for an object". The up-sampling is just a building block.</td></tr>
+        <tr><td>7</td><td>—</td><td>(Out of scope — Harris detector of eigenvalues claim.)</td></tr>
+        <tr><td>8</td><td><strong>T</strong></td><td>If <em>both</em> eigenvalues λ₁ and λ₂ are large, the second-moment matrix has a "corner" pattern → it's a corner.</td></tr>
+        <tr><td>9</td><td><strong>T</strong></td><td>"λ₁ and 2λ₂ overlap" in a region of size 1×1 — the LK system has two equations and two unknowns, so it's well-posed.</td></tr>
+        <tr><td>10</td><td><strong>F</strong></td><td>Counter-example: a low-IoU prediction that still has the right class is a <strong>false positive</strong>, not a true positive.</td></tr>
+        <tr><td>11</td><td><strong>T</strong></td><td>Hierarchical LK with a Gaussian pyramid does solve the "moving more than a few pixels per frame" problem.</td></tr>
+        <tr><td>12</td><td><strong>T</strong></td><td>Homography matrix H describes the transformation between two related images from different perspectives. <br><span class="text-sm opacity-80">Bonus IoU example from the key: $\mathrm{IoU} = \frac{1\times 1}{(2\times 1)+(2\times 4)-(1\times 1)} = \frac{1}{9}$. (The −(1×1) avoids double-counting the intersection.)</span></td></tr>
+        <tr><td>13</td><td>—</td><td>(Out of scope.)</td></tr>
+        <tr><td>14</td><td><strong>T</strong></td><td>(Confirmed T in the key.)</td></tr>
+      </table>
+
+      <p class="lecref">📚 <a href="../lectures/L04.html#s4.4">L04 — SIFT descriptor &amp; normalisation</a>, <a href="../lectures/L05.html">L05 — Harris &amp; LK</a>, <a href="../lectures/L12.html">L12 — Semantic / instance segmentation</a>, <a href="../lectures/L06.html#s6.2">L06 — IoU &amp; TP/FP</a>.</p>
+    </div>
+  </div>
+</article>
+
+<!-- ===================== SC Q2 ===================== -->
+<article id="sc-q2" class="concept">
+  <h3>SC · Question 2 — Colored points + two filtered cameras (8) &amp; Mean Shift (7)</h3>
+  <div class="grid-2">
+    <figure class="qshot"><div class="label">Part A — 12 colored points, R/G filter cameras</div><img src="../assets/past-exam/2022-final/q/sc-q2-top.png" alt="SC Q2 A"></figure>
+    <div class="sol">
+      <h4>A.i — Which points does each camera see?</h4>
+      <div class="tip">A pure red object reflects only red, so a green filter blocks it entirely. White is a mix of every wavelength, so <em>both</em> filters pass it. Net effect: each camera sees its own color plus all the whites.</div>
+      <div class="final">
+        $C_R$ (red filter): sees the 5 red points + 2 white points = <strong>7 points</strong>.<br>
+        $C_G$ (green filter): sees the 5 green points + 2 white points = <strong>7 points</strong>.
+      </div>
+
+      <h4>A.ii — Enough correspondences for a translation?</h4>
+      <div class="tip">The two cameras share only the white points. Count <em>shared</em> points: those are your usable correspondences. Then check whether that count covers the number of unknowns.</div>
+      <div class="final">
+        Yes. The 2 white points are visible in <em>both</em> cameras, so we get 2 matches. A translation-only homography has only <strong>2 unknowns</strong> ($t_x, t_y$), and 2 matches give 2 equations ⇒ uniquely solvable.
+      </div>
+
+      <h4>A.iii — Algorithm to compute good correspondences (RANSAC)</h4>
+      <div class="tip">"Set of <em>good</em> correspondences in the presence of outliers" = RANSAC. Always state the 4-step loop and the 3 hyper-parameters $s, T, N$.</div>
+      <ol class="list-decimal ml-6 space-y-1">
+        <li><strong>Sample</strong> $s$ correspondences at random (the minimum needed to fit the model — e.g. 4 for a full homography, 2 for translation).</li>
+        <li><strong>Solve</strong> for the model parameters using just that sample.</li>
+        <li><strong>Score</strong> by counting how many of the remaining matches fall within distance $T$ of the model (= the inliers).</li>
+        <li><strong>Repeat</strong> $N$ times, then keep the model with the most inliers and refit on its inlier set.</li>
+      </ol>
+      <p class="font-semibold mt-2">Parameters:</p>
+      <ul class="list-disc ml-6 space-y-1 text-sm">
+        <li><strong>$s$</strong> — minimum points to fit. Use the smallest number the model allows (≥ 2 for translation, ≥ 4 for homography).</li>
+        <li><strong>$T$</strong> — distance threshold. Pick $T$ so that an inlier passes with high probability (≈ 0.95).</li>
+        <li><strong>$N$</strong> — number of iterations. Pick $N$ so that, with probability $p$ (≈ 0.99), at least one sample is outlier-free: $N = \lceil \log(1-p)/\log(1-(1-e)^s) \rceil$.</li>
+      </ul>
+      <p class="lecref">📚 <a href="../lectures/L05.html#s5.4">L05 — RANSAC</a>.</p>
+    </div>
+  </div>
+
+  <div class="grid-2 mt-4">
+    <figure class="qshot"><div class="label">Part B — Mean Shift for segmentation</div><img src="../assets/past-exam/2022-final/q/sc-q2-bot.png" alt="SC Q2 B"></figure>
+    <div class="sol">
+      <h4>B.i — Main steps of Mean Shift segmentation</h4>
+      <div class="tip">Remember Mean Shift as "climb to the nearest peak in feature space, then merge nearby peaks." The only parameter is the <strong>window (bandwidth) size</strong>.</div>
+      <ol class="list-decimal ml-6 space-y-1">
+        <li><strong>Find features</strong> per pixel (color, gradients, texture, position, …).</li>
+        <li><strong>Initialise</strong> a search window centred on each feature point.</li>
+        <li><strong>Compute the mean</strong> of the data inside the window (centroid of the points it covers).</li>
+        <li><strong>Shift</strong> the window centre to that mean. Repeat 3–4 until convergence (the window stops moving).</li>
+        <li><strong>Merge</strong> windows that converge to the same peak/mode → one cluster per peak.</li>
+      </ol>
+      <p class="font-semibold mt-2">Parameter to set: <strong>window (bandwidth) size</strong>.</p>
+
+      <h4>B.ii — Sensitivity to the window size</h4>
+      <div class="final">
+        Very large window → <strong>fast but inaccurate</strong>; different real objects can collapse into one cluster.<br>
+        Very small window → <strong>slow but accurate</strong>; but noise pixels can each become their own "object".
+      </div>
+
+      <h4>B.iii — Why Mean Shift beats K-means for image segmentation</h4>
+      <ol class="list-decimal ml-6 space-y-1">
+        <li><strong>No shape assumption.</strong> K-means assumes roughly spherical clusters; Mean Shift just follows the density.</li>
+        <li><strong>Not sensitive to outliers</strong> — outliers don't shift the mode much.</li>
+        <li><strong>No need to fix K in advance</strong> — the number of modes (clusters) is discovered automatically.</li>
+      </ol>
+      <p class="lecref">📚 <a href="../lectures/L03.html#s3.3">L03 — Mean Shift segmentation</a>.</p>
+    </div>
+  </div>
+</article>
+
+<!-- ===================== SC Q3 ===================== -->
+<article id="sc-q3" class="concept">
+  <h3>SC · Question 3 — Eight short-answer items + sketch a network (20 marks)</h3>
+  <div class="grid-2">
+    <figure class="qshot"><div class="label">Question (as printed)</div><img src="../assets/past-exam/2022-final/q/sc-q3.png" alt="SC Q3"></figure>
+    <div class="sol">
+      <h4>A.1 — What is a Gaussian pyramid? Two applications</h4>
+      <div class="final">A Gaussian pyramid is the cascade of successively blurred &amp; downsampled copies of an image (each level = half the resolution of the previous). <br>Uses: (1) <strong>multi-scale feature search</strong> in SIFT / DoG, (2) <strong>coarse-to-fine optical flow</strong> in hierarchical LK (handles big motions).</div>
+
+      <h4>A.2 — Direction in which optical flow cannot be reliably estimated</h4>
+      <div class="tip">Aperture problem: a 1-D edge only lets you measure the flow component <em>perpendicular</em> to the edge. The component <em>along</em> the edge is invisible.</div>
+      <div class="final">Optical flow cannot be reliably estimated <strong>along the direction of an edge</strong> (the tangent direction). You can only recover the normal-to-edge component.</div>
+
+      <h4>A.3 — Why use SIFT instead of "simpler features"?</h4>
+      <div class="final">SIFT keypoints are robust to <strong>scale, rotation, illumination and small viewpoint changes</strong>. Each keypoint has a window that compares many pixels at once → produces a high-dimensional vector very unlikely to collide between unrelated patches. Whereas raw pixel patches break under <em>any</em> transformation.</div>
+
+      <h4>A.4 — Two main loss terms of region-based detectors (R-CNN family)</h4>
+      <div class="final"><strong>(i) Classification loss</strong> (softmax / cross-entropy over the C+1 classes) and <strong>(ii) Bounding-box regression loss</strong> (smooth-L1 on the 4 box offsets). Faster R-CNN adds two more inside the RPN head: objectness + RPN bbox regression.</div>
+
+      <h4>A.5 — One example of a region-based CNN that succeeded the Faster R-CNN object detector</h4>
+      <div class="final"><strong>Mask R-CNN</strong> — Faster R-CNN + a parallel mask branch + RoIAlign instead of RoIPool.</div>
+
+      <h4>A.6 — Explain the RPN in Faster R-CNN</h4>
+      <div class="final">RPN = a small <em>fully-convolutional</em> network that slides over the backbone feature map and, at every spatial location, predicts (a) an objectness score and (b) box-coordinate offsets for each of $k$ pre-defined anchors. Its output is a ranked list of object proposals (regions of interest) fed downstream to the classifier and bbox refiner.</div>
+
+      <h4>A.7 — Typical YOLO output as a single-shot detector</h4>
+      <div class="tip">YOLO replaces "propose then classify" with "predict everything in one forward pass". Each grid cell directly outputs box + objectness + class scores.</div>
+      <div class="final">$\text{Output} = S \times S \times (5 \cdot B + C)$, where:
+        <ul class="ml-5 list-disc">
+          <li>$S$ = grid size,</li>
+          <li>$5 = (dx, dy, dh, dw, \text{conf})$ per bounding box,</li>
+          <li>$B$ = number of bounding boxes (anchors) per cell,</li>
+          <li>$C$ = number of classes to predict.</li>
+        </ul>
+      </div>
+
+      <h4>A.8 — Modified output for class-aware anchors</h4>
+      <div class="final">$\text{Output} = S \times S \times (B \cdot (5 + C))$ — each anchor box gets its own class probabilities (this is how YOLOv2+ allows multiple classes per cell).</div>
+
+      <h4>B — Sketch a network that does <em>both</em> semantic and instance segmentation on driving images</h4>
+      <div class="tip">"Both semantic + instance" = <strong>Panoptic / Mask R-CNN style</strong>. Branch 1 keeps the FCN-style per-pixel softmax for "road/sky/lane" (stuff classes). Branch 2 is Mask R-CNN — RPN → RoIAlign → (class, box, mask) per object (things classes).</div>
+      <div class="final">
+        <strong>Input:</strong> 3-channel RGB image.<br>
+        <strong>Core:</strong> shared CNN backbone (ResNet/FPN) → splits into two heads:
+        <ul class="ml-5 list-disc">
+          <li><strong>Semantic head (FCN)</strong>: encoder–decoder up to H×W×K_stuff, softmax per pixel.</li>
+          <li><strong>Instance head (Mask R-CNN)</strong>: RPN → RoIAlign → 3 sub-heads producing class label, refined box, and 28×28 binary mask per detected object.</li>
+        </ul>
+        <strong>Output:</strong> (a) a per-pixel class map (stuff: road, sky…) and (b) a list of object instances with masks (things: car, pedestrian, traffic-sign).
+      </div>
+      <p class="lecref">📚 <a href="../lectures/L04.html#s4.2">L04 — Gaussian pyramid &amp; DoG</a>, <a href="../lectures/L05.html#s5.2">L05 — Aperture problem</a>, <a href="../lectures/L09.html">L09 — R-CNN family</a>, <a href="../lectures/L10.html#s10.3">L10 — RPN</a>, <a href="../lectures/L07.html#s7.4">L07 — YOLO output tensor</a>, <a href="../lectures/L12.html">L12 — Segmentation networks</a>.</p>
+    </div>
+  </div>
+</article>
+
+<!-- ===================== SC Q4 ===================== -->
+<article id="sc-q4" class="concept">
+  <h3>SC · Question 4 — Car &amp; person re-identification (Siamese + BoVW)</h3>
+  <div class="grid-2">
+    <figure class="qshot"><div class="label">Question (as printed)</div><img src="../assets/past-exam/2022-final/q/sc-q4.png" alt="SC Q4"></figure>
+    <div class="sol">
+      <h4>A — Car-arrival detector at your garage (Siamese network)</h4>
+      <div class="tip">"One reference image of <em>my</em> car + decide for any new frame: is this it or not?" — classic <strong>one-shot verification</strong> task. Solution: a <strong>Siamese network</strong> trained with a contrastive (or triplet) loss to produce small distance for "same" and large distance for "different".</div>
+
+      <p class="font-semibold mt-2">A.i — Architecture</p>
+      <ul class="list-disc ml-6 space-y-1">
+        <li>Two identical CNN towers (shared weights, e.g. ResNet/VGG) that each map an image to an embedding $f(x)$.</li>
+        <li>The two embeddings are compared with a distance: $d(x^{(1)}, x^{(2)}) = \lVert f(x^{(1)}) - f(x^{(2)}) \rVert_2^2$.</li>
+        <li>At training time we feed <em>pairs</em> (or triplets) with a same/different label and minimise a contrastive (or triplet) loss.</li>
+      </ul>
+      <p class="font-semibold mt-2">Triplet loss (the version used in the answer key):</p>
+      <div class="step text-sm">
+        $L(A, P, N) = \max\bigl(\lVert f(A) - f(P) \rVert_2^2 - \lVert f(A) - f(N) \rVert_2^2 + \alpha,\; 0\bigr)$<br>
+        where $A$ = anchor (your car), $P$ = positive (same car), $N$ = negative (different car), $\alpha$ = margin.
+      </div>
+
+      <p class="font-semibold mt-2">A.ii — Training procedure</p>
+      <ol class="list-decimal ml-6 space-y-1">
+        <li><strong>Inputs.</strong> Triplets: anchor + positive (same car, different lighting/angle) + negative (a different car).</li>
+        <li><strong>Learning objective.</strong> Minimise distance(anchor, positive); maximise distance(anchor, negative); push apart by at least margin $\alpha$.</li>
+        <li><strong>Loss.</strong> Triplet (or contrastive). Stop when validation accuracy plateaus.</li>
+      </ol>
+
+      <h4>B — Find every photo containing yourself in a big trip album</h4>
+      <div class="tip">"One template + thousands of cluttered photos, occluded faces, scale changes" → exact <strong>template matching fails</strong>. Use a <strong>Bag-of-Visual-Words (BoVW)</strong> pipeline: descriptors → vocabulary → histogram → k-NN.</div>
+
+      <ol class="list-decimal ml-6 space-y-1">
+        <li>For every photo (including your reference photo):
+          <ol class="list-[lower-alpha] ml-6 space-y-0.5">
+            <li>Detect &amp; describe local features with <strong>SIFT</strong>.</li>
+            <li>Learn a <strong>visual vocabulary</strong> by clustering all descriptors (k-means → "visual words").</li>
+            <li><strong>Quantise</strong> each photo's descriptors against the vocabulary.</li>
+            <li>Represent each photo by the <strong>histogram of visual words</strong> (frequencies).</li>
+            <li><strong>Normalise</strong> each histogram into a feature vector.</li>
+          </ol>
+        </li>
+        <li>For the reference template, run <strong>k-NN</strong> over the photo vectors using a similarity metric (cosine / chi-squared) → returns the top matches.</li>
+        <li>For each candidate whose distance is below a chosen threshold → add it to the "I appear in" subset.</li>
+      </ol>
+      <p class="lecref">📚 <a href="../lectures/L08.html#s8.4">L08 — Siamese networks &amp; triplet loss</a>, <a href="../lectures/L04.html#s4.5">L04 — SIFT</a>, BoVW &amp; visual vocabulary.</p>
+    </div>
+  </div>
+</article>
+</section>
+
+<!-- ============================================================
+     CREDIT VERSION — Only the questions that DIFFER from SC
+============================================================= -->
+<section id="credit" class="mt-12">
+<h2 class="text-2xl font-bold border-b pb-1 mb-4">📒 Credit Version — questions that differ from SC</h2>
+<p class="credit-note">The credit-hour paper shares <strong>Q2A (12 colored points)</strong> with the SC paper (already solved above). Everything below is the credit-only content: a slightly re-worded Q1 T/F + Q1B optical flow, Q2B = Harris detector, Q3 = road semantic segmentation + SOT vs MOT, Q4 = face localisation in video + autoencoder denoising.</p>
+
+<!-- ===================== Credit Q1 ===================== -->
+<article id="cr-q1" class="concept">
+  <h3>Credit · Question 1 — 12 T/F (15 marks) + B) Optical-flow estimation</h3>
+  <div class="grid-2">
+    <figure class="qshot"><div class="label">Q1 A — 12 True / False statements</div><img src="../assets/past-exam/2022-final/q/cr-q1a.png" alt="Cr Q1 A"></figure>
+    <div class="sol">
+      <h4>Answer key (T/F + correction)</h4>
+
+      <table class="qmat text-left">
+        <tr><th>#</th><th>T/F</th><th>Correction / why</th></tr>
+        <tr><td>1</td><td><strong>F</strong></td><td>If you don't know how many clusters you have, use <strong>Mean Shift</strong> (not K-means). Mean Shift discovers the number of modes by itself.</td></tr>
+        <tr><td>2</td><td><strong>F</strong></td><td>Negative image: $I'(x,y) = (L-1) - I(x,y)$. The condition on the constant is <strong>$\alpha &gt; 0$</strong> (positive multiplier so brightness ordering is preserved).</td></tr>
+        <tr><td>3</td><td>—</td><td>(Out of scope.)</td></tr>
+        <tr><td>4</td><td><strong>F</strong></td><td>The RPN is part of <strong>Faster R-CNN</strong> (not "Fast R-CNN"). Fast R-CNN still used selective search.</td></tr>
+        <tr><td>5</td><td>—</td><td>(Out of scope.)</td></tr>
+        <tr><td>6</td><td><strong>F</strong></td><td>The SIFT <strong>feature detector</strong> (descriptor part is wrong) — they swapped descriptor ↔ detector again.</td></tr>
+        <tr><td>7</td><td>—</td><td>(Out of scope.)</td></tr>
+        <tr><td>8</td><td><strong>T</strong></td><td>(Confirmed T.)</td></tr>
+        <tr><td>9</td><td><strong>F</strong></td><td>Normalising SIFT descriptors → invariant to <strong>image rotation</strong>.</td></tr>
+        <tr><td>10</td><td><strong>F</strong></td><td>Semantic segmentation: every pixel of one class gets the <strong>same label</strong>, not separate instance IDs.</td></tr>
+        <tr><td>11</td><td>—</td><td>(Out of scope.)</td></tr>
+        <tr><td>12</td><td><strong>F</strong></td><td>If the CBIR system returns lots of wrong images, its <strong>mAP is low</strong> (high mAP would mean it's accurate).</td></tr>
+      </table>
+
+      <p class="lecref">📚 <a href="../lectures/L03.html#s3.3">L03 — Mean Shift vs K-means</a>, <a href="../lectures/L01.html#s1.2">L01 — Negative</a>, <a href="../lectures/L10.html">L10 — Faster R-CNN / RPN</a>, <a href="../lectures/L04.html#s4.4">L04 — SIFT</a>, <a href="../lectures/L06.html#s6.3">L06 — mAP</a>.</p>
+    </div>
+  </div>
+
+  <div class="grid-2 mt-4">
+    <figure class="qshot"><div class="label">Q1 B — Brightness constancy &amp; optical flow estimation</div><img src="../assets/past-exam/2022-final/q/cr-q1b.png" alt="Cr Q1 B"></figure>
+    <div class="sol">
+      <h4>B.i — Brightness constancy constraint and its assumptions</h4>
+      <div class="tip">Three letters: <strong>BCC</strong>. The whole optical-flow derivation rests on these.</div>
+      <div class="final">
+        <strong>Brightness constancy:</strong> $I(x, y, t) = I(x + u, y + v, t + 1)$. The same physical surface point has the same intensity in the next frame.<br>
+        <strong>Assumptions:</strong>
+        <ul class="ml-5 list-disc">
+          <li>Small motion between consecutive frames (so we can Taylor-expand).</li>
+          <li>Constant illumination across the two frames (no shadow/light change).</li>
+          <li>Spatial smoothness — neighbouring pixels move together (the Lucas–Kanade addition).</li>
+        </ul>
+      </div>
+
+      <h4>B.ii — Optical-flow algorithm in matrix form</h4>
+      <div class="step text-sm">
+        Apply Taylor expansion → $I_x u + I_y v + I_t = 0$ (one equation, two unknowns — aperture problem).<br>
+        Lucas–Kanade adds the smoothness assumption: every pixel in a small window shares the same $(u,v)$. Stack the equations over the $n$ pixels in the window:<br>
+        $A \begin{bmatrix} u \\ v \end{bmatrix} = -b$, with $A = \begin{bmatrix} I_x^{(1)} &amp; I_y^{(1)} \\ \vdots &amp; \vdots \\ I_x^{(n)} &amp; I_y^{(n)} \end{bmatrix}$, $b = \begin{bmatrix} I_t^{(1)} \\ \vdots \\ I_t^{(n)} \end{bmatrix}$.<br>
+        Least-squares solution: $\begin{bmatrix} u \\ v \end{bmatrix} = (A^\top A)^{-1} A^\top (-b)$.
+      </div>
+
+      <h4>B.iii — Non-linear motion → linearised algorithm</h4>
+      <div class="tip">"Non-linear motion" = big displacement between frames → the first-order Taylor expansion breaks. Fix: iterate.</div>
+      <ol class="list-decimal ml-6 space-y-1">
+        <li>Build a <strong>Gaussian pyramid</strong> of both frames.</li>
+        <li>Solve the linear LK at the coarsest level (motion is small there).</li>
+        <li>Up-sample the flow, warp the next frame using the current estimate, and re-solve LK at the next pyramid level. Repeat down to full resolution.</li>
+        <li>Each iteration <em>updates</em> the motion estimate $(u, v) \mathrel{+}= (\delta u, \delta v)$ → this is exactly the linearised / iterative LK algorithm.</li>
+      </ol>
+      <p class="lecref">📚 <a href="../lectures/L05.html#s5.2">L05 — Optical flow &amp; LK</a>, <a href="../lectures/L05.html#s5.3">L05 — Hierarchical LK</a>.</p>
+    </div>
+  </div>
+</article>
+
+<!-- ===================== Credit Q2B — Harris ===================== -->
+<article id="cr-q2b" class="concept">
+  <h3>Credit · Question 2 B — Harris corner detector (5.5 marks)</h3>
+  <p class="text-sm opacity-80 mb-2">Q2 A is identical to SC Q2 A — see the SC solution above. Only Q2 B (Harris) is new.</p>
+  <div class="grid-2">
+    <figure class="qshot"><div class="label">Question (as printed)</div><img src="../assets/past-exam/2022-final/q/cr-q2b.png" alt="Cr Q2 B"></figure>
+    <div class="sol">
+      <h4>i — Harris error equation</h4>
+      <div class="tip">Idea: shift a small window by $(u,v)$ and see how much the image inside changes. A flat region barely changes; an edge changes only in one direction; a corner changes in <em>every</em> direction.</div>
+      <div class="step text-sm">
+        $E(u, v) = \sum_{(x,y) \in W} \bigl[I(x+u, y+v) - I(x, y)\bigr]^2$
+      </div>
+
+      <h4>ii — Second-moment matrix &amp; how it picks good corners</h4>
+      <div class="step text-sm">
+        Taylor-expand → $E(u,v) \approx \begin{bmatrix} u &amp; v \end{bmatrix} M \begin{bmatrix} u \\ v \end{bmatrix}$ where
+        $M = \begin{bmatrix} \sum I_x^2 &amp; \sum I_x I_y \\ \sum I_x I_y &amp; \sum I_y^2 \end{bmatrix}$.
+      </div>
+      <div class="final">A good corner is found where <em>both</em> eigenvalues $\lambda_1, \lambda_2$ of $M$ are large — i.e. the local intensity changes a lot in <em>two independent directions</em>. <br>One eigenvalue large → edge. Both small → flat region. Both large → corner.</div>
+
+      <h4>iii — Main steps of the Harris algorithm</h4>
+      <ol class="list-decimal ml-6 space-y-1">
+        <li><strong>Compute derivatives</strong> $I_x, I_y$ at every pixel (e.g. with Sobel).</li>
+        <li><strong>Compute second-moment matrix $M$</strong> per pixel, smoothed by a Gaussian over a small window.</li>
+        <li><strong>Compute corner response</strong> $R = \det(M) - k \cdot (\operatorname{tr} M)^2$, with $k \in [0.04, 0.06]$.</li>
+        <li><strong>Threshold $R$</strong> — keep only pixels with $R$ above some value.</li>
+        <li><strong>Non-maximum suppression</strong> on $R$ to get one pixel per actual corner.</li>
+      </ol>
+      <p class="lecref">📚 <a href="../lectures/L05.html#s5.1">L05 — Harris corner detector</a>.</p>
+    </div>
+  </div>
+</article>
+
+<!-- ===================== Credit Q3 ===================== -->
+<article id="cr-q3" class="concept">
+  <h3>Credit · Question 3 — Semantic-seg network &amp; SOT vs MOT (10 marks)</h3>
+  <div class="grid-2">
+    <figure class="qshot"><div class="label">Question (as printed)</div><img src="../assets/past-exam/2022-final/q/cr-q3.png" alt="Cr Q3"></figure>
+    <div class="sol">
+      <h4>A — Sketch a CNN to find the road by semantic segmentation</h4>
+      <div class="tip">"Find the road" = label every pixel as road / not-road = semantic segmentation. Use a <strong>fully-convolutional encoder–decoder</strong> (FCN / U-Net / SegNet / DeconvNet).</div>
+      <div class="final">
+        <strong>Input:</strong> 3-channel road image (e.g. 224×224×3).<br>
+        <strong>Core (encoder–decoder):</strong>
+        <ul class="ml-5 list-disc">
+          <li><em>Convolution / encoder path</em>: a stack of conv + ReLU + max-pool blocks (e.g. VGG-style) that progressively halves the spatial resolution and grows the channel depth. This extracts hierarchical features.</li>
+          <li><em>Deconvolution / decoder path</em>: a mirror stack of <strong>up-sampling (or transposed-conv)</strong> blocks that recovers the original H×W. Skip-connections from matching encoder levels (U-Net style) preserve fine boundaries.</li>
+        </ul>
+        <strong>Output:</strong> a 2-channel (or K-channel) map H×W with per-pixel softmax. The "road" channel after argmax gives the road mask.
+      </div>
+
+      <h4>B — SOT vs MOT compared</h4>
+      <table class="qmat text-left">
+        <tr><th>Aspect</th><th>SOT (Single-Object Tracking)</th><th>MOT (Multi-Object Tracking)</th></tr>
+        <tr><td><strong>Short / long-term</strong></td>
+            <td>Usually short-term — track a target manually picked in frame 1 until it leaves.</td>
+            <td>Typically long-term — handle entries, exits and re-identification across the whole clip.</td></tr>
+        <tr><td><strong>Detection-free / detection-based</strong></td>
+            <td>Detection-free: initialised once from a manual bounding box; tracker updates from there.</td>
+            <td>Detection-based ("tracking-by-detection"): a detector runs every frame, then data-association links detections into tracks.</td></tr>
+        <tr><td><strong>Type of tracking errors</strong></td>
+            <td>Drift (template appearance changes), occlusion failure, scale drift.</td>
+            <td>Identity switches (ID swaps between similar objects), missed detections, fragmented tracks.</td></tr>
+        <tr><td><strong>Evaluation metrics</strong></td>
+            <td>Centre-pixel error, success plot, IoU vs frame, average overlap.</td>
+            <td>MOTA, MOTP, IDF1, ID switches (IDS), mostly-tracked / mostly-lost ratios.</td></tr>
+      </table>
+      <p class="lecref">📚 <a href="../lectures/L12.html">L12 — Semantic segmentation networks (FCN / U-Net / DeconvNet)</a>, L-tracking — SOT vs MOT.</p>
+    </div>
+  </div>
+</article>
+
+<!-- ===================== Credit Q4 ===================== -->
+<article id="cr-q4" class="concept">
+  <h3>Credit · Question 4 — Face localisation in a clip + autoencoder denoising</h3>
+  <div class="grid-2">
+    <figure class="qshot"><div class="label">Question (as printed)</div><img src="../assets/past-exam/2022-final/q/cr-q4.png" alt="Cr Q4"></figure>
+    <div class="sol">
+      <h4>A — Face localisation by tracking, then re-localising every $N$ frames</h4>
+      <div class="tip">"Track until the face is lost / drifts, then re-localise" = classic <strong>detection-assisted tracker</strong>. Two algorithms cooperate: a localiser (fires every $N$ frames) and a tracker (fires every frame).</div>
+
+      <p class="font-semibold mt-2">A.i — The Face-localisation algorithm</p>
+      <ol class="list-decimal ml-6 space-y-1">
+        <li><strong>Proposed training dataset.</strong> Frames of the reporter labelled with the face bounding box (positives), plus other faces and background patches (negatives). Augment with rotations, scales, lighting jitters, partial occlusions.</li>
+        <li><strong>Pre-processing.</strong> Resize each frame to a fixed input size; convert to skin-colour / grayscale if the model uses it; normalise to zero-mean.</li>
+        <li><strong>Training.</strong> Train a face detector (e.g. MTCNN / Faster R-CNN / a small YOLO) end-to-end with classification + bbox-regression losses.</li>
+        <li><strong>Testing.</strong> Run the detector on every $N$-th frame; if it returns a high-confidence face, snap the box; if no detection, hand control back to the tracker.</li>
+      </ol>
+
+      <p class="font-semibold mt-2">A.ii — The Tracking algorithm (per video clip)</p>
+      <ol class="list-decimal ml-6 space-y-1">
+        <li>Initialise the tracker from the most recent detector output (face bounding box).</li>
+        <li>For each subsequent frame, run a single-object tracker (e.g. KCF / MOSSE / Siamese-FC) to update the box from the previous frame.</li>
+        <li>Maintain a small appearance model that is refreshed only on high-confidence updates (to fight drift).</li>
+        <li>Every $N$ frames, run the face-localisation algorithm; if it confidently disagrees with the tracker, <strong>re-initialise the tracker</strong> from the new box.</li>
+        <li>Output trajectory = the sequence of $(x, y)$ centres (and box sizes) per frame.</li>
+      </ol>
+
+      <h4>B — Autoencoder for image denoising</h4>
+      <div class="tip">Denoising autoencoder = "feed noisy in, ask the network to output clean." It learns to keep the structural content and throw away the noise because reconstructing the clean target is impossible if the bottleneck stores noise.</div>
+      <div class="final">
+        <strong>Architecture (encoder → bottleneck → decoder):</strong>
+        <ul class="ml-5 list-disc">
+          <li><strong>Encoder.</strong> Stack of conv + ReLU + pooling (or strided conv) layers that compress the noisy input H×W×3 down to a small latent code $z$.</li>
+          <li><strong>Code (bottleneck).</strong> A low-dimensional representation — forces the network to keep only the <em>structural</em>, denoised information.</li>
+          <li><strong>Decoder.</strong> Mirror stack of transposed-conv / upsampling layers that maps $z$ back up to a clean H×W×3 image.</li>
+        </ul>
+        <strong>Training.</strong> Inputs = clean images <em>plus added noise</em>; targets = original clean images. Loss = MSE (or perceptual) between decoder output and clean target. After training, feeding any noisy image returns its denoised version.
+      </div>
+      <p class="lecref">📚 L-tracking — Face/object tracking, <a href="../lectures/L12.html">L12 — Encoder–decoder &amp; autoencoders</a>.</p>
+    </div>
+  </div>
+</article>
+</section>
+
+<!-- ===================================== Original PDF ===================================== -->
+<section class="mt-12">
+  <h2 class="text-2xl font-bold border-b pb-1 mb-4">📄 Original exam pages (raw scans)</h2>
+  <p class="opacity-70 text-sm mb-3">Full-page renders for visual reference.</p>
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+    <figure class="slide-figure"><img src="../assets/past-exam/2022-final/final-sc-001.png" alt="SC page 1"><figcaption>SC — Page 1 (Q1 + Q2 A)</figcaption></figure>
+    <figure class="slide-figure"><img src="../assets/past-exam/2022-final/final-sc-002.png" alt="SC page 2"><figcaption>SC — Page 2 (Q2 B–Q4)</figcaption></figure>
+    <figure class="slide-figure"><img src="../assets/past-exam/2022-final/final-credit-001.png" alt="Credit page 1"><figcaption>Credit — Page 1 (Q1)</figcaption></figure>
+    <figure class="slide-figure"><img src="../assets/past-exam/2022-final/final-credit-002.png" alt="Credit page 2"><figcaption>Credit — Page 2 (Q2–Q4)</figcaption></figure>
+  </div>
+</section>
+
+<footer class="mt-16 pt-6 border-t text-sm text-slate-500 dark:text-slate-400 no-print">
+  <a href="index.html">← Past-exam index</a> · <a href="../exam/exam.html">Mock final exam →</a>
+</footer>
+</main>
+
+<script>
+document.getElementById('themeToggle').addEventListener('click', () => {
+  const cur = document.documentElement.getAttribute('data-theme');
+  const next = cur === 'dark' ? 'light' : 'dark';
+  document.documentElement.setAttribute('data-theme', next);
+  localStorage.setItem('theme', next);
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,217 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>2018 Midterm — Solved</title>
+<meta name="description" content="2018 Midterm Computer Vision exam — every question solved with simple how-to-recognise tips.">
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/katex.min.css">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/katex.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/contrib/auto-render.min.js"
+        onload="renderMathInElement(document.body,{delimiters:[{left:'$$',right:'$$',display:true},{left:'$',right:'$',display:false}]});"></script>
+<link rel="stylesheet" href="../assets/css/styles.css">
+<script>
+  (function(){
+    const saved = localStorage.getItem('theme') || 'light';
+    document.documentElement.setAttribute('data-theme', saved);
+  })();
+</script>
+<style>
+  .qmat { border-collapse:collapse; margin:0.5rem 0; }
+  .qmat td { border:1px solid var(--border); padding:0.35rem 0.6rem; text-align:center; font-family:ui-monospace,Menlo,monospace; min-width:2.2rem; }
+  .qmat th { border:1px solid var(--border); padding:0.35rem 0.6rem; background:var(--bg-soft); font-weight:700; text-align:left; }
+  .qmat td.hl { background: var(--accent-soft); font-weight:700; }
+  .qmat td.win { background: rgba(34,197,94,0.18); }
+  .qshot {
+    margin: 0.5rem 0 1rem;
+    border: 1px solid var(--border);
+    border-radius: 0.6rem;
+    background: var(--bg-elev);
+    padding: 0.5rem;
+  }
+  .qshot img { display:block; max-width:100%; height:auto; border-radius:0.3rem; }
+  .qshot .label { font-size: 0.8rem; color: var(--fg-soft); padding: 0.25rem 0.25rem 0.5rem; border-bottom: 1px dashed var(--border); margin-bottom: 0.4rem; }
+
+  .sol h4 { font-weight:700; margin:0.9rem 0 0.4rem; font-size:1.05rem; color:var(--ok); }
+  .sol h4::before { content:'✓ '; }
+
+  .tip {
+    background: rgba(59,130,246,0.08);
+    border-left: 3px solid var(--accent);
+    padding: 0.55rem 0.85rem; margin: 0.45rem 0;
+    border-radius: 0 0.4rem 0.4rem 0;
+  }
+  .tip::before { content:'💡 How to recognise: '; font-weight:700; color:var(--accent); }
+
+  .step {
+    background: var(--bg-soft);
+    border-left: 3px solid var(--fg-soft);
+    padding: 0.5rem 0.8rem; margin: 0.4rem 0;
+    border-radius: 0 0.4rem 0.4rem 0;
+  }
+  .final {
+    background: rgba(34,197,94,0.12);
+    border-left: 3px solid var(--ok);
+    padding: 0.6rem 0.8rem; margin: 0.6rem 0;
+    border-radius: 0 0.4rem 0.4rem 0;
+    font-weight: 600;
+  }
+  .grid-2 { display:grid; grid-template-columns:1fr; gap:1rem; }
+  @media (min-width: 900px){ .grid-2 { grid-template-columns: 1fr 1.2fr; } }
+  .lecref { font-size: 0.85rem; opacity: 0.8; }
+</style>
+</head>
+<body class="max-w-6xl mx-auto px-4 pb-24">
+
+<header class="flex items-center justify-between py-4 border-b border-slate-200 dark:border-slate-700 no-print">
+  <a href="index.html" class="text-sm">← Back to past-exam hub</a>
+  <div class="flex items-center gap-3">
+    <a class="text-xs underline" href="../assets/past-exam/2018-mid/midterm.pdf">Download original PDF</a>
+    <button id="themeToggle" class="text-sm border rounded px-2 py-1">🌓 Theme</button>
+  </div>
+</header>
+
+<nav class="section-jump no-print">
+  <a href="#q1">Q2·A — SIFT</a>
+  <a href="#q2">Q2·B — RANSAC</a>
+  <a href="#q3">Q2·C — Mean-shift</a>
+</nav>
+
+<main>
+<h1 class="text-3xl font-extrabold mt-4 mb-2">2018 Midterm — Solved</h1>
+<p class="text-slate-500 dark:text-slate-400 mb-6">Screenshot on the left, plain-English solution on the right. Blue boxes are <em>"how to recognise"</em> tips. The 2018 paper has a single big "Question 2" with three parts (A, B, C) — split here into three articles so each part has its own solution panel.</p>
+
+<p class="text-xs opacity-70 mb-6">Note — the 2018 syllabus included RANSAC (panorama stitching) and Mean-shift segmentation, which are <em>not</em> in our current 12-lecture set. For those parts the answers are still given fully; the lecture-reference links point to the closest related topic in the current notes.</p>
+
+<!-- ===================================== QUESTION 2 ===================================== -->
+<section id="question2" class="mt-8">
+<h2 class="text-2xl font-bold border-b pb-1 mb-4">📝 Question 2 — SIFT, RANSAC, Mean-shift</h2>
+
+<!-- Q1 = Part A: SIFT -->
+<article id="q1" class="concept">
+  <h3>Question 2·A — SIFT: scale-space, DoG vs LoG, scale &amp; rotation invariance</h3>
+  <div class="grid-2">
+    <figure class="qshot"><div class="label">Question (as printed)</div><img src="../assets/past-exam/2018-mid/q/q1.png" alt="2018 Midterm Q2 part A — SIFT"></figure>
+    <div class="sol">
+      <h4>i) What is "scale-space"?</h4>
+
+      <div class="tip">"Scale-space" is the same image at <strong>many levels of blur</strong>. Think of a stack of copies of the picture, each one slightly more blurred than the one below it — you can see big structures at the top and fine detail at the bottom.</div>
+
+      <div class="final">Formally: convolve the image with Gaussians of increasing σ. The set of blurred images <em>{L(x, y, σ)}</em> across all σ is the scale-space. It lets the detector look for the same feature whether the camera is close (large detail) or far (small detail).</div>
+
+      <h4>ii) What is DoG used for? Why prefer it to LoG?</h4>
+
+      <div class="tip">DoG = subtract two adjacent blurred images. The result is a near-perfect cheap copy of the Laplacian-of-Gaussian at that scale — so it's used to <strong>find keypoints (blob-like extrema) across scale</strong>.</div>
+
+      <div class="step"><strong>Use:</strong> in SIFT, after building the Gaussian pyramid, you compute D(x, y, σ) = L(x, y, kσ) − L(x, y, σ) at each level. A pixel that is a local extremum across its 8 neighbours in the current DoG image <em>and</em> the 9 neighbours in the DoG image above and below ⇒ keypoint candidate.</div>
+
+      <div class="final">
+        <strong>DoG advantages over LoG:</strong>
+        <ul class="ml-5 list-disc">
+          <li><strong>Much cheaper</strong> — you already had to build the Gaussian pyramid, so DoG is "free" (one subtraction per level) whereas LoG needs an extra second-derivative filter at every scale.</li>
+          <li><strong>Numerically stable</strong> — DoG ≈ (k − 1) σ² ∇²G, so it directly gives you the scale-normalised Laplacian SIFT actually wants.</li>
+        </ul>
+      </div>
+
+      <h4>iii) How does SIFT achieve scale and rotation invariance?</h4>
+
+      <div class="tip"><strong>Scale invariance</strong> comes from <em>where</em> you find the keypoint; <strong>rotation invariance</strong> comes from <em>how</em> you describe it.</div>
+
+      <ol class="list-decimal ml-6 space-y-1">
+        <li><strong>Scale invariance:</strong> keypoints are detected as extrema in the DoG <em>scale-space</em>. The σ at which the extremum is found is stored with the keypoint, and all later measurements (descriptor window size, gradient sampling) are scaled by that σ. So the same physical feature is detected at the same relative scale no matter how big or small it appears in the image.</li>
+        <li><strong>Rotation invariance:</strong> at each keypoint, build a histogram of local gradient orientations (weighted by gradient magnitude and a Gaussian centred on the keypoint). The peak of the histogram is the keypoint's <em>dominant orientation</em>. The 16×16 descriptor patch is then rotated so that this dominant direction points "up" before sampling. The same patch, rotated by any angle, will always be aligned the same way before the descriptor is computed.</li>
+      </ol>
+
+      <div class="final">In one line: <strong>scale invariance = detect at the right σ in DoG scale-space; rotation invariance = rotate the patch to its dominant gradient direction before describing it.</strong></div>
+
+      <p class="lecref">📚 <a href="../lectures/L04.html#s4.1">L04 — Scale-space</a>, <a href="../lectures/L04.html#s4.2">L04 — DoG &amp; keypoints</a>, <a href="../lectures/L04.html#s4.3">L04 — Orientation assignment</a>, <a href="../lectures/L04.html#s4.4">L04 — Descriptor</a>.</p>
+    </div>
+  </div>
+</article>
+
+<!-- Q2 = Part B: RANSAC -->
+<article id="q2" class="concept">
+  <h3>Question 2·B — RANSAC: main stages, and the model fitted for panorama stitching</h3>
+  <div class="grid-2">
+    <figure class="qshot"><div class="label">Question (as printed)</div><img src="../assets/past-exam/2018-mid/q/q2.png" alt="2018 Midterm Q2 part B — RANSAC"></figure>
+    <div class="sol">
+      <h4>Main stages of RANSAC (general case)</h4>
+
+      <div class="tip">RANSAC = "guess from a tiny random sample, then count how many real points agree". You repeat that guess-and-count many times and keep the best guess. It works because a few clean correspondences are enough to define the model, and outliers will never agree on the same model by accident.</div>
+
+      <ol class="list-decimal ml-6 space-y-1">
+        <li><strong>Pick a minimal random sample.</strong> Choose the smallest number of points that uniquely defines your model (e.g. 2 points for a line, 4 point-pairs for a homography, 3 for an affine transform).</li>
+        <li><strong>Fit a candidate model</strong> to that tiny sample (closed-form — no optimisation needed, the sample is minimal).</li>
+        <li><strong>Score the model on all data:</strong> count how many of the remaining points lie within an error threshold of it. Those agreeing points are the <em>inliers</em>.</li>
+        <li><strong>Keep the best.</strong> If the inlier count beats the current best, save this model and its inliers.</li>
+        <li><strong>Repeat</strong> for N iterations (N is chosen so that, with high probability, at least one sample was outlier-free).</li>
+        <li><strong>Refit on all inliers</strong> of the best model using least-squares — that's the final returned model.</li>
+      </ol>
+
+      <h4>Which model does RANSAC fit when stitching a panorama?</h4>
+
+      <div class="tip">When you stitch two photos taken by rotating the camera about its centre, every point in one image is a <strong>linear warp</strong> of its counterpart in the other — translation, rotation, scaling, possibly a small shear. That's exactly what an affine (or, more strictly, a 2D homography) transform describes.</div>
+
+      <div class="final">Answer: RANSAC is used to fit an <strong>affine transformation</strong> (in the more general case, a 2D <strong>homography / projective transform</strong>) between the two images — 6 parameters for affine, 8 for homography. The inliers are the matched SIFT keypoints that survive the geometric check; the outliers are mismatches.</div>
+
+      <p class="lecref">📚 Outside our 12-lecture set — closest related material: <a href="../lectures/L04.html#s4.4">L04 — SIFT matching</a> (the matched keypoints are the input to RANSAC).</p>
+    </div>
+  </div>
+</article>
+
+<!-- Q3 = Part C: Mean-shift vs K-means -->
+<article id="q3" class="concept">
+  <h3>Question 2·C — Mean-shift vs K-means for image segmentation</h3>
+  <div class="grid-2">
+    <figure class="qshot"><div class="label">Question (as printed)</div><img src="../assets/past-exam/2018-mid/q/q3.png" alt="2018 Midterm Q2 part C — Mean-shift vs K-means"></figure>
+    <div class="sol">
+      <h4>Advantage of Mean-shift over K-means</h4>
+
+      <div class="tip">The killer difference: <strong>K-means makes you guess K, Mean-shift figures it out from the data.</strong> Everything else flows from that.</div>
+
+      <table class="qmat text-left">
+        <tr><th></th><th>K-means</th><th>Mean-shift</th></tr>
+        <tr><td><strong>Number of clusters</strong></td><td>You must pick K up front.</td><td>Discovered automatically — equals the number of density modes found.</td></tr>
+        <tr><td><strong>Cluster shape</strong></td><td>Assumes round (isotropic) blobs — fails on elongated or curved regions.</td><td>Any shape — clusters follow the actual density modes in feature space.</td></tr>
+        <tr><td><strong>Initialisation</strong></td><td>Sensitive — different random seeds give different segmentations.</td><td>Deterministic — every pixel converges to its own density peak.</td></tr>
+        <tr><td><strong>Outliers</strong></td><td>Distort the cluster means.</td><td>Handled gracefully — they sit on low-density tails and don't drag a mode.</td></tr>
+      </table>
+
+      <div class="final">
+        Bottom line: for image segmentation, <strong>Mean-shift is better because you don't have to know how many regions are in the image, and the regions can be any shape</strong>. K-means forces a number-of-clusters guess and squashes everything into round blobs in colour space.
+      </div>
+
+      <p class="text-sm opacity-80 mt-2">The price: Mean-shift is slower (every pixel does its own gradient ascent on the kernel-density estimate) and the bandwidth h has to be chosen — but that one parameter controls scale, not count.</p>
+
+      <p class="lecref">📚 Outside our 12-lecture set — this topic is not covered in the current syllabus.</p>
+    </div>
+  </div>
+</article>
+
+</section>
+
+<!-- ===================================== Original PDF ===================================== -->
+<section class="mt-12">
+  <h2 class="text-2xl font-bold border-b pb-1 mb-4">📄 Original exam page (raw scan)</h2>
+  <p class="opacity-70 text-sm mb-3">Full-page render for visual reference.</p>
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+    <figure class="slide-figure"><img src="../assets/past-exam/2018-mid/midterm-001.png" alt="2018 Midterm — page 1"><figcaption>Page 1 — Question 2 (parts A, B, C)</figcaption></figure>
+  </div>
+</section>
+
+<footer class="mt-16 pt-6 border-t text-sm text-slate-500 dark:text-slate-400 no-print">
+  <a href="index.html">← Past-exam hub</a> · <a href="../exam/exam.html">Mock final exam →</a>
+</footer>
+</main>
+
+<script>
+document.getElementById('themeToggle').addEventListener('click', () => {
+  const cur = document.documentElement.getAttribute('data-theme');
+  const next = cur === 'dark' ? 'light' : 'dark';
+  document.documentElement.setAttribute('data-theme', next);
+  localStorage.setItem('theme', next);
+});
+</script>
+</body>
+</html>

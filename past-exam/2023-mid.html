@@ -1,0 +1,256 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>2023 Midterm — Solved</title>
+<meta name="description" content="2023 Computer Vision midterm (Dr. Dina Khattab), every question solved with simple how-to-recognise tips and official answer reconciliation.">
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/katex.min.css">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/katex.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/contrib/auto-render.min.js"
+        onload="renderMathInElement(document.body,{delimiters:[{left:'$$',right:'$$',display:true},{left:'$',right:'$',display:false}]});"></script>
+<link rel="stylesheet" href="../assets/css/styles.css">
+<script>
+  (function(){
+    const saved = localStorage.getItem('theme') || 'light';
+    document.documentElement.setAttribute('data-theme', saved);
+  })();
+</script>
+<style>
+  .qmat { border-collapse:collapse; margin:0.5rem 0; }
+  .qmat td { border:1px solid var(--border); padding:0.35rem 0.6rem; text-align:center; font-family:ui-monospace,Menlo,monospace; min-width:2.2rem; }
+  .qmat th { border:1px solid var(--border); padding:0.35rem 0.6rem; background:var(--bg-soft); font-weight:700; text-align:left; }
+  .qmat td.hl { background: var(--accent-soft); font-weight:700; }
+  .qmat td.win { background: rgba(34,197,94,0.18); }
+  .qshot {
+    margin: 0.5rem 0 1rem;
+    border: 1px solid var(--border);
+    border-radius: 0.6rem;
+    background: var(--bg-elev);
+    padding: 0.5rem;
+  }
+  .qshot img { display:block; max-width:100%; height:auto; border-radius:0.3rem; }
+  .qshot .label { font-size: 0.8rem; color: var(--fg-soft); padding: 0.25rem 0.25rem 0.5rem; border-bottom: 1px dashed var(--border); margin-bottom: 0.4rem; }
+
+  .sol h4 { font-weight:700; margin:0.9rem 0 0.4rem; font-size:1.05rem; color:var(--ok); }
+  .sol h4::before { content:'✓ '; }
+
+  .tip {
+    background: rgba(59,130,246,0.08);
+    border-left: 3px solid var(--accent);
+    padding: 0.55rem 0.85rem; margin: 0.45rem 0;
+    border-radius: 0 0.4rem 0.4rem 0;
+  }
+  .tip::before { content:'💡 How to recognise: '; font-weight:700; color:var(--accent); }
+
+  .step {
+    background: var(--bg-soft);
+    border-left: 3px solid var(--fg-soft);
+    padding: 0.5rem 0.8rem; margin: 0.4rem 0;
+    border-radius: 0 0.4rem 0.4rem 0;
+  }
+  .final {
+    background: rgba(34,197,94,0.12);
+    border-left: 3px solid var(--ok);
+    padding: 0.6rem 0.8rem; margin: 0.6rem 0;
+    border-radius: 0 0.4rem 0.4rem 0;
+    font-weight: 600;
+  }
+  .grid-2 { display:grid; grid-template-columns:1fr; gap:1rem; }
+  @media (min-width: 900px){ .grid-2 { grid-template-columns: 1fr 1.2fr; } }
+  .lecref { font-size: 0.85rem; opacity: 0.8; }
+</style>
+</head>
+<body class="max-w-6xl mx-auto px-4 pb-24">
+
+<header class="flex items-center justify-between py-4 border-b border-slate-200 dark:border-slate-700 no-print">
+  <a href="index.html" class="text-sm">← Back to past exams</a>
+  <div class="flex items-center gap-3">
+    <a class="text-xs underline" href="../assets/past-exam/2023-mid/midterm.pdf">Questions PDF</a>
+    <a class="text-xs underline" href="../assets/past-exam/2023-mid/answers.pdf">Answers PDF</a>
+    <button id="themeToggle" class="text-sm border rounded px-2 py-1">🌓 Theme</button>
+  </div>
+</header>
+
+<nav class="section-jump no-print">
+  <a href="#q1">Q1·A (kernels)</a>
+  <a href="#q2">Q1·B (Canny vs LoG)</a>
+  <a href="#q3">Q1·C (Harris)</a>
+  <a href="#q4">Q1·D (SIFT)</a>
+</nav>
+
+<main>
+<h1 class="text-3xl font-extrabold mt-4 mb-2">2023 Midterm — Solved</h1>
+<p class="text-slate-500 dark:text-slate-400 mb-6">Ain Shams · Computer Vision · MidTerm 16/11/2022 · Dr. Dina Khattab · 45 minutes · 15 marks. Screenshot on the left, plain-English solution with tips on the right. Reconciled against the official answer key.</p>
+
+<section id="midterm" class="mt-8">
+<h2 class="text-2xl font-bold border-b pb-1 mb-4">📝 Midterm Q1 — Four parts (A, B, C, D)</h2>
+
+<!-- Q1-A -->
+<article id="q1" class="concept">
+  <h3>Q1 · Part A — Match each input→output to its kernel (5 marks)</h3>
+  <div class="grid-2">
+    <figure class="qshot"><div class="label">Question (as printed)</div><img src="../assets/past-exam/2023-mid/q/q1.png" alt="Q1 Part A — kernel/image table"></figure>
+    <div class="sol">
+      <h4>Solution — first read the kernels</h4>
+
+      <div class="tip">Eight kernels (a)–(h). Memorise the signatures:
+        <ul class="ml-5 list-disc">
+          <li><strong>(a)</strong> [[1,0,−1],[2,0,−2],[1,0,−1]] → Sobel-x (vertical edges, gradient in <em>x</em>).</li>
+          <li><strong>(b)</strong> all 1/9 → 3×3 <strong>box blur</strong> (mean filter).</li>
+          <li><strong>(c)</strong> [[0,1,0],[1,−4,1],[0,1,0]] → Laplacian (edge detector).</li>
+          <li><strong>(d)</strong> [[1,2,1],[0,0,0],[−1,−2,−1]] → Sobel-y (horizontal edges, <strong>gradient in <em>y</em></strong>).</li>
+          <li><strong>(e)</strong> [[0,0,0],[1,0,0],[0,0,0]] → <strong>shift-right</strong> (the centre value gets replaced by the pixel to its <em>left</em>).</li>
+          <li><strong>(f)</strong> [[0,0,0],[0,1,0],[0,0,0]] → <strong>impulse</strong> / identity (does nothing).</li>
+          <li><strong>(g)</strong> [[−1,−1,−1],[−1,17,−1],[−1,−1,−1]]/9 → <strong>unsharp-mask / sharpening</strong> (Laplacian + identity scaled).</li>
+          <li><strong>(h)</strong> [[1,2,1],[2,4,2],[1,2,1]]/16 → <strong>Gaussian smoothing</strong>.</li>
+        </ul>
+      </div>
+
+      <h4>Now read each input → output column</h4>
+      <table class="qmat text-left">
+        <tr><th>Set</th><th>What happened input → output</th><th>Operation</th><th>Filter</th></tr>
+        <tr><td><strong>1</strong> (building)</td><td>Horizontal edges popped, flat regions went grey.</td><td>Gradient in <em>y</em></td><td><strong>(d)</strong> Sobel-y</td></tr>
+        <tr><td><strong>2</strong> (Lena)</td><td>Image is the same, just translated one pixel.</td><td>Shift right</td><td><strong>(e)</strong> shift kernel</td></tr>
+        <tr><td><strong>3</strong> (grass)</td><td>Texture smoothed / softened uniformly.</td><td>Box-blur smoothing</td><td><strong>(b)</strong> 1/9 averaging</td></tr>
+        <tr><td><strong>4</strong> (camera-man)</td><td>Output identical to input.</td><td>Impulse / identity</td><td><strong>(f)</strong> centre = 1</td></tr>
+        <tr><td><strong>5</strong> (grass again)</td><td>Smoother than box-blur, edges preserved a bit.</td><td>Gaussian smoothing</td><td><strong>(h)</strong> 1/16·Gaussian</td></tr>
+      </table>
+
+      <div class="final">
+        Official key:
+        <ol class="list-decimal ml-6 mt-1">
+          <li>Gradient in Y direction → <strong>(d)</strong></li>
+          <li>Shift Right → <strong>(e)</strong></li>
+          <li>Box Blur → <strong>(b)</strong></li>
+          <li>Impulse → <strong>(f)</strong></li>
+          <li>Gaussian smoothing → <strong>(h)</strong></li>
+        </ol>
+      </div>
+      <p class="lecref">📚 <a href="../lectures/L01.html#s1.3">L01 — Spatial filters (smoothing &amp; sharpening)</a>.</p>
+    </div>
+  </div>
+</article>
+
+<!-- Q1-B -->
+<article id="q2" class="concept">
+  <h3>Q1 · Part B — Canny vs Laplacian-of-Gaussian (3 marks)</h3>
+  <div class="grid-2">
+    <figure class="qshot"><div class="label">Question (as printed)</div><img src="../assets/past-exam/2023-mid/q/q2.png" alt="Q1 Part B — Canny vs LoG, and image (a)/(b)"></figure>
+    <div class="sol">
+      <h4>i) Order of derivative &amp; number of convolutions</h4>
+
+      <div class="tip">
+        Canny uses a <strong>first-derivative</strong> (gradient magnitude → non-max-suppression → hysteresis). LoG uses a <strong>second-derivative</strong> (Laplacian) of a blurred image. The convolution count differs because LoG can be pre-baked into a single kernel, while Canny needs Gₓ <em>and</em> G_y.
+      </div>
+
+      <table class="qmat text-left">
+        <tr><th></th><th>Canny</th><th>LoG</th></tr>
+        <tr><td><strong>Order of derivative</strong></td><td>1<sup>st</sup></td><td>2<sup>nd</sup></td></tr>
+        <tr><td><strong>Convolution operations</strong></td><td>2 (one per axis: Gₓ, G_y)</td><td>1 (single LoG kernel)</td></tr>
+      </table>
+
+      <h4>ii) Which output (a) or (b) is more likely from Canny?</h4>
+
+      <div class="tip">Canny includes a <strong>linking / hysteresis</strong> step that keeps weak edges <em>only when they touch a strong edge</em>. So the Canny output looks like <strong>clean continuous contours</strong>. A pure derivative without linking gives a noisy speckled edge map.</div>
+
+      <div class="final">Answer: <strong>(a)</strong> — because the weak edges have been kept by the linking step in the Canny edge detector, producing a cleaner, more continuous contour than the speckled non-linked map in (b).</div>
+      <p class="lecref">📚 <a href="../lectures/L02.html#s2.3">L02 — Canny &amp; LoG edge detection</a>.</p>
+    </div>
+  </div>
+</article>
+
+<!-- Q1-C -->
+<article id="q3" class="concept">
+  <h3>Q1 · Part C — Harris response on a given second-moment matrix (2 marks)</h3>
+  <div class="grid-2">
+    <figure class="qshot"><div class="label">Question (as printed)</div><img src="../assets/past-exam/2023-mid/q/q3.png" alt="Q1 Part C — Harris detector"></figure>
+    <div class="sol">
+      <h4>Solution</h4>
+
+      <div class="tip">
+        Harris response:  $R = \det(M) - \alpha\,\mathrm{trace}(M)^2$, with $\det(M) = ad-bc$ for $M=\begin{bmatrix}a&b\\c&d\end{bmatrix}$ and $\mathrm{trace}(M)=a+d$.
+        <ul class="ml-5 list-disc">
+          <li><strong>R large positive</strong> → corner.</li>
+          <li><strong>R large negative</strong> → edge.</li>
+          <li><strong>|R| small</strong> → flat region.</li>
+        </ul>
+      </div>
+
+      <div class="step">
+        <strong>Plug in</strong> $M = \begin{bmatrix}403 & 385\\385 & 381\end{bmatrix}$, $\alpha = 0.04$.<br>
+        $\det(M) = 403\cdot381 - 385\cdot385 = 153{,}543 - 148{,}225 = 5{,}318$.<br>
+        $\mathrm{trace}(M) = 403 + 381 = 784$.<br>
+        $\mathrm{trace}(M)^2 = 614{,}656$.<br>
+        $R = 5{,}318 - 0.04 \times 614{,}656 = 5{,}318 - 24{,}586.24 = -19{,}268.24$.
+      </div>
+
+      <div class="final">
+        $R \approx -19{,}268.24$ — a <strong>large negative number</strong>, so it indicates an <strong>edge</strong>.
+      </div>
+
+      <p class="text-sm opacity-80">Sanity check: the diagonal entries are nearly equal (403 ≈ 381) <em>and</em> the off-diagonal is almost as big (385). That means the two eigenvalues of M are very different — one large, one small — exactly the signature of an edge, not a corner.</p>
+
+      <p class="lecref">📚 <a href="../lectures/L04.html#s4.1">L04 — Harris corner detector</a>.</p>
+    </div>
+  </div>
+</article>
+
+<!-- Q1-D -->
+<article id="q4" class="concept">
+  <h3>Q1 · Part D — SIFT three sub-questions (5 marks)</h3>
+  <div class="grid-2">
+    <figure class="qshot"><div class="label">Question (as printed)</div><img src="../assets/past-exam/2023-mid/q/q4.png" alt="Q1 Part D — SIFT"></figure>
+    <div class="sol">
+      <h4>i) What is "scale-space"?</h4>
+
+      <div class="tip">"Scale-space" is the same image looked at through <em>progressively bigger Gaussian blurs</em>. Each blur level σ corresponds to a different "scale" of detail — a stack of blurred copies arranged from sharp to very blurry.</div>
+
+      <div class="final">Scale-space is the image represented at multiple scales (multiple σ-levels of Gaussian smoothing). It's used to build a representation that is invariant to scale — a small feature at one zoom matches a big feature at another zoom because each lives at its own σ.</div>
+
+      <h4>ii) What is DoG used for? Advantage over LoG.</h4>
+
+      <div class="tip">DoG = subtract two adjacent Gaussian-blurred copies of the image. The trick: $G_{k\sigma} - G_\sigma \approx (k-1)\,\sigma^2\,\nabla^2 G$ — a scaled Laplacian-of-Gaussian. So DoG <em>approximates</em> LoG at almost no extra cost, because the Gaussian blurs already exist in the scale-space pyramid.</div>
+
+      <div class="final">DoG is used as an <strong>approximation of the Laplacian-of-Gaussian for edge / blob detection in different scale levels</strong>. Advantage over LoG: it needs <strong>less computational power</strong> — you reuse the already-computed Gaussian blurs rather than convolving with a separate second-derivative LoG kernel.</div>
+
+      <h4>iii) What do the 8 numbers in each SIFT-descriptor group represent?</h4>
+
+      <div class="tip">SIFT splits the 16×16 patch into 16 sub-blocks of 4×4. In each sub-block, gradients vote into <strong>8 orientation bins</strong> (one per 45°). So each block contributes 8 numbers → 16 × 8 = 128 total.</div>
+
+      <div class="final">Each group of 8 numbers is the <strong>histogram of gradient orientations</strong> for one 4×4 sub-block, with <strong>each bin spanning 45°</strong> (8 bins × 45° = 360°).</div>
+
+      <p class="lecref">📚 <a href="../lectures/L04.html#s4.2">L04 — Scale space &amp; DoG</a>, <a href="../lectures/L04.html#s4.4">L04 — SIFT descriptor</a>.</p>
+    </div>
+  </div>
+</article>
+
+</section>
+
+<!-- ===================================== Original PDF ===================================== -->
+<section class="mt-12">
+  <h2 class="text-2xl font-bold border-b pb-1 mb-4">📄 Original exam pages (raw scans)</h2>
+  <p class="opacity-70 text-sm mb-3">Full-page renders for visual reference.</p>
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+    <figure class="slide-figure"><img src="../assets/past-exam/2023-mid/midterm-001.png" alt="2023 midterm — page 1"><figcaption>Midterm page 1 — Part A (kernel/image table) &amp; Part B-i (Canny vs LoG)</figcaption></figure>
+    <figure class="slide-figure"><img src="../assets/past-exam/2023-mid/midterm-002.png" alt="2023 midterm — page 2"><figcaption>Midterm page 2 — Part B-ii, Part C (Harris), Part D (SIFT)</figcaption></figure>
+    <figure class="slide-figure"><img src="../assets/past-exam/2023-mid/answers-001.png" alt="2023 midterm — official answers"><figcaption>Official answer key (Q1 A–D)</figcaption></figure>
+  </div>
+</section>
+
+<footer class="mt-16 pt-6 border-t text-sm text-slate-500 dark:text-slate-400 no-print">
+  <a href="index.html">← Past exams index</a> · <a href="../exam/exam.html">Mock final exam →</a>
+</footer>
+</main>
+
+<script>
+document.getElementById('themeToggle').addEventListener('click', () => {
+  const cur = document.documentElement.getAttribute('data-theme');
+  const next = cur === 'dark' ? 'light' : 'dark';
+  document.documentElement.setAttribute('data-theme', next);
+  localStorage.setItem('theme', next);
+});
+</script>
+</body>
+</html>

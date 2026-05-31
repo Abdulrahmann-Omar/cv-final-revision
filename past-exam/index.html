@@ -3,516 +3,55 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Spring 2025 — Midterm &amp; Final, Solved</title>
-<meta name="description" content="Spring 2025 Computer Vision midterm and final, every question solved with simple how-to-recognise tips.">
+<title>Past Exams — Solved</title>
 <script src="https://cdn.tailwindcss.com"></script>
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/katex.min.css">
-<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/katex.min.js"></script>
-<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/contrib/auto-render.min.js"
-        onload="renderMathInElement(document.body,{delimiters:[{left:'$$',right:'$$',display:true},{left:'$',right:'$',display:false}]});"></script>
 <link rel="stylesheet" href="../assets/css/styles.css">
-<script>
-  (function(){
-    const saved = localStorage.getItem('theme') || 'light';
-    document.documentElement.setAttribute('data-theme', saved);
-  })();
-</script>
-<style>
-  .qmat { border-collapse:collapse; margin:0.5rem 0; }
-  .qmat td { border:1px solid var(--border); padding:0.35rem 0.6rem; text-align:center; font-family:ui-monospace,Menlo,monospace; min-width:2.2rem; }
-  .qmat th { border:1px solid var(--border); padding:0.35rem 0.6rem; background:var(--bg-soft); font-weight:700; text-align:left; }
-  .qmat td.hl { background: var(--accent-soft); font-weight:700; }
-  .qmat td.win { background: rgba(34,197,94,0.18); }
-  .qshot {
-    margin: 0.5rem 0 1rem;
-    border: 1px solid var(--border);
-    border-radius: 0.6rem;
-    background: var(--bg-elev);
-    padding: 0.5rem;
-  }
-  .qshot img { display:block; max-width:100%; height:auto; border-radius:0.3rem; }
-  .qshot .label { font-size: 0.8rem; color: var(--fg-soft); padding: 0.25rem 0.25rem 0.5rem; border-bottom: 1px dashed var(--border); margin-bottom: 0.4rem; }
-
-  .sol h4 { font-weight:700; margin:0.9rem 0 0.4rem; font-size:1.05rem; color:var(--ok); }
-  .sol h4::before { content:'✓ '; }
-
-  .tip {
-    background: rgba(59,130,246,0.08);
-    border-left: 3px solid var(--accent);
-    padding: 0.55rem 0.85rem; margin: 0.45rem 0;
-    border-radius: 0 0.4rem 0.4rem 0;
-  }
-  .tip::before { content:'💡 How to recognise: '; font-weight:700; color:var(--accent); }
-
-  .step {
-    background: var(--bg-soft);
-    border-left: 3px solid var(--fg-soft);
-    padding: 0.5rem 0.8rem; margin: 0.4rem 0;
-    border-radius: 0 0.4rem 0.4rem 0;
-  }
-  .final {
-    background: rgba(34,197,94,0.12);
-    border-left: 3px solid var(--ok);
-    padding: 0.6rem 0.8rem; margin: 0.6rem 0;
-    border-radius: 0 0.4rem 0.4rem 0;
-    font-weight: 600;
-  }
-  .grid-2 { display:grid; grid-template-columns:1fr; gap:1rem; }
-  @media (min-width: 900px){ .grid-2 { grid-template-columns: 1fr 1.2fr; } }
-  .lecref { font-size: 0.85rem; opacity: 0.8; }
-</style>
+<script>(function(){const s=localStorage.getItem('theme')||'light';document.documentElement.setAttribute('data-theme',s);})();</script>
 </head>
-<body class="max-w-6xl mx-auto px-4 pb-24">
+<body class="max-w-5xl mx-auto px-4 pb-20">
 
 <header class="flex items-center justify-between py-4 border-b border-slate-200 dark:border-slate-700 no-print">
   <a href="../index.html" class="text-sm">← Back to index</a>
-  <div class="flex items-center gap-3">
-    <a class="text-xs underline" href="../assets/past-exam/Spring25-questions.pdf">Download original PDF</a>
-    <button id="themeToggle" class="text-sm border rounded px-2 py-1">🌓 Theme</button>
-  </div>
+  <button id="themeToggle" class="text-sm border rounded px-2 py-1">🌓 Theme</button>
 </header>
 
-<nav class="section-jump no-print">
-  <a href="#midterm">Midterm</a>
-  <a href="#m-q1">M·Q1</a> <a href="#m-q2">M·Q2</a> <a href="#m-q3">M·Q3</a> <a href="#m-q4">M·Q4</a> <a href="#m-q5">M·Q5</a>
-  <a href="#final">Final</a>
-  <a href="#f-q1">F·Q1</a> <a href="#f-q2">F·Q2</a> <a href="#f-q3">F·Q3</a> <a href="#f-q4">F·Q4</a> <a href="#f-q5">F·Q5</a> <a href="#f-q6">F·Q6</a> <a href="#f-q7">F·Q7</a> <a href="#f-q8">F·Q8</a>
-</nav>
-
 <main>
-<h1 class="text-3xl font-extrabold mt-4 mb-2">Spring 2025 — Midterm &amp; Final, Solved</h1>
-<p class="text-slate-500 dark:text-slate-400 mb-6">Screenshot on the left, plain-English solution on the right. Blue boxes are <em>"how to recognise"</em> tips.</p>
+  <h1 class="text-3xl font-extrabold mt-4 mb-2">Past Exams — Fully Solved</h1>
+  <p class="text-slate-500 dark:text-slate-400 mb-6">Every real exam Dr. ElSayed has given since 2018, with side-by-side solutions and "how to recognise" tips.</p>
 
-<!-- ===================================== MIDTERM ===================================== -->
-<section id="midterm" class="mt-8">
-<h2 class="text-2xl font-bold border-b pb-1 mb-4">📝 Midterm — Spring 2025</h2>
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-4" id="exams"></div>
 
-<!-- M-Q1 -->
-<article id="m-q1" class="concept">
-  <h3>Midterm · Question 1 — Identify what each 3×3 mask does</h3>
-  <div class="grid-2">
-    <figure class="qshot"><div class="label">Question (as printed)</div><img src="../assets/past-exam/q/m-q1.png" alt="Midterm Q1"></figure>
-    <div class="sol">
-      <h4>Solution</h4>
-
-      <div class="tip">A mask with corners = 0, four sides = −1, and the centre = a positive number is a <strong>Laplacian-family kernel</strong>. The size of the centre tells you which one:
-        <ul class="ml-5 list-disc">
-          <li>centre = <strong>4</strong> → the Laplacian itself → <strong>edge detector</strong>.</li>
-          <li>centre = <strong>5</strong> (= 4 + 1) → Laplacian + identity → <strong>sharpening mask</strong>.</li>
-          <li>centre = <strong>8</strong> → 8-neighbour Laplacian (the diagonal version).</li>
-          <li>centre = <strong>9</strong> → 8-neighbour Laplacian + identity → sharpening (diagonal).</li>
-        </ul>
-      </div>
-
-      <div class="final">
-        <strong>Matrix 1 (centre = 4) → detects edges.</strong> It produces a near-zero response in flat regions and a large response wherever the brightness changes.<br><br>
-        <strong>Matrix 2 (centre = 5) → sharpening, keeps shapes.</strong> Think of it as "original image + edges": the +1 added to the centre says "keep everything you had", the rest of the kernel adds the edge map on top.
-      </div>
-      <p class="lecref">📚 <a href="../lectures/L01.html#s1.3">L01 — Sharpening filters &amp; Laplacian</a>.</p>
-    </div>
-  </div>
-</article>
-
-<!-- M-Q2 -->
-<article id="m-q2" class="concept">
-  <h3>Midterm · Question 2 — Median 3×3 (no padding) on a 5×5</h3>
-  <div class="grid-2">
-    <figure class="qshot"><div class="label">Question (as printed)</div><img src="../assets/past-exam/q/m-q2.png" alt="Midterm Q2"></figure>
-    <div class="sol">
-      <h4>Solution — output is 3×3</h4>
-
-      <div class="tip">"No padding" + a 3×3 window on a 5×5 input ⇒ the output is <strong>(5−3+1) × (5−3+1) = 3×3</strong>. You only get an output for the 9 interior pixels.</div>
-
-      <div class="step">For each interior pixel: take the 9 numbers in its 3×3 neighbourhood, sort them, write down the <strong>middle (5th)</strong> value.</div>
-
-      <p class="font-semibold mt-2">Input (highlighted = the 9 interior centres):</p>
-      <table class="qmat">
-        <tr><td>23</td><td>30</td><td>40</td><td>10</td><td>15</td></tr>
-        <tr><td>21</td><td class="hl">32</td><td class="hl">50</td><td class="hl">10</td><td>22</td></tr>
-        <tr><td>34</td><td class="hl">50</td><td class="hl">30</td><td class="hl">40</td><td>12</td></tr>
-        <tr><td>15</td><td class="hl">30</td><td class="hl">20</td><td class="hl">10</td><td>10</td></tr>
-        <tr><td>25</td><td>70</td><td>39</td><td>32</td><td>20</td></tr>
-      </table>
-
-      <p class="font-semibold mt-3">All 9 windows (sorted; middle value bolded):</p>
-      <ul class="text-sm ml-5 list-disc">
-        <li>top-left: 21·23·30·30·<strong>32</strong>·34·40·50·50 → <strong>32</strong></li>
-        <li>top-mid: 10·10·30·30·<strong>32</strong>·40·40·50·50 → <strong>32</strong></li>
-        <li>top-right: 10·10·12·15·<strong>22</strong>·30·40·40·50 → <strong>22</strong></li>
-        <li>mid-left: 15·20·21·30·<strong>30</strong>·32·34·50·50 → <strong>30</strong></li>
-        <li>centre: 10·10·20·30·<strong>30</strong>·32·40·50·50 → <strong>30</strong></li>
-        <li>mid-right: 10·10·10·12·<strong>20</strong>·22·30·40·50 → <strong>20</strong></li>
-        <li>bot-left: 15·20·25·30·<strong>30</strong>·34·39·50·70 → <strong>30</strong></li>
-        <li>bot-mid: 10·20·30·30·<strong>32</strong>·39·40·50·70 → <strong>32</strong></li>
-        <li>bot-right: 10·10·12·20·<strong>20</strong>·30·32·39·40 → <strong>20</strong></li>
-      </ul>
-
-      <p class="font-semibold mt-3">Result:</p>
-      <table class="qmat">
-        <tr><td class="win">32</td><td class="win">32</td><td class="win">22</td></tr>
-        <tr><td class="win">30</td><td class="win">30</td><td class="win">20</td></tr>
-        <tr><td class="win">30</td><td class="win">32</td><td class="win">20</td></tr>
-      </table>
-      <div class="final">Notice how the 50s and 70 (spikes) disappeared but real values were preserved — that's the whole point of the median filter: it removes salt-and-pepper noise <em>without</em> smearing edges.</div>
-      <p class="lecref">📚 <a href="../lectures/L01.html#s1.3">L01 — Order-statistics filters</a>.</p>
-    </div>
-  </div>
-</article>
-
-<!-- M-Q3 -->
-<article id="m-q3" class="concept">
-  <h3>Midterm · Question 3 — Negative &amp; γ on pixel values 10, 20, 100, 200</h3>
-  <div class="grid-2">
-    <figure class="qshot"><div class="label">Question (as printed)</div><img src="../assets/past-exam/q/m-q3.png" alt="Midterm Q3"></figure>
-    <div class="sol">
-      <h4>Solution</h4>
-
-      <div class="tip">Three quick rules:
-        <ul class="ml-5 list-disc">
-          <li><strong>Negative</strong>: subtract from 255. Dark becomes light, light becomes dark.</li>
-          <li><strong>γ &lt; 1</strong> (e.g. 0.2): <em>brightens</em> the image. Dark pixels lift the most.</li>
-          <li><strong>γ &gt; 1</strong> (e.g. 2): <em>darkens</em> the image. Bright pixels drop the most.</li>
-        </ul>
-      </div>
-
-      <p class="mt-2"><strong>Steps to fill the gamma row:</strong> divide the pixel by 255 → raise to γ → multiply by 255 again.</p>
-
-      <table class="qmat">
-        <tr><th></th><th>r = 10</th><th>r = 20</th><th>r = 100</th><th>r = 200</th></tr>
-        <tr><td><strong>Negative (255 − r)</strong></td><td>245</td><td>235</td><td>155</td><td>55</td></tr>
-        <tr><td><strong>γ = 0.2</strong></td><td>≈ 133</td><td>≈ 153</td><td>≈ 211</td><td>≈ 243</td></tr>
-        <tr><td><strong>γ = 2</strong></td><td>≈ 0.4</td><td>≈ 1.6</td><td>≈ 39.2</td><td>≈ 156.9</td></tr>
-      </table>
-
-      <p class="text-sm mt-2 opacity-80">Sanity check on the trends: in the γ = 0.2 row every value <em>jumped up</em> (10 → 133, 200 → 243). In the γ = 2 row every value <em>fell</em> (200 → 157, 10 → 0.4). That's the pattern you should expect every time.</p>
-
-      <div class="final">
-        <strong>Comment:</strong> increasing γ ⇒ image gets darker. Decreasing γ ⇒ image gets brighter. (The answer key's phrasing: "γ increase ⇒ brightness decrease, and vice versa.")
-      </div>
-      <p class="lecref">📚 <a href="../lectures/L01.html#s1.2">L01 — Negative &amp; Gamma correction</a>.</p>
-    </div>
-  </div>
-</article>
-
-<!-- M-Q4 -->
-<article id="m-q4" class="concept">
-  <h3>Midterm · Question 4 — Frequency-domain mini-questions</h3>
-
-  <div class="grid-2">
-    <figure class="qshot"><div class="label">Part 1 — LPF vs HPF (silhouettes)</div><img src="../assets/past-exam/q/m-q4.png" alt="Midterm Q4 part 1"></figure>
-    <div class="sol">
-      <h4>Part 1 — Difference between low-pass and high-pass filter</h4>
-
-      <div class="tip">An <strong>LPF blurs</strong> (you can still see the shape but not the edges). An <strong>HPF outlines</strong> (you only see the edges, the interior goes flat/dark). The silhouettes in the picture show exactly that — solid blobs are LPF, the outline is HPF.</div>
-
-      <table class="qmat text-left">
-        <tr><th></th><th>Low-pass (LPF)</th><th>High-pass (HPF)</th></tr>
-        <tr><td>Lets through</td><td>Low frequencies (smooth regions)</td><td>High frequencies (edges, fine detail)</td></tr>
-        <tr><td>Drops</td><td>High frequencies</td><td>Low frequencies</td></tr>
-        <tr><td>Effect on image</td><td>Blur / smooth / remove noise</td><td>Sharpen / show edges</td></tr>
-      </table>
-    </div>
-  </div>
-
-  <div class="grid-2 mt-4">
-    <figure class="qshot"><div class="label">Parts 2 &amp; 3 — Boundary extraction; (−1)<sup>x+y</sup></div><img src="../assets/past-exam/q/m-q4-tail.png" alt="Midterm Q4 part 2 and 3"></figure>
-    <div class="sol">
-      <h4>Part 2 — Three images: how do you make the third from the first two?</h4>
-
-      <div class="tip">
-        If image 3 is just the <strong>outline</strong> of image 1, and image 2 is a slightly shrunken (eroded) version of image 1, then image 3 = image 1 − image 2. That's the morphology operation called <strong>boundary extraction</strong>.
-      </div>
-      <div class="final">Answer: <strong>Boundary extraction</strong> — the original minus its erosion gives the one-pixel-thick contour.</div>
-      <p class="lecref">📚 <a href="../lectures/L03.html#s3.4">L03 — Boundary extraction</a>.</p>
-
-      <h4>Part 3 — Multiplying the spatial image by (−1)<sup>x+y</sup></h4>
-      <div class="tip">
-        Multiplying by (−1)<sup>x+y</sup> = flipping the sign on a checkerboard pattern of pixels. The effect on the Fourier spectrum is that the <strong>DC term moves from the corner to the centre</strong> — exactly the "fftshift" trick used to display spectra nicely.
-      </div>
-      <div class="final">Answer: <strong>Shifts the spectrum so the DC (zero-frequency) term lands at the centre.</strong></div>
-      <p class="lecref">📚 <a href="../lectures/L02.html#s2.2">L02 — 2D DFT centring</a>.</p>
-    </div>
-  </div>
-</article>
-
-<!-- M-Q5 -->
-<article id="m-q5" class="concept">
-  <h3>Midterm · Question 5 — SIFT</h3>
-  <div class="grid-2">
-    <figure class="qshot"><div class="label">Question (as printed)</div><img src="../assets/past-exam/q/m-q5.png" alt="Midterm Q5"></figure>
-    <div class="sol">
-      <h4>1. Why do we use rotation invariance?</h4>
-      <div class="final">So a feature is matched correctly even when the same object is rotated. Without it, every rotated copy would need its own template — useless for object matching in the real world.</div>
-      <p class="text-sm opacity-80">SIFT solves it by giving every keypoint a "canonical direction" (the dominant gradient orientation in its window), then describing the patch <em>relative to that direction</em>.</p>
-
-      <h4>2. Why apply smoothing before filtering?</h4>
-      <div class="tip">Derivatives amplify whatever is high-frequency. Noise is high-frequency. So if you don't blur first, your edge detector will fire on the noise instead of the real edges.</div>
-      <div class="final">Answer: <strong>to remove noise first (Gaussian blur)</strong> so the derivative step picks up real edges, not noise.</div>
-
-      <h4>3. The scale-space / DoG figure</h4>
-      <div class="tip">The figure is the cascade Gaussian → Gaussian → Gaussian → … with increasing blur σ. The <em>differences between adjacent blurred images</em> (DoG) approximate the Laplacian-of-Gaussian (NLoG) at each scale — and that's what SIFT searches for blob-like keypoints in.</div>
-      <div class="final">Key idea: <strong>DoG ≈ scale-normalised Laplacian-of-Gaussian</strong>. You take it because it's much cheaper than computing the real LoG, and it gives you keypoints that are stable across scale.</div>
-      <p class="lecref">📚 <a href="../lectures/L04.html#s4.2">L04 — Scale space &amp; DoG</a>, <a href="../lectures/L04.html#s4.4">L04 — Orientation assignment</a>.</p>
-    </div>
-  </div>
-</article>
-</section>
-
-<!-- ===================================== FINAL ===================================== -->
-<section id="final" class="mt-12">
-<h2 class="text-2xl font-bold border-b pb-1 mb-4">📝 Final — Spring 2025</h2>
-
-<!-- F-Q1 -->
-<article id="f-q1" class="concept">
-  <h3>Final · Question 1 — Compare FCN and Mask R-CNN</h3>
-  <div class="grid-2">
-    <figure class="qshot"><div class="label">Question (as printed)</div><img src="../assets/past-exam/q/f-q1.png" alt="Final Q1"></figure>
-    <div class="sol">
-      <h4>Solution</h4>
-
-      <div class="tip">FCN gives you <strong>one big colouring book page</strong> — every pixel gets a class. Mask R-CNN gives you a <strong>separate sticker per detected object</strong>. So if you photograph two cars: FCN paints both "car"; Mask R-CNN gives you two distinct masks.</div>
-
-      <table class="qmat text-left">
-        <tr><th></th><th>FCN</th><th>Mask R-CNN</th></tr>
-        <tr><td><strong>Type</strong></td>
-            <td>Semantic segmentation — labels every pixel with a class, but doesn't separate two objects of the same class.</td>
-            <td>Instance segmentation — produces a separate binary mask per detected object.</td></tr>
-        <tr><td><strong>Output structure</strong></td>
-            <td>One full-image map sized H×W with a class score per pixel.</td>
-            <td>Per detected object: class label + refined box + a small mask (e.g. 28×28) for that one instance.</td></tr>
-        <tr><td><strong>Output-layer activation</strong></td>
-            <td><strong>Softmax</strong> over classes per pixel — every pixel commits to one class.</td>
-            <td><strong>Sigmoid</strong> per pixel of each class channel — mask and class are independent (classification head separately picks the channel).</td></tr>
-      </table>
-      <p class="lecref">📚 <a href="../lectures/L12.html#s12.3">L12 — Mask R-CNN</a>.</p>
-    </div>
-  </div>
-</article>
-
-<!-- F-Q2 -->
-<article id="f-q2" class="concept">
-  <h3>Final · Question 2 — YOLO loss (v2 or higher)</h3>
-  <div class="grid-2">
-    <figure class="qshot"><div class="label">Question (as printed)</div><img src="../assets/past-exam/q/f-q2.png" alt="Final Q2"></figure>
-    <div class="sol">
-      <h4>The loss has three named pieces</h4>
-
-      <div class="tip">You can always remember the three pieces by what they answer: <em>where is the box?</em> + <em>is there really an object here?</em> + <em>which class is it?</em></div>
-
-      <table class="qmat text-left">
-        <tr><th>Name</th><th>What it measures</th></tr>
-        <tr><td><strong>1. Localisation loss</strong></td>
-            <td>How wrong the predicted box coordinates (centre x, centre y, width, height) are compared to the ground-truth box. Squared / smooth-L1 error.</td></tr>
-        <tr><td><strong>2. Objectness (confidence) loss</strong></td>
-            <td>How wrong the model is about <em>whether</em> there is an object in this cell/anchor. Binary cross-entropy; the target is the IoU with the GT.</td></tr>
-        <tr><td><strong>3. Classification loss</strong></td>
-            <td>How wrong the predicted class probabilities are. In v3+ it's an independent binary cross-entropy per class (so multi-label is possible).</td></tr>
-      </table>
-
-      <div class="final">Total YOLO loss = localisation + objectness + classification, summed only over the "responsible" cells/anchors (the ones that actually contain an object).</div>
-      <p class="lecref">📚 <a href="../lectures/L08.html#s8.2">L08 — Loss terms</a>, <a href="../lectures/L08.html#s8.3">L08 — Versions evolution</a>.</p>
-    </div>
-  </div>
-</article>
-
-<!-- F-Q3 -->
-<article id="f-q3" class="concept">
-  <h3>Final · Question 3 — GIoU vs IoU vs DIoU</h3>
-  <div class="grid-2">
-    <figure class="qshot"><div class="label">Question (as printed)</div><img src="../assets/past-exam/q/f-q3.png" alt="Final Q3"></figure>
-    <div class="sol">
-      <h4>1. Advantage of GIoU over IoU</h4>
-
-      <div class="tip">IoU is zero whenever the two boxes don't overlap, no matter <em>how far apart</em> they are. That means the gradient is also zero → the optimiser has no idea which way to push the box. GIoU fixes this by also looking at the smallest box that <em>contains both</em>.</div>
-
-      <div class="final">GIoU still gives a non-zero loss / gradient when the boxes don't overlap, so training can pull a far-away predicted box toward the ground truth. IoU couldn't do that.</div>
-
-      <h4>2. Advantage of DIoU over GIoU</h4>
-
-      <div class="tip">GIoU still works "indirectly" — it shrinks the enclosing box. DIoU goes more direct: it pulls the <strong>centres of the two boxes</strong> closer to each other.</div>
-
-      <div class="final">DIoU converges faster and lines the boxes up better, especially when the boxes are far from overlap or when their aspect ratios already match.</div>
-      <p class="lecref">📚 <a href="../lectures/L06.html#s6.2">L06 — IoU loss</a>.</p>
-    </div>
-  </div>
-</article>
-
-<!-- F-Q4 -->
-<article id="f-q4" class="concept">
-  <h3>Final · Question 4 — R-CNN family &amp; IoU loss</h3>
-  <div class="grid-2">
-    <figure class="qshot"><div class="label">Question (as printed)</div><img src="../assets/past-exam/q/f-q4.png" alt="Final Q4"></figure>
-    <div class="sol">
-      <h4>1. Why Fast R-CNN is faster than R-CNN (any two reasons)</h4>
-
-      <div class="tip">R-CNN was slow for two stacked reasons: (a) it ran the CNN ≈ 2,000 times per image, and (b) it was actually three separate training stages saved to disk between steps. Fast R-CNN attacks both.</div>
-
-      <ol class="list-decimal ml-6 space-y-1">
-        <li><strong>Single CNN pass on the whole image.</strong> Fast R-CNN runs the backbone once and reuses the same feature map for every region proposal. R-CNN re-ran the entire CNN on each of ~2,000 proposals — most of that work was redundant.</li>
-        <li><strong>Single end-to-end network.</strong> Fast R-CNN combines classification and bounding-box regression into one network with one loss. R-CNN had three pipelines (CNN finetune → per-class SVMs → bbox regressors) with intermediate features cached on disk.</li>
-      </ol>
-
-      <h4>2. Why use 1 − IoU instead of IoU?</h4>
-
-      <div class="tip">A loss should be <strong>small when the model is doing well</strong>. IoU is the opposite — bigger IoU means better. So we flip it: <code>loss = 1 − IoU</code> is 0 when boxes match perfectly and 1 when they don't overlap at all.</div>
-
-      <div class="final">In short: training minimises the loss; the value that should be minimised needs to be small when you are doing well — that's why we subtract from 1.</div>
-      <p class="lecref">📚 <a href="../lectures/L09.html#s9.3">L09 — Fast R-CNN</a>, <a href="../lectures/L06.html#s6.2">L06 — IoU loss</a>.</p>
-    </div>
-  </div>
-</article>
-
-<!-- F-Q5 -->
-<article id="f-q5" class="concept">
-  <h3>Final · Question 5 — RPN counts (500×600 image, 10×10 cells, 3 ratios, 4 scales)</h3>
-  <div class="grid-2">
-    <figure class="qshot"><div class="label">Question — first half</div><img src="../assets/past-exam/q/f-q5.png" alt="Final Q5 top"></figure>
-    <figure class="qshot"><div class="label">Question — list items 1–9</div><img src="../assets/past-exam/q/f-q5-tail.png" alt="Final Q5 bottom"></figure>
-  </div>
-  <div class="sol mt-3">
-    <h4>Solution</h4>
-
-    <div class="tip">
-      Three numbers do all the work:
-      <ul class="ml-5 list-disc">
-        <li>Cells per row × cells per column = <strong>anchor points</strong>.</li>
-        <li>Ratios × scales = <strong>anchor boxes per cell</strong>.</li>
-        <li>Multiply them = <strong>total anchor boxes</strong>. Every anchor box has its own regression vector and its own objectness vector.</li>
-      </ul>
-    </div>
-
-    <table class="qmat text-left">
-      <tr><th>#</th><th>Quantity</th><th>Value</th><th>How</th></tr>
-      <tr><td>1</td><td>Anchor points</td><td>3,000</td><td>(500 ÷ 10) × (600 ÷ 10) = 50 × 60</td></tr>
-      <tr><td>2</td><td>Anchor boxes per cell</td><td>12</td><td>3 ratios × 4 scales</td></tr>
-      <tr><td>3</td><td>Total boxes</td><td>36,000</td><td>3,000 × 12</td></tr>
-      <tr><td>4</td><td>Regression vectors</td><td>36,000</td><td>One per anchor box</td></tr>
-      <tr><td>5</td><td>Objectness vectors</td><td>36,000</td><td>One per anchor box</td></tr>
-      <tr><td>6</td><td>Values per regression vector</td><td>4</td><td>centre-x offset, centre-y offset, width, height</td></tr>
-      <tr><td>7</td><td>Values per objectness vector</td><td>1 (or 2)</td><td>1 if a single sigmoid; 2 if softmax over {object, no-object}</td></tr>
-      <tr><td>8</td><td>Output range of regression vector</td><td>Any number</td><td>Real-valued offsets, can be positive or negative.</td></tr>
-      <tr><td>9</td><td>Output range of objectness vector</td><td>(0, 1)</td><td>It's a probability — produced by sigmoid.</td></tr>
-    </table>
-    <p class="lecref">📚 <a href="../lectures/L10.html#s10.2">L10 — Anchor points &amp; boxes</a>, <a href="../lectures/L10.html#s10.3">L10 — RPN heads</a>.</p>
-  </div>
-</article>
-
-<!-- F-Q6 -->
-<article id="f-q6" class="concept">
-  <h3>Final · Question 6 — Output vector size on a 15×15 grid (80 classes, 10 anchors)</h3>
-  <div class="grid-2">
-    <figure class="qshot"><div class="label">Question (as printed)</div><img src="../assets/past-exam/q/f-q6.png" alt="Final Q6"></figure>
-    <div class="sol">
-      <h4>Solution</h4>
-
-      <div class="tip">Think of one grid cell. For every anchor it has to predict <strong>5 box values</strong> (object-present + 4 box coordinates) and <strong>80 class scores</strong>. So one anchor = 5 + 80 = 85 numbers. Total per cell = anchors × 85.</div>
-
-      <h4>1. Only 1 object per cell ⇒ 1 anchor active</h4>
-      <div class="final">Per-cell length = 1 × 85 = <strong>85 numbers</strong>. Full tensor: 15 × 15 × 85 = 19,125 values.</div>
-
-      <h4>2. Up to 10 objects per cell ⇒ 10 anchors active</h4>
-      <div class="final">Per-cell length = 10 × 85 = <strong>850 numbers</strong>. Full tensor: 15 × 15 × 850 = 191,250 values.</div>
-
-      <h4>Comment</h4>
-      <div class="tip">More anchors per cell = more output channels, more parameters, and slower inference — but the model can now predict <em>several objects of different classes</em> in the same cell. That's exactly why YOLO v2+ kept "per-anchor classes" rather than sharing one class score across the whole cell.</div>
-      <p class="lecref">📚 <a href="../lectures/L07.html#s7.4">L07 — Output tensor</a>.</p>
-    </div>
-  </div>
-</article>
-
-<!-- F-Q7 -->
-<article id="f-q7" class="concept">
-  <h3>Final · Question 7 — Choosing the correct number of anchor boxes</h3>
-  <div class="grid-2">
-    <figure class="qshot"><div class="label">Question (as printed) — with answer diagram</div><img src="../assets/past-exam/q/f-q7.png" alt="Final Q7"></figure>
-    <div class="sol">
-      <h4>Solution — K-means on the GT box sizes</h4>
-
-      <div class="tip">Don't guess anchors — let the dataset choose them. Run k-means on all the ground-truth widths and heights, sweeping K = 3, 4, 5, … and pick the smallest K that gives a "good enough" mean IoU. This is exactly the "Dimension Clusters" trick introduced in YOLO v2.</div>
-
-      <ol class="list-decimal ml-6 space-y-1">
-        <li>Collect all GT (width, height) pairs from the training set.</li>
-        <li>Run k-means for K = 3, 4, 5, 6, 7, 8, 9, … with <strong>1 − IoU</strong> as the distance (not Euclidean — that would favour big boxes).</li>
-        <li>For each K, assign every GT box to its nearest cluster and compute the mean IoU.</li>
-        <li>Plot mean IoU vs K — it always rises and saturates.</li>
-        <li><strong>Pick the smallest K whose mean IoU exceeds your threshold</strong> (≥ 0.6 is the usual rule of thumb).</li>
-      </ol>
-
-      <div class="final">Result: the smallest K that's "good enough" — fewer anchors = faster and smaller network, but you don't want to drop below your acceptable IoU.</div>
-      <p class="lecref">📚 <a href="../lectures/L08.html#s8.3">L08 — YOLO v2+ dimension clusters</a>.</p>
-    </div>
-  </div>
-</article>
-
-<!-- F-Q8 -->
-<article id="f-q8" class="concept">
-  <h3>Final · Question 8 — Bilinear interpolation at (x, y) = (4, 7)</h3>
-  <div class="grid-2">
-    <figure class="qshot"><div class="label">Question (as printed)</div><img src="../assets/past-exam/q/f-q8.png" alt="Final Q8"></figure>
-    <div class="sol">
-      <h4>Solution</h4>
-
-      <div class="tip">Bilinear interpolation = <strong>weighted average of the four corners</strong>. A corner that is closer to the point gets a bigger weight; a corner that is further away gets a smaller weight. The four weights always add up to 1.</div>
-
-      <div class="step">
-        <strong>Corners and their values:</strong> (3, 5) = 15, (9, 5) = 35, (3, 8) = 40, (9, 8) = 20.<br>
-        <strong>Target point:</strong> (4, 7).
-      </div>
-
-      <div class="step">
-        <strong>Step 1 — how far across in x?</strong> The point is at x = 4, between x₁ = 3 and x₂ = 9. So horizontally it sits <strong>1 out of 6</strong> of the way across → fraction <strong>a = 1/6</strong>. That means the left column gets weight 5/6 and the right column gets weight 1/6.
-      </div>
-
-      <div class="step">
-        <strong>Step 2 — how far down in y?</strong> The point is at y = 7, between y₁ = 5 and y₂ = 8. So vertically it sits <strong>2 out of 3</strong> of the way down → fraction <strong>b = 2/3</strong>. The top row gets weight 1/3 and the bottom row gets weight 2/3.
-      </div>
-
-      <div class="step">
-        <strong>Step 3 — multiply each corner by its row × column weight, then sum.</strong>
-        <table class="qmat mt-2">
-          <tr><th>Corner</th><th>Row weight × Col weight</th><th>Final weight</th><th>Value</th><th>Contribution</th></tr>
-          <tr><td>(3, 5) = 15</td><td>1/3 × 5/6</td><td>5/18</td><td>15</td><td>75/18</td></tr>
-          <tr><td>(9, 5) = 35</td><td>1/3 × 1/6</td><td>1/18</td><td>35</td><td>35/18</td></tr>
-          <tr><td>(3, 8) = 40</td><td>2/3 × 5/6</td><td>10/18</td><td>40</td><td>400/18</td></tr>
-          <tr><td>(9, 8) = 20</td><td>2/3 × 1/6</td><td>2/18</td><td>20</td><td>40/18</td></tr>
-          <tr><td colspan="4"><strong>Total</strong></td><td><strong>550/18</strong></td></tr>
-        </table>
-      </div>
-
-      <div class="final">f(4, 7) = 550 / 18 ≈ <strong>30.56</strong>.</div>
-
-      <div class="tip">
-        Sanity-check by intuition: the point is <em>near the left column</em> (a = 1/6 is small) and <em>near the bottom row</em> (b = 2/3 is big). So the bottom-left corner (40) should pull the value up the most — and it does, contributing 400/18 of the total 550/18.
-      </div>
-      <p class="lecref">📚 <a href="../lectures/L11.html#s11.3">L11 — RoI Align (bilinear interpolation)</a>.</p>
-    </div>
-  </div>
-</article>
-
-</section>
-
-<!-- ===================================== Original PDF ===================================== -->
-<section class="mt-12">
-  <h2 class="text-2xl font-bold border-b pb-1 mb-4">📄 Original exam pages (raw scans)</h2>
-  <p class="opacity-70 text-sm mb-3">Full-page renders for visual reference.</p>
-  <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-    <figure class="slide-figure"><img src="../assets/past-exam/page-001.png" alt="Spring 25 — page 1"><figcaption>Page 1 — Midterm cover</figcaption></figure>
-    <figure class="slide-figure"><img src="../assets/past-exam/page-002.png" alt="Spring 25 — page 2"><figcaption>Page 2 — Midterm Q1 &amp; Q2</figcaption></figure>
-    <figure class="slide-figure"><img src="../assets/past-exam/page-003.png" alt="Spring 25 — page 3"><figcaption>Page 3 — Midterm Q3 &amp; Q4</figcaption></figure>
-    <figure class="slide-figure"><img src="../assets/past-exam/page-004.png" alt="Spring 25 — page 4"><figcaption>Page 4 — Midterm Q4 cont. &amp; Q5</figcaption></figure>
-    <figure class="slide-figure"><img src="../assets/past-exam/page-005.png" alt="Spring 25 — page 5"><figcaption>Page 5 — Final cover</figcaption></figure>
-    <figure class="slide-figure"><img src="../assets/past-exam/page-006.png" alt="Spring 25 — page 6"><figcaption>Page 6 — Final Q1–Q5</figcaption></figure>
-    <figure class="slide-figure"><img src="../assets/past-exam/page-007.png" alt="Spring 25 — page 7"><figcaption>Page 7 — Final Q5 cont. – Q7</figcaption></figure>
-    <figure class="slide-figure"><img src="../assets/past-exam/page-008.png" alt="Spring 25 — page 8"><figcaption>Page 8 — Final Q8 (bilinear interp.)</figcaption></figure>
-  </div>
-</section>
-
-<footer class="mt-16 pt-6 border-t text-sm text-slate-500 dark:text-slate-400 no-print">
-  <a href="../index.html">← Index</a> · <a href="../exam/exam.html">Mock final exam →</a>
-</footer>
+  <footer class="mt-12 pt-6 border-t text-sm text-slate-500 dark:text-slate-400">
+    Educational use only. All exam PDFs © Dr. Khaled M. ElSayed / Zewail City.
+  </footer>
 </main>
 
 <script>
+const EXAMS = [
+  { href:'2025.html',       year:'2025', title:'Spring 2025 — Midterm &amp; Final', notes:'13 questions · 1 set' },
+  { href:'2024-final.html', year:'2024', title:'2024 Final — SC &amp; Credit',     notes:'Two versions · official solutions' },
+  { href:'2024-mid.html',   year:'2024', title:'2024 Midterm',                     notes:'Solution-only PDF — questions reconstructed' },
+  { href:'2023-final.html', year:'2023', title:'2023 Final — SC &amp; Credit',     notes:'Two versions · official answers' },
+  { href:'2023-mid.html',   year:'2023', title:'2023 Midterm',                     notes:'Questions + official answers' },
+  { href:'2022-final.html', year:'2022', title:'2022 Final — SC &amp; Credit',     notes:'Two versions · official answers' },
+  { href:'2021-exam.html',  year:'2021', title:'2021 Midterm &amp; Final',         notes:'Combined paper · official answers' },
+  { href:'2020-final.html', year:'2020', title:'2020 Final — Versions 1 &amp; 2',  notes:'Two versions · answers for V1' },
+  { href:'2019-final.html', year:'2019', title:'2019 Final — SC &amp; CS',         notes:'Two versions · official answers (SC)' },
+  { href:'2019-mid.html',   year:'2019', title:'2019 Midterm',                     notes:'Questions only — solutions written here' },
+  { href:'2018-final.html', year:'2018', title:'2018 Final',                       notes:'Questions only — solutions written here' },
+  { href:'2018-mid.html',   year:'2018', title:'2018 Midterm',                     notes:'Questions only — solutions written here' },
+];
+
+document.getElementById('exams').innerHTML = EXAMS.map(e => `
+  <a href="${e.href}" class="toc-card">
+    <div class="flex items-center justify-between">
+      <h3>${e.title}</h3>
+      <span class="text-xs px-2 py-0.5 rounded bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">${e.year}</span>
+    </div>
+    <p class="text-sm opacity-75 mt-1">${e.notes}</p>
+  </a>
+`).join('');
+
 document.getElementById('themeToggle').addEventListener('click', () => {
   const cur = document.documentElement.getAttribute('data-theme');
   const next = cur === 'dark' ? 'light' : 'dark';

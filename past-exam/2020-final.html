@@ -1,0 +1,628 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>2020 Final — Solved</title>
+<meta name="description" content="2020 CSC 441 Computer Vision final exam — every question solved with simple how-to-recognise tips, side-by-side with the original scan.">
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/katex.min.css">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/katex.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/contrib/auto-render.min.js"
+        onload="renderMathInElement(document.body,{delimiters:[{left:'$$',right:'$$',display:true},{left:'$',right:'$',display:false}]});"></script>
+<link rel="stylesheet" href="../assets/css/styles.css">
+<script>
+  (function(){
+    const saved = localStorage.getItem('theme') || 'light';
+    document.documentElement.setAttribute('data-theme', saved);
+  })();
+</script>
+<style>
+  .qmat { border-collapse:collapse; margin:0.5rem 0; }
+  .qmat td { border:1px solid var(--border); padding:0.35rem 0.6rem; text-align:center; font-family:ui-monospace,Menlo,monospace; min-width:2.2rem; }
+  .qmat th { border:1px solid var(--border); padding:0.35rem 0.6rem; background:var(--bg-soft); font-weight:700; text-align:left; }
+  .qmat td.hl { background: var(--accent-soft); font-weight:700; }
+  .qmat td.win { background: rgba(34,197,94,0.18); }
+  .qshot {
+    margin: 0.5rem 0 1rem;
+    border: 1px solid var(--border);
+    border-radius: 0.6rem;
+    background: var(--bg-elev);
+    padding: 0.5rem;
+  }
+  .qshot img { display:block; max-width:100%; height:auto; border-radius:0.3rem; }
+  .qshot .label { font-size: 0.8rem; color: var(--fg-soft); padding: 0.25rem 0.25rem 0.5rem; border-bottom: 1px dashed var(--border); margin-bottom: 0.4rem; }
+
+  .sol h4 { font-weight:700; margin:0.9rem 0 0.4rem; font-size:1.05rem; color:var(--ok); }
+  .sol h4::before { content:'✓ '; }
+
+  .tip {
+    background: rgba(59,130,246,0.08);
+    border-left: 3px solid var(--accent);
+    padding: 0.55rem 0.85rem; margin: 0.45rem 0;
+    border-radius: 0 0.4rem 0.4rem 0;
+  }
+  .tip::before { content:'💡 How to recognise: '; font-weight:700; color:var(--accent); }
+
+  .step {
+    background: var(--bg-soft);
+    border-left: 3px solid var(--fg-soft);
+    padding: 0.5rem 0.8rem; margin: 0.4rem 0;
+    border-radius: 0 0.4rem 0.4rem 0;
+  }
+  .final {
+    background: rgba(34,197,94,0.12);
+    border-left: 3px solid var(--ok);
+    padding: 0.6rem 0.8rem; margin: 0.6rem 0;
+    border-radius: 0 0.4rem 0.4rem 0;
+    font-weight: 600;
+  }
+  .grid-2 { display:grid; grid-template-columns:1fr; gap:1rem; }
+  @media (min-width: 900px){ .grid-2 { grid-template-columns: 1fr 1.2fr; } }
+  .lecref { font-size: 0.85rem; opacity: 0.8; }
+  .pickone { display:inline-block; padding:0.05rem 0.4rem; border-radius:0.25rem; background:rgba(34,197,94,0.18); color:var(--ok); font-weight:700; }
+</style>
+</head>
+<body class="max-w-6xl mx-auto px-4 pb-24">
+
+<header class="flex items-center justify-between py-4 border-b border-slate-200 dark:border-slate-700 no-print">
+  <a href="../index.html" class="text-sm">← Back to index</a>
+  <div class="flex items-center gap-3">
+    <a class="text-xs underline" href="../assets/past-exam/2020-final/final-v1.pdf">Download original PDF</a>
+    <a class="text-xs underline" href="../assets/past-exam/2020-final/answers-v1.pdf">Answer key PDF</a>
+    <button id="themeToggle" class="text-sm border rounded px-2 py-1">🌓 Theme</button>
+  </div>
+</header>
+
+<nav class="section-jump no-print">
+  <a href="#q1">Q1 — MCQ</a>
+  <a href="#q2">Q2 — Tracking &amp; Seg</a>
+  <a href="#q3">Q3 — Detectors</a>
+  <a href="#q4">Q4 — PCA / Eigenfaces</a>
+</nav>
+
+<main>
+<h1 class="text-3xl font-extrabold mt-4 mb-2">2020 Final — Solved</h1>
+<p class="text-slate-500 dark:text-slate-400 mb-2">CSC 441 — Selected Topics 2 (Computer Vision), Ain Shams Univ., 25/07/2020, Dr. Dina Khattab. 75 marks, 2 hours.</p>
+<p class="text-slate-500 dark:text-slate-400 mb-6">Screenshot on the left, plain-English solution on the right. Blue boxes are <em>"how to recognise"</em> tips. The official answer key is the ground truth — items marked <em>"out of scope"</em> in that key are still answered here for completeness.</p>
+
+<div class="tip">
+There exists a CS-track variant of the same final (<code>final-v2.pdf</code>, Prof. Said Ghoniemy / Dr. Mahmoud Fayez). It covers a <strong>completely different syllabus</strong> — T/F on histogram equalisation, integer arithmetic on integral images, run-length encoding, regional-adjacency graphs, applying a sharpening Laplacian by hand, global thresholding. Those topics are <em>not</em> on the SC (Scientific Computing) track we are revising. They are not duplicated here.
+</div>
+
+<!-- ============================================ Q1 ============================================ -->
+<section id="q1" class="mt-8">
+<h2 class="text-2xl font-bold border-b pb-1 mb-4">📝 Question 1 — Multiple choice (44 Marks)</h2>
+<p class="opacity-80 mb-4">22 MCQs. Answers come straight from Dr. Khattab's answer key. Items the key labels <em>"مش علينا"</em> ("not on us") are not in our scope, but a short justification is still given here.</p>
+
+<!-- Q1-1 -->
+<article id="q1-1" class="concept">
+  <h3>Q1·1 — Matching two images at <em>different scales</em></h3>
+  <div class="grid-2">
+    <figure class="qshot"><div class="label">Question (as printed)</div><img src="../assets/past-exam/2020-final/q/q1a-1.png" alt="Q1.1"></figure>
+    <div class="sol">
+      <h4>Answer: <span class="pickone">b) SIFT</span></h4>
+      <div class="tip">"Harris" = corners only, <strong>not scale-invariant</strong>. "SIFT" = built on a scale-space pyramid → it <em>finds the same feature</em> whether the object is near or far. Whenever the question mentions different <strong>scales</strong>, the answer is SIFT.</div>
+      <p class="lecref">📚 <a href="../lectures/L04.html">L04 — SIFT / scale-space</a>.</p>
+    </div>
+  </div>
+</article>
+
+<!-- Q1-2 -->
+<article id="q1-2" class="concept">
+  <h3>Q1·2 — RANSAC sample size for a <em>translational</em> model</h3>
+  <div class="grid-2">
+    <figure class="qshot"><div class="label">Question (as printed)</div><img src="../assets/past-exam/2020-final/q/q1a-2.png" alt="Q1.2"></figure>
+    <div class="sol">
+      <h4>Answer: <span class="pickone">a) one</span></h4>
+      <div class="tip">RANSAC needs as many points as the <strong>degrees of freedom (DoF)</strong> of the transform.<br>
+        <ul class="ml-5 list-disc">
+          <li>Translation only (Δx, Δy) → 2 unknowns → solvable from <strong>1 point pair</strong> (each pair gives 2 equations).</li>
+          <li>Similarity → 2 pairs · Affine → 3 pairs · Homography → 4 pairs.</li>
+        </ul>
+      </div>
+      <p class="lecref">📚 <a href="../lectures/L05.html">L05 — RANSAC &amp; transformations</a>.</p>
+    </div>
+  </div>
+</article>
+
+<!-- Q1-3 -->
+<article id="q1-3" class="concept">
+  <h3>Q1·3 — Harris corner from the eigenvalues</h3>
+  <div class="grid-2">
+    <figure class="qshot"><div class="label">Question (as printed)</div><img src="../assets/past-exam/2020-final/q/q1a-3.png" alt="Q1.3"></figure>
+    <div class="sol">
+      <h4>Answer: <span class="pickone">c) λ<sub>1</sub> and λ<sub>2</sub> are both large</span></h4>
+      <div class="tip">The second-moment matrix M has eigenvalues that measure how much the image gradient varies in two perpendicular directions:
+        <ul class="ml-5 list-disc">
+          <li>both small → <strong>flat region</strong></li>
+          <li>one large, one small (λ₁ ≫ λ₂) → <strong>edge</strong></li>
+          <li>both large → <strong>corner</strong> ✓</li>
+        </ul>
+      </div>
+      <p class="lecref">📚 <a href="../lectures/L04.html">L04 — Harris corner detector</a>.</p>
+    </div>
+  </div>
+</article>
+
+<!-- Q1-4 -->
+<article id="q1-4" class="concept">
+  <h3>Q1·4 — Label vector for a single-car image</h3>
+  <div class="grid-2">
+    <figure class="qshot"><div class="label">Question (as printed)</div><img src="../assets/past-exam/2020-final/q/q1a-4.png" alt="Q1.4"></figure>
+    <div class="sol">
+      <h4>Answer: <span class="pickone">b) y = [1, 0.3, 0.7, 0.3, 0.3, 0, 1, 0]</span></h4>
+      <div class="tip">Read y = [p<sub>c</sub>, b<sub>x</sub>, b<sub>y</sub>, b<sub>h</sub>, b<sub>w</sub>, c<sub>1</sub>, c<sub>2</sub>, c<sub>3</sub>]. The first slot is the <strong>"is there an object?"</strong> flag. After that come the four box coords (centre x, centre y, height, width). After that comes the one-hot class vector.
+        <ul class="ml-5 list-disc">
+          <li>Image clearly contains a car → p<sub>c</sub> = 1, so (a) and (d) are out.</li>
+          <li>Car is class 2 → one-hot must be (0, 1, 0), so (c) is out (it has class 1 selected).</li>
+        </ul>
+        That leaves (b).
+      </div>
+      <p class="lecref">📚 <a href="../lectures/L07.html">L07 — Detection target vector</a>.</p>
+    </div>
+  </div>
+</article>
+
+<!-- Q1-5 -->
+<article id="q1-5" class="concept">
+  <h3>Q1·5 — IoU of a 2×2 box and a 2×3 box with overlap 1×1</h3>
+  <div class="grid-2">
+    <figure class="qshot"><div class="label">Question (as printed)</div><img src="../assets/past-exam/2020-final/q/q1a-5.png" alt="Q1.5"></figure>
+    <div class="sol">
+      <h4>Answer: <span class="pickone">b) 1/9</span></h4>
+      <div class="tip">IoU = (overlap area) / (union area), and <strong>union = A + B − overlap</strong>. Always subtract the overlap once or you double-count it.</div>
+      <div class="step">
+        <p>Overlap = 1·1 = <strong>1</strong>.<br>
+           Area<sub>A</sub> = 2·2 = 4, Area<sub>B</sub> = 2·3 = 6.<br>
+           Union = 4 + 6 − 1 = <strong>9</strong>.<br>
+           IoU = 1 / 9.</p>
+      </div>
+      <p class="lecref">📚 <a href="../lectures/L06.html#s6.2">L06 — IoU</a>.</p>
+    </div>
+  </div>
+</article>
+
+<!-- Q1-6 -->
+<article id="q1-6" class="concept">
+  <h3>Q1·6 — Siamese network for face verification</h3>
+  <div class="grid-2">
+    <figure class="qshot"><div class="label">Question (as printed)</div><img src="../assets/past-exam/2020-final/q/q1a-6.png" alt="Q1.6"></figure>
+    <div class="sol">
+      <h4>Answer: <span class="pickone">d) different input images / same parameters</span></h4>
+      <div class="tip">The whole point of a Siamese net is to map <em>different images</em> through the <strong>same encoder</strong>, then compare embeddings. Same weights = the two branches are literally one network shared twice. Different weights would break the whole metric idea.</div>
+      <p class="lecref">📚 Face recognition / Siamese networks (lecture appendix).</p>
+    </div>
+  </div>
+</article>
+
+<!-- Q1-7 -->
+<article id="q1-7" class="concept">
+  <h3>Q1·7 — What does the homography matrix model?</h3>
+  <div class="grid-2">
+    <figure class="qshot"><div class="label">Question (as printed)</div><img src="../assets/past-exam/2020-final/q/q1a-7.png" alt="Q1.7"></figure>
+    <div class="sol">
+      <h4>Answer: <span class="pickone">d) perspective</span></h4>
+      <div class="tip">A 3×3 homography H captures the most general 2D-to-2D transform we use: rotation + scale + shear <em>and</em> the projective vanishing-point part. The <strong>last row</strong> of H is what does perspective — that's what differentiates it from an affine matrix.</div>
+      <p class="lecref">📚 <a href="../lectures/L05.html">L05 — Homography / projective transforms</a>.</p>
+    </div>
+  </div>
+</article>
+
+<!-- Q1-8 -->
+<article id="q1-8" class="concept">
+  <h3>Q1·8 — Which detector for <em>person</em> discrimination?</h3>
+  <div class="grid-2">
+    <figure class="qshot"><div class="label">Question (as printed)</div><img src="../assets/past-exam/2020-final/q/q1a-8.png" alt="Q1.8"></figure>
+    <div class="sol">
+      <h4>Answer: <span class="pickone">b) HOG</span> <span class="opacity-60 text-sm">(answer key marks it "out of scope?" — but Dalal &amp; Triggs HOG is the classic pedestrian descriptor)</span></h4>
+      <div class="tip">HOG = Histogram of Oriented Gradients = the descriptor designed exactly for human silhouettes. Harris finds corners. SIFT finds blobs at various scales. Only HOG captures the <strong>shape of the whole body</strong>.</div>
+    </div>
+  </div>
+</article>
+
+<!-- Q1-9 -->
+<article id="q1-9" class="concept">
+  <h3>Q1·9 — Up-sampling inside a CNN</h3>
+  <div class="grid-2">
+    <figure class="qshot"><div class="label">Question (as printed)</div><img src="../assets/past-exam/2020-final/q/q1a-9.png" alt="Q1.9"></figure>
+    <div class="sol">
+      <h4>Answer: <span class="pickone">d) deconvolution</span></h4>
+      <div class="tip">In the answer key Dr. Khattab picks (d) "deconvolution" — which is the name commonly used in the slides for the upsampling op. Strictly speaking the same operation is also called <strong>transpose convolution</strong> (c). Both names refer to the learnable up-sampling block used in FCN-style decoders. "Pooling" and "strided conv" go the <em>opposite</em> way — they downsample.</div>
+      <p class="lecref">📚 <a href="../lectures/L12.html">L12 — FCN / Deconvolution networks</a>.</p>
+    </div>
+  </div>
+</article>
+
+<!-- Q1-10 -->
+<article id="q1-10" class="concept">
+  <h3>Q1·10 — How many boxes survive NMS?</h3>
+  <div class="grid-2">
+    <figure class="qshot"><div class="label">Question text</div><img src="../assets/past-exam/2020-final/q/q1a-10a.png" alt="Q1.10 text"></figure>
+    <figure class="qshot"><div class="label">Predicted boxes (image)</div><img src="../assets/past-exam/2020-final/q/q1a-10b.png" alt="Q1.10 image"></figure>
+  </div>
+  <div class="sol mt-3">
+    <h4>Answer: <span class="pickone">c) 5</span> <span class="opacity-60 text-sm">(the answer key says "I see nothing"; counting the visible scores answers it)</span></h4>
+    <div class="tip">NMS in two steps. <strong>Step 1</strong> — drop everything with p ≤ 0.4. <strong>Step 2</strong> — within each remaining cluster, keep only the highest-confidence box and suppress neighbours with IoU &gt; 0.5.</div>
+    <p class="font-semibold mt-2">Boxes printed on the image and their scores:</p>
+    <ul class="text-sm ml-5 list-disc">
+      <li>tree 0.46 ✓ (above 0.4, unique tree)</li>
+      <li>tree 0.74 ✓ (above 0.4, unique tree)</li>
+      <li>motorcycle 0.58 ✓ (above 0.4, unique class)</li>
+      <li>pedestrian 0.98 ✓ (above 0.4, unique)</li>
+      <li>car 0.62 ✓ (highest among the overlapping cars)</li>
+      <li>car 0.73 — overlaps strongly with 0.62; both are cars, only one kept. Since 0.73 &gt; 0.62, <em>0.73 stays, 0.62 dies</em>. Net: still one car here.</li>
+      <li>car 0.26 ✗ (below threshold, discarded)</li>
+    </ul>
+    <div class="final">Surviving boxes: tree·0.46, tree·0.74, motorcycle·0.58, pedestrian·0.98, car·0.73 → <strong>5 boxes</strong>.</div>
+    <p class="lecref">📚 <a href="../lectures/L07.html">L07 — Non-max suppression</a>.</p>
+  </div>
+</article>
+
+<!-- Q1-11 -->
+<article id="q1-11" class="concept">
+  <h3>Q1·11 — YOLO output volume size (19×19, 20 classes, 5 anchors)</h3>
+  <div class="grid-2">
+    <figure class="qshot"><div class="label">Question (as printed)</div><img src="../assets/past-exam/2020-final/q/q1a-11.png" alt="Q1.11"></figure>
+    <div class="sol">
+      <h4>Answer: <span class="pickone">a) 19×19×45</span></h4>
+      <div class="tip">YOLO output = Grid × Grid × ( 5·B + C ).<br>
+      5 = (p<sub>c</sub>, b<sub>x</sub>, b<sub>y</sub>, b<sub>h</sub>, b<sub>w</sub>) per anchor. <strong>C is shared per cell</strong> (not per anchor) in the YOLOv1-style formula used in the answer key.</div>
+      <div class="step">19 × 19 × (5·5 + 20) = 19 × 19 × <strong>45</strong>.</div>
+      <p class="opacity-70 text-sm">Note — YOLOv2 onwards uses (5+C)·B per anchor (= 5·B + B·C), which would give 19×19×125. The slide course/answer key uses the v1 formula, so the answer is (a).</p>
+      <p class="lecref">📚 <a href="../lectures/L07.html">L07 — YOLO output tensor</a>.</p>
+    </div>
+  </div>
+</article>
+
+<!-- Q1-12 -->
+<article id="q1-12" class="concept">
+  <h3>Q1·12 — Intuition behind detecting a corner</h3>
+  <div class="grid-2">
+    <figure class="qshot"><div class="label">Question (as printed)</div><img src="../assets/past-exam/2020-final/q/q1a-12.png" alt="Q1.12"></figure>
+    <div class="sol">
+      <h4>Answer: <span class="pickone">c) high</span></h4>
+      <div class="tip">If you slide the window over a corner, <em>any</em> direction you move produces a large change in pixel values. That's the whole definition. Flat region → low. Edge → high in one direction only. Corner → high in <strong>every</strong> direction.</div>
+      <p class="lecref">📚 <a href="../lectures/L04.html">L04 — Harris detector</a>.</p>
+    </div>
+  </div>
+</article>
+
+<!-- Q1-13 -->
+<article id="q1-13" class="concept">
+  <h3>Q1·13 — Triplet loss margin α</h3>
+  <div class="grid-2">
+    <figure class="qshot"><div class="label">Question (as printed)</div><img src="../assets/past-exam/2020-final/q/q1a-13.png" alt="Q1.13"></figure>
+    <div class="sol">
+      <h4>Answer: <span class="pickone">c) α &gt; 0</span></h4>
+      <div class="tip">α is the <strong>margin</strong>. We want anchor-positive distance to be smaller than anchor-negative distance <em>by at least α</em>. If α = 0, mapping every image to the same vector would trivially make the loss 0 — useless. We need α strictly positive to force separation.</div>
+      <p class="lecref">📚 Siamese / Triplet loss.</p>
+    </div>
+  </div>
+</article>
+
+<!-- Q1-14 -->
+<article id="q1-14" class="concept">
+  <h3>Q1·14 — Features for k-means on colour <em>respecting location</em></h3>
+  <div class="grid-2">
+    <figure class="qshot"><div class="label">Question (as printed)</div><img src="../assets/past-exam/2020-final/q/q1a-14.png" alt="Q1.14"></figure>
+    <div class="sol">
+      <h4>Answer: <span class="pickone">c) Both colour and location</span></h4>
+      <div class="tip">If you cluster on colour alone, two red patches on opposite sides of the image land in the same cluster — that's the <em>opposite</em> of what we want. Concatenating (R, G, B, x, y) as the feature forces pixels far apart in space into separate clusters even if their colour matches.</div>
+      <p class="lecref">📚 <a href="../lectures/L03.html">L03 — Clustering &amp; segmentation</a>.</p>
+    </div>
+  </div>
+</article>
+
+<!-- Q1-15 -->
+<article id="q1-15" class="concept">
+  <h3>Q1·15 — Which metric is <em>not</em> a MOT accuracy metric?</h3>
+  <div class="grid-2">
+    <figure class="qshot"><div class="label">Question (as printed)</div><img src="../assets/past-exam/2020-final/q/q1a-15.png" alt="Q1.15"></figure>
+    <div class="sol">
+      <h4>Answer: <span class="pickone">b) Frame per second (fps)</span> <span class="opacity-60 text-sm">(out of scope per answer key)</span></h4>
+      <div class="tip">MT, MOTP, average IoU all measure <strong>quality of the tracks</strong>. fps measures <strong>speed</strong>, not accuracy. The odd-one-out is fps.</div>
+    </div>
+  </div>
+</article>
+
+<!-- Q1-16 -->
+<article id="q1-16" class="concept">
+  <h3>Q1·16 — MeanShift convergence depends on …</h3>
+  <div class="grid-2">
+    <figure class="qshot"><div class="label">Question (as printed)</div><img src="../assets/past-exam/2020-final/q/q1a-16.png" alt="Q1.16"></figure>
+    <div class="sol">
+      <h4>Answer: <span class="pickone">d) window size</span></h4>
+      <div class="tip">MeanShift slides a window of radius h up the local density. <strong>Bigger h ⇒ smoother density ⇒ fewer modes; smaller h ⇒ more modes</strong>. So the size of the kernel directly decides which mode the trajectory converges to. The initial position only changes <em>which</em> mode you find, not whether you converge.</div>
+      <p class="lecref">📚 <a href="../lectures/L03.html">L03 — MeanShift</a>.</p>
+    </div>
+  </div>
+</article>
+
+<!-- Q1-17 -->
+<article id="q1-17" class="concept">
+  <h3>Q1·17 — When is a detection a false <em>negative</em>?</h3>
+  <div class="grid-2">
+    <figure class="qshot"><div class="label">Question (as printed)</div><img src="../assets/past-exam/2020-final/q/q1a-17.png" alt="Q1.17"></figure>
+    <div class="sol">
+      <h4>Answer: <span class="pickone">d) no bounding box produced for the object</span></h4>
+      <div class="tip">"False negative" = the object exists but the detector missed it. IoU thresholds (a, b, c) define true-positive vs false-positive; a complete miss is the only condition that names a false negative.</div>
+      <p class="lecref">📚 <a href="../lectures/L06.html">L06 — TP/FP/FN definitions</a>.</p>
+    </div>
+  </div>
+</article>
+
+<!-- Q1-18 -->
+<article id="q1-18" class="concept">
+  <h3>Q1·18 — RANSAC sample count with 30% outliers, p = 80%</h3>
+  <div class="grid-2">
+    <figure class="qshot"><div class="label">Question (as printed)</div><img src="../assets/past-exam/2020-final/q/q1a-18.png" alt="Q1.18"></figure>
+    <div class="sol">
+      <h4>Answer: <span class="pickone">d) 3</span> <span class="opacity-60 text-sm">(the key writes 1.33 → ≈ 2; rounded <em>up</em> to the next integer that beats it gives 2 in their writing. The closest MCQ option above is d = 3 to be safe.)</span></h4>
+      <div class="tip">The textbook formula is $N > \dfrac{\log(1-p)}{\log\bigl(1-(1-e)^{s}\bigr)}$<br>
+        where <em>e</em> is the outlier fraction, <em>s</em> is the sample size needed for one fit, and <em>p</em> is the required confidence.</div>
+      <div class="step">
+        <p>e = 0.3, s = 1 (translational model, see Q1·2), p = 0.8.</p>
+        <p>N &gt; log(1 − 0.8) / log(1 − 0.7) = log(0.2) / log(0.3) ≈ <strong>1.33</strong> → round up to <strong>2</strong>.</p>
+        <p>The answer key writes "≈ 2"; only (d) 3 from the choices is ≥ 2 if we read "at least" strictly. The exam's MCQ choices are ambiguous here — both (c) 2 and (d) 3 are defensible.</p>
+      </div>
+      <p class="lecref">📚 <a href="../lectures/L05.html">L05 — RANSAC sample count</a>.</p>
+    </div>
+  </div>
+</article>
+
+<!-- Q1-19 -->
+<article id="q1-19" class="concept">
+  <h3>Q1·19 — What problem does <em>Hierarchical</em> LK solve?</h3>
+  <div class="grid-2">
+    <figure class="qshot"><div class="label">Question (as printed)</div><img src="../assets/past-exam/2020-final/q/q1a-19.png" alt="Q1.19"></figure>
+    <div class="sol">
+      <h4>Answer: <span class="pickone">c) When the motion is no longer small</span> <span class="opacity-60 text-sm">(out of scope per answer key)</span></h4>
+      <div class="tip">Plain Lucas–Kanade assumes a tiny motion (a few pixels). Hierarchical LK runs LK at coarse resolution first (where a large displacement is small), then refines down the pyramid — fixing the <strong>large-motion</strong> failure mode.</div>
+    </div>
+  </div>
+</article>
+
+<!-- Q1-20 -->
+<article id="q1-20" class="concept">
+  <h3>Q1·20 — Bag-of-Words k</h3>
+  <div class="grid-2">
+    <figure class="qshot"><div class="label">Question (as printed)</div><img src="../assets/past-exam/2020-final/q/q1a-20.png" alt="Q1.20"></figure>
+    <div class="sol">
+      <h4>Answer: <span class="pickone">a) representative of the number of visual words in the dataset</span></h4>
+      <div class="tip">Each cluster centre in BoW is a "visual word". So k = how many visual words you'd like in your vocabulary. It is <strong>not</strong> tied to number of classes (c) or number of features (d) directly.</div>
+    </div>
+  </div>
+</article>
+
+<!-- Q1-21 -->
+<article id="q1-21" class="concept">
+  <h3>Q1·21 — Good feature descriptor properties</h3>
+  <div class="grid-2">
+    <figure class="qshot"><div class="label">Question (as printed)</div><img src="../assets/past-exam/2020-final/q/q1a-21.png" alt="Q1.21"></figure>
+    <div class="sol">
+      <h4>Answer: <span class="pickone">d) all of the above</span></h4>
+      <div class="tip">A good descriptor must be (1) <strong>repeatable</strong> across views, (2) <strong>distinctive</strong> so we can match it, and (3) <strong>local</strong> so partial occlusions don't kill it. SIFT was designed to hit all three.</div>
+      <p class="lecref">📚 <a href="../lectures/L04.html">L04 — Properties of features</a>.</p>
+    </div>
+  </div>
+</article>
+
+<!-- Q1-22 -->
+<article id="q1-22" class="concept">
+  <h3>Q1·22 — Class label of a whole video sequence is called …</h3>
+  <div class="grid-2">
+    <figure class="qshot"><div class="label">Question (as printed)</div><img src="../assets/past-exam/2020-final/q/q1a-22.png" alt="Q1.22"></figure>
+    <div class="sol">
+      <h4>Answer: <span class="pickone">b) action recognition</span> <span class="opacity-60 text-sm">(out of scope per answer key)</span></h4>
+      <div class="tip">Per-frame box = object detection. Per-frame ID = object tracking. Per-video label = <strong>action recognition</strong>.</div>
+    </div>
+  </div>
+</article>
+</section>
+
+<!-- ============================================ Q2 ============================================ -->
+<section id="q2" class="mt-12">
+<h2 class="text-2xl font-bold border-b pb-1 mb-4">📝 Question 2 — Tracking by colour &amp; cell segmentation (13 Marks)</h2>
+
+<!-- Q2-A -->
+<article id="q2-a" class="concept">
+  <h3>Q2·A — Track a car with a hue histogram + MeanShift <span class="opacity-60 text-sm">(out of scope per answer key)</span></h3>
+  <div class="grid-2">
+    <figure class="qshot"><div class="label">Question (as printed)</div><img src="../assets/past-exam/2020-final/q/q2-a.png" alt="Q2.A"></figure>
+    <div class="sol">
+      <h4>Pipeline</h4>
+      <div class="tip">MeanShift tracking = "follow the colour blob". You make a <strong>back-projection map</strong> (likelihood that each pixel matches the target colour histogram), then slide a window up the density of that map.</div>
+      <ol class="list-decimal ml-6 space-y-1">
+        <li><strong>Build the target model</strong> from the first frame: convert the bounding box around the car to HSV, take the H channel, build a 16-bin histogram, and normalise it to a probability distribution.</li>
+        <li><strong>For every new frame:</strong> convert the whole frame to HSV.</li>
+        <li><strong>Back-projection</strong> — replace each pixel by the histogram value of its hue bin. Bright pixels = "looks like the car colour".</li>
+        <li><strong>Run MeanShift</strong> on the back-projection map, starting from the previous frame's window position. The window iteratively recenters on the local maximum of the colour likelihood.</li>
+        <li><strong>Update</strong> the tracker position to the converged window centre. (Optionally re-estimate the histogram every K frames to adapt to lighting drift — CamShift does this.)</li>
+        <li>Repeat for every subsequent frame.</li>
+      </ol>
+      <div class="final">The hue-only histogram makes the tracker robust to brightness and shadow changes — that's exactly why HSV is used here instead of RGB.</div>
+      <p class="lecref">📚 <a href="../lectures/L03.html">L03 — MeanShift &amp; back-projection</a>.</p>
+    </div>
+  </div>
+</article>
+
+<!-- Q2-B -->
+<article id="q2-b" class="concept">
+  <h3>Q2·B — Cell image labelling (semantic → instance)</h3>
+  <div class="grid-2">
+    <figure class="qshot"><div class="label">Question (as printed) — first half</div><img src="../assets/past-exam/2020-final/q/q2-b-1.png" alt="Q2.B part 1"></figure>
+    <figure class="qshot"><div class="label">Question (as printed) — continued + iii/iv</div><img src="../assets/past-exam/2020-final/q/q2-b-cont.png" alt="Q2.B part 2"></figure>
+  </div>
+  <div class="sol mt-3">
+    <h4>(i) Name of the task</h4>
+    <div class="tip">Per-pixel binary label (cell / not-cell) over the whole image, with no separation of individual cells, is the textbook definition of <strong>semantic segmentation</strong>.</div>
+    <div class="final">Answer: <strong>Semantic Image Segmentation</strong>.</div>
+
+    <h4>(ii) CNN architecture</h4>
+    <div class="tip">The standard answer Dr. Khattab gives is the <strong>Deconvolution Network</strong> (or its sibling, U-Net / FCN). Two halves: encoder shrinks the image, decoder grows it back to original size.</div>
+    <ul class="ml-5 list-disc">
+      <li><strong>Input:</strong> the raw H×W×3 microscope image.</li>
+      <li><strong>Core (encoder):</strong> a stack of conv + ReLU + max-pool blocks (e.g. like VGG-16) → feature map of size 7×7 with rich semantic channels.</li>
+      <li><strong>Core (decoder):</strong> mirror stack of deconv (= transpose conv) + unpooling, doubling spatial size at every stage, until back to H×W.</li>
+      <li><strong>Output layer:</strong> 1×1 conv → 1 channel + sigmoid (or 2 channels + softmax) → per-pixel cell probability map.</li>
+      <li>Train with per-pixel cross-entropy against the doctor's binary masks.</li>
+    </ul>
+
+    <h4>(iii) What the doctors want instead</h4>
+    <div class="tip">If the doctors need to <em>tell individual cells apart</em>, semantic segmentation isn't enough — we need a separate mask per cell. That's <strong>instance segmentation</strong>. The classic architecture is Mask R-CNN: detection + per-instance mask.</div>
+    <div class="final">Answer: <strong>Instance Image Segmentation</strong>.</div>
+
+    <h4>(iv) Required relabelling of training data</h4>
+    <div class="final">For Mask R-CNN you need (a) a <strong>bounding box per cell</strong> and (b) a per-cell binary mask (instead of a single full-image mask). The doctors' current target images need to be edited so every individual cell is its own labelled object.</div>
+    <p class="lecref">📚 <a href="../lectures/L12.html">L12 — FCN &amp; Mask R-CNN</a>.</p>
+  </div>
+</article>
+</section>
+
+<!-- ============================================ Q3 ============================================ -->
+<section id="q3" class="mt-12">
+<h2 class="text-2xl font-bold border-b pb-1 mb-4">📝 Question 3 — Pedestrian detector design (10 Marks)</h2>
+
+<article id="q3-body" class="concept">
+  <h3>Q3 — Compare R-CNN / Fast / Faster / YOLO + tracking errors</h3>
+  <div class="grid-2">
+    <figure class="qshot"><div class="label">Question (as printed)</div><img src="../assets/past-exam/2020-final/q/q3.png" alt="Q3"></figure>
+    <div class="sol">
+      <h4>(i) Four-detector comparison table</h4>
+      <div class="tip">Two axes drive the whole story: <strong>region proposals</strong> (do we still rely on selective search?) and <strong>number of CNN passes per image</strong> (one or 2000?).</div>
+      <table class="qmat text-left">
+        <tr>
+          <th></th>
+          <th>Region proposals</th>
+          <th># ConvNets</th>
+          <th>Class head</th>
+          <th>Speed</th>
+        </tr>
+        <tr>
+          <td><strong>R-CNN</strong></td>
+          <td>Selective search</td>
+          <td>2,000 (one per proposal)</td>
+          <td>per-class linear SVMs</td>
+          <td>Slow (∼47 s/image)</td>
+        </tr>
+        <tr>
+          <td><strong>Fast R-CNN</strong></td>
+          <td>Selective search</td>
+          <td>1 (shared feature map)</td>
+          <td>Softmax</td>
+          <td>Fast (∼2 s/image)</td>
+        </tr>
+        <tr>
+          <td><strong>Faster R-CNN</strong></td>
+          <td>RPN (learned, end-to-end)</td>
+          <td>1</td>
+          <td>Softmax</td>
+          <td>Faster (∼0.2 s/image)</td>
+        </tr>
+        <tr>
+          <td><strong>YOLO</strong></td>
+          <td>none — grid + anchors</td>
+          <td>1</td>
+          <td>Softmax (per cell in v1)</td>
+          <td>Real-time (≈ 45 fps)</td>
+        </tr>
+      </table>
+
+      <h4>(ii) Tracker error types <span class="opacity-60 text-sm">(out of scope per answer key)</span></h4>
+      <div class="tip">A multi-object tracker has to associate detections from frame t to frame t + 1. Two famous things that break the association:
+        <ul class="ml-5 list-disc">
+          <li><strong>Occlusion</strong> → the detector skips the object for several frames → tracker must use <em>track continuation</em>: keep a "ghost" track alive on its predicted (e.g. Kalman) location and re-attach when the object reappears. Otherwise we get an <strong>ID switch</strong> or a <strong>fragmented track</strong>.</li>
+          <li><strong>Two pedestrians crossing</strong> → two detections, one near each other → naive association by IoU swaps the IDs. We need an <strong>appearance model</strong> (colour/feature similarity, à la Deep SORT) on top of motion to prevent the <strong>ID-switch</strong> error.</li>
+        </ul>
+      </div>
+      <p class="lecref">📚 <a href="../lectures/L09.html">L09 — R-CNN / Fast / Faster</a>, <a href="../lectures/L07.html">L07 — YOLO</a>, <a href="../lectures/L10.html">L10 — RPN</a>.</p>
+    </div>
+  </div>
+</article>
+</section>
+
+<!-- ============================================ Q4 ============================================ -->
+<section id="q4" class="mt-12">
+<h2 class="text-2xl font-bold border-b pb-1 mb-4">📝 Question 4 — PCA / Eigenfaces (8 Marks)</h2>
+
+<article id="q4-body" class="concept">
+  <h3>Q4 — Face recognition with PCA <span class="opacity-60 text-sm">(out of scope per answer key)</span></h3>
+  <div class="grid-2">
+    <figure class="qshot"><div class="label">Question (as printed)</div><img src="../assets/past-exam/2020-final/q/q4.png" alt="Q4"></figure>
+    <div class="sol">
+      <h4>(i) Training procedure</h4>
+      <div class="tip">PCA on faces = "Eigenfaces" (Turk &amp; Pentland, 1991). The trick: every 100×100 face is one 10,000-dim point; PCA picks the few directions of largest variance among faces, and we project to that small subspace.</div>
+      <ol class="list-decimal ml-6 space-y-1">
+        <li>Stack each training image as a 10,000-dim column vector. Get a 10,000 × N data matrix.</li>
+        <li><strong>Centre</strong>: subtract the mean face <span class="font-mono">μ</span> from every column.</li>
+        <li>Compute the covariance matrix (or the much cheaper N × N Gram trick) and take its top k eigenvectors. These are the <strong>eigenfaces</strong>.</li>
+        <li>Project every training image into the k-dim eigenface subspace and store the (label, projected vector) pairs.</li>
+      </ol>
+
+      <h4>Testing procedure</h4>
+      <ol class="list-decimal ml-6 space-y-1">
+        <li>Take the query image; subtract the mean face.</li>
+        <li>Project it onto the same k eigenfaces → a k-dim vector.</li>
+        <li>Find the nearest training projection (e.g. by L2 distance / cosine similarity).</li>
+        <li>(Optional rejection step) If the distance to the closest match is above a threshold, declare "unknown".</li>
+      </ol>
+
+      <h4>(ii) Strengths and weaknesses</h4>
+      <table class="qmat text-left">
+        <tr>
+          <th>Strengths</th>
+          <th>Weaknesses</th>
+        </tr>
+        <tr>
+          <td>
+            <ul class="ml-4 list-disc">
+              <li>Massive dimensionality reduction (10,000 → tens).</li>
+              <li>Fast nearest-neighbour search in low-d space.</li>
+              <li>Captures the global "what does a face look like" structure with very little supervision.</li>
+              <li>Eigenfaces also give a compact image representation — good for compression / visualisation.</li>
+            </ul>
+          </td>
+          <td>
+            <ul class="ml-4 list-disc">
+              <li>Holistic appearance-based — extremely sensitive to <strong>illumination, pose, expression, alignment</strong>. A shadow can dominate the principal components.</li>
+              <li>Linear — cannot model non-linear manifold structure of faces (e.g. profile vs frontal).</li>
+              <li>Not discriminative: PCA picks variance, not class-separation (LDA / FisherFaces beats it on identification).</li>
+              <li>Adding a new person ideally requires retraining (or at least re-projecting).</li>
+            </ul>
+          </td>
+        </tr>
+      </table>
+      <p class="lecref">📚 Face recognition / Eigenfaces (course appendix).</p>
+    </div>
+  </div>
+</article>
+</section>
+
+<!-- ============================================ Original PDF ============================================ -->
+<section class="mt-12">
+  <h2 class="text-2xl font-bold border-b pb-1 mb-4">📄 Original exam pages (raw scans)</h2>
+  <p class="opacity-70 text-sm mb-3">Full-page renders for visual reference. CSC 441 (SC track) is <code>final-v1.pdf</code>; <code>final-v2.pdf</code> is the CS-track variant and is not duplicated here.</p>
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+    <figure class="slide-figure"><img src="../assets/past-exam/2020-final/final-v1-001.png" alt="2020 final — page 1"><figcaption>Page 1 — Q1 items 1–10 (text)</figcaption></figure>
+    <figure class="slide-figure"><img src="../assets/past-exam/2020-final/final-v1-002.png" alt="2020 final — page 2"><figcaption>Page 2 — NMS image &amp; Q1 items 10–18</figcaption></figure>
+    <figure class="slide-figure"><img src="../assets/past-exam/2020-final/final-v1-003.png" alt="2020 final — page 3"><figcaption>Page 3 — Q1 items 19–22, Q2</figcaption></figure>
+    <figure class="slide-figure"><img src="../assets/past-exam/2020-final/final-v1-004.png" alt="2020 final — page 4"><figcaption>Page 4 — Q2 cont., Q3, Q4</figcaption></figure>
+  </div>
+</section>
+
+<footer class="mt-16 pt-6 border-t text-sm text-slate-500 dark:text-slate-400 no-print">
+  <a href="../index.html">← Index</a> · <a href="../exam/exam.html">Mock final exam →</a>
+</footer>
+</main>
+
+<script>
+document.getElementById('themeToggle').addEventListener('click', () => {
+  const cur = document.documentElement.getAttribute('data-theme');
+  const next = cur === 'dark' ? 'light' : 'dark';
+  document.documentElement.setAttribute('data-theme', next);
+  localStorage.setItem('theme', next);
+});
+</script>
+</body>
+</html>

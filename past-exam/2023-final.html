@@ -1,0 +1,522 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>2023 Final — Solved (SC + Credit)</title>
+<meta name="description" content="2023 Computer Vision final exam (SC-CSys 1st term) and Credit-Hours version, fully solved with how-to-recognise tips.">
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/katex.min.css">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/katex.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/contrib/auto-render.min.js"
+        onload="renderMathInElement(document.body,{delimiters:[{left:'$$',right:'$$',display:true},{left:'$',right:'$',display:false}]});"></script>
+<link rel="stylesheet" href="../assets/css/styles.css">
+<script>
+  (function(){
+    const saved = localStorage.getItem('theme') || 'light';
+    document.documentElement.setAttribute('data-theme', saved);
+  })();
+</script>
+<style>
+  .qmat { border-collapse:collapse; margin:0.5rem 0; }
+  .qmat td { border:1px solid var(--border); padding:0.35rem 0.6rem; text-align:center; font-family:ui-monospace,Menlo,monospace; min-width:2.2rem; }
+  .qmat th { border:1px solid var(--border); padding:0.35rem 0.6rem; background:var(--bg-soft); font-weight:700; text-align:left; }
+  .qmat td.hl { background: var(--accent-soft); font-weight:700; }
+  .qmat td.win { background: rgba(34,197,94,0.18); }
+  .qshot {
+    margin: 0.5rem 0 1rem;
+    border: 1px solid var(--border);
+    border-radius: 0.6rem;
+    background: var(--bg-elev);
+    padding: 0.5rem;
+  }
+  .qshot img { display:block; max-width:100%; height:auto; border-radius:0.3rem; }
+  .qshot .label { font-size: 0.8rem; color: var(--fg-soft); padding: 0.25rem 0.25rem 0.5rem; border-bottom: 1px dashed var(--border); margin-bottom: 0.4rem; }
+
+  .sol h4 { font-weight:700; margin:0.9rem 0 0.4rem; font-size:1.05rem; color:var(--ok); }
+  .sol h4::before { content:'✓ '; }
+
+  .tip {
+    background: rgba(59,130,246,0.08);
+    border-left: 3px solid var(--accent);
+    padding: 0.55rem 0.85rem; margin: 0.45rem 0;
+    border-radius: 0 0.4rem 0.4rem 0;
+  }
+  .tip::before { content:'💡 How to recognise: '; font-weight:700; color:var(--accent); }
+
+  .step {
+    background: var(--bg-soft);
+    border-left: 3px solid var(--fg-soft);
+    padding: 0.5rem 0.8rem; margin: 0.4rem 0;
+    border-radius: 0 0.4rem 0.4rem 0;
+  }
+  .final {
+    background: rgba(34,197,94,0.12);
+    border-left: 3px solid var(--ok);
+    padding: 0.6rem 0.8rem; margin: 0.6rem 0;
+    border-radius: 0 0.4rem 0.4rem 0;
+    font-weight: 600;
+  }
+  .tf-row { display:grid; grid-template-columns: 2.5rem 4rem 1fr; gap:0.5rem; align-items:start; padding:0.35rem 0.5rem; border-bottom:1px dashed var(--border); }
+  .tf-row:last-child { border-bottom:none; }
+  .tf-num  { font-weight:700; color:var(--fg-soft); }
+  .tf-ans  { font-weight:800; }
+  .tf-T    { color:var(--ok); }
+  .tf-F    { color:#dc2626; }
+  .grid-2 { display:grid; grid-template-columns:1fr; gap:1rem; }
+  @media (min-width: 900px){ .grid-2 { grid-template-columns: 1fr 1.2fr; } }
+  .lecref { font-size: 0.85rem; opacity: 0.8; }
+</style>
+</head>
+<body class="max-w-6xl mx-auto px-4 pb-24">
+
+<header class="flex items-center justify-between py-4 border-b border-slate-200 dark:border-slate-700 no-print">
+  <a href="index.html" class="text-sm">← Back to past exams</a>
+  <div class="flex items-center gap-3">
+    <a class="text-xs underline" href="../assets/past-exam/2023-final/final-sc.pdf">SC PDF</a>
+    <a class="text-xs underline" href="../assets/past-exam/2023-final/answers-sc.pdf">SC answers</a>
+    <a class="text-xs underline" href="../assets/past-exam/2023-final/final-credit.pdf">Credit PDF</a>
+    <a class="text-xs underline" href="../assets/past-exam/2023-final/answers-credit.pdf">Credit answers</a>
+    <button id="themeToggle" class="text-sm border rounded px-2 py-1">🌓 Theme</button>
+  </div>
+</header>
+
+<nav class="section-jump no-print">
+  <a href="#sc">SC-CSys (1st term)</a>
+  <a href="#sc-q1">SC·Q1</a> <a href="#sc-q2">SC·Q2</a> <a href="#sc-q3">SC·Q3</a>
+  <a href="#credit">Credit extras</a>
+  <a href="#cr-q1">CR·Q1</a> <a href="#cr-q2">CR·Q2</a> <a href="#cr-q4">CR·Q4</a>
+</nav>
+
+<main>
+<h1 class="text-3xl font-extrabold mt-4 mb-2">2023 Final — Solved (SC + Credit)</h1>
+<p class="text-slate-500 dark:text-slate-400 mb-2">Two parallel papers were given in January 2023 — the <strong>SC-CSys</strong> final (1<sup>st</sup> term, SCO 421, Dr. Dina Khattab) and the <strong>Credit-Hours</strong> final (AIT 417, "Introduction to Vision and Robotics", Fall 2022). The SC version is solved in full below; the Credit version only adds a few extra questions — those are covered in the second section.</p>
+<p class="text-slate-500 dark:text-slate-400 mb-6 text-sm">There is also a <em>2<sup>nd</sup>-term SC paper</em> (<code>final-sc-2nd.pdf</code>) without an answer key — its content overlaps heavily with the 1<sup>st</sup>-term one, so it is not re-solved here.</p>
+
+<!-- ===================================== SC ===================================== -->
+<section id="sc" class="mt-8">
+<h2 class="text-2xl font-bold border-b pb-1 mb-4">📝 SC-CSys Final — January 2023</h2>
+
+<!-- SC-Q1 -->
+<article id="sc-q1" class="concept">
+  <h3>SC · Question 1 — True / False (20 statements, 10 marks)</h3>
+  <div class="grid-2">
+    <figure class="qshot"><div class="label">Question (as printed)</div><img src="../assets/past-exam/2023-final/q/sc-q1.png" alt="SC Q1 True/False"></figure>
+    <div class="sol">
+      <h4>Official key, plus a one-line "why" per item</h4>
+
+      <div class="tip">For a Gaussian, <strong>σ</strong> (the shape) matters more than the kernel <em>size</em>; the size is just chosen big enough to cover the bell. So statement 1 is False — and that's the only easy trap in this block.</div>
+
+      <div class="step">
+        <div class="tf-row"><span class="tf-num">1.</span><span class="tf-ans tf-F">False</span><span>It's the <strong>filter shape (σ)</strong> that defines the smoothing scale, not the kernel size. Two Gaussians with the same σ but different window sizes smooth almost identically.</span></div>
+        <div class="tf-row"><span class="tf-num">2.</span><span class="tf-ans tf-T">True</span><span>Averaging assumes independent zero-mean noise across pixels — that's why averaging N samples reduces noise by √N.</span></div>
+        <div class="tf-row"><span class="tf-num">3.</span><span class="tf-ans tf-F">False</span><span>K-means needs you to <em>pick K up front</em>. If you don't know K, Mean-shift (or hierarchical clustering) is the safer choice.</span></div>
+        <div class="tf-row"><span class="tf-num">4.</span><span class="tf-ans tf-T">True</span><span>Naïve 2D convolution costs <code>O(H·W·k²)</code>: both the image size and the filter size enter.</span></div>
+        <div class="tf-row"><span class="tf-num">5.</span><span class="tf-ans tf-T">True</span><span>Sobel approximates the first derivative → it highlights edges, it doesn't sharpen.</span></div>
+        <div class="tf-row"><span class="tf-num">6.</span><span class="tf-ans tf-T">True</span><span>Canny convolves with the gradient of a Gaussian — i.e. 1<sup>st</sup>-derivative of a Gaussian.</span></div>
+        <div class="tf-row"><span class="tf-num">7.</span><span class="tf-ans tf-T">True</span><span>The given Laplacian kernel is <strong>symmetric</strong> (rotating 180° leaves it unchanged), so convolution = correlation for it.</span></div>
+        <div class="tf-row"><span class="tf-num">8.</span><span class="tf-ans tf-T">True</span><span>The picture shows salt-and-pepper-style noise; the <strong>median</strong> filter is exactly the tool for it — it kills isolated spikes without blurring edges.</span></div>
+        <div class="tf-row"><span class="tf-num">9.</span><span class="tf-ans tf-T">True</span><span>Good descriptors (SIFT, SURF, …) are built to survive both lighting changes (photometric) and rotation/scale/affine (geometric).</span></div>
+        <div class="tf-row"><span class="tf-num">10.</span><span class="tf-ans tf-T">True</span><span>The Laplacian is a 2<sup>nd</sup>-derivative — it amplifies noise. Smoothing with a Gaussian first → <em>Laplacian-of-Gaussian</em>, which is what actually works.</span></div>
+        <div class="tf-row"><span class="tf-num">11.</span><span class="tf-ans tf-F">False</span><span>That kernel detects <strong>vertical</strong> edges (it's Sobel-X). For horizontal edges you transpose it — put the ones on top and bottom, zeros in the middle row.</span></div>
+        <div class="tf-row"><span class="tf-num">12.</span><span class="tf-ans tf-F">False</span><span>Trick wording from the key. RANSAC <em>fits a model robustly</em> by repeatedly sampling — it isn't a generic "outlier remover" you can apply to point correspondences without a model. (Some keys mark it True; the official key here is F.)</span></div>
+        <div class="tf-row"><span class="tf-num">13.</span><span class="tf-ans tf-T">True</span><span>Lowering both Canny thresholds keeps weak edges that the hysteresis would otherwise drop → more pieces of edge survive, including broken/discontinuous ones.</span></div>
+        <div class="tf-row"><span class="tf-num">14.</span><span class="tf-ans tf-F">False</span><span>Mask R-CNN is built on top of <strong>Faster</strong> R-CNN (not Fast R-CNN) — Faster gave it the RPN.</span></div>
+        <div class="tf-row"><span class="tf-num">15.</span><span class="tf-ans tf-F">False</span><span>The main parameter of Mean-shift is the <strong>window (kernel) size / bandwidth</strong>. Window position just initialises the search; what matters is how big the window is.</span></div>
+        <div class="tf-row"><span class="tf-num">16.</span><span class="tf-ans tf-T">True</span><span>In a Bag-of-Visual-Words classifier, the codebook size (number of visual words) is the dominant hyper-parameter.</span></div>
+        <div class="tf-row"><span class="tf-num">17.</span><span class="tf-ans tf-T">True</span><span>Recognition (1-of-N) is one specific case of verification (is this the claimed identity, yes/no) — recognition can be implemented by running verification against every gallery entry.</span></div>
+        <div class="tf-row"><span class="tf-num">18.</span><span class="tf-ans tf-F">False</span><span>If the detector outputs a wrong class, that's a <strong>false positive</strong> for the wrong class (and a false negative for the right class). The default phrasing the key marks is "False Positive".</span></div>
+        <div class="tf-row"><span class="tf-num">19.</span><span class="tf-ans tf-T">True</span><span>YOLO predicts one (or several anchored) box(es) <em>per grid cell</em> — so it naturally fires multiple responses, then NMS thins them.</span></div>
+        <div class="tf-row"><span class="tf-num">20.</span><span class="tf-ans tf-T">True</span><span>U-Net's decoder uses convolutions <em>and</em> up-convolutions (transposed convolutions) to upsample feature maps back to full resolution.</span></div>
+      </div>
+
+      <p class="lecref">📚 <a href="../lectures/L01.html">L01</a> · <a href="../lectures/L02.html">L02</a> · <a href="../lectures/L03.html">L03</a> · <a href="../lectures/L04.html">L04</a> · <a href="../lectures/L05.html">L05</a> · <a href="../lectures/L09.html">L09</a> · <a href="../lectures/L12.html">L12</a> — concepts across the syllabus.</p>
+    </div>
+  </div>
+</article>
+
+<!-- SC-Q2 -->
+<article id="sc-q2" class="concept">
+  <h3>SC · Question 2 — Filtering, LoG, Harris, SIFT (20 marks)</h3>
+
+  <!-- Q2-A -->
+  <div class="grid-2">
+    <figure class="qshot"><div class="label">Part A — gray-level remap, then subtract average</div><img src="../assets/past-exam/2023-final/q/sc-q2a.png" alt="SC Q2 part A"></figure>
+    <div class="sol">
+      <h4>Part A — design the 3×3 filter, identify h(x,y)</h4>
+
+      <div class="tip">"Range 5–20 ⇒ 10–40" doubles the dynamic range. The simplest 3×3 kernel that <strong>just multiplies every pixel by 2</strong> is the identity scaled by 2 — i.e. a single 2 in the centre, zeros elsewhere.</div>
+
+      <p class="font-semibold">Designed filter:</p>
+      <table class="qmat">
+        <tr><td>0</td><td>0</td><td>0</td></tr>
+        <tr><td>0</td><td class="hl">2</td><td>0</td></tr>
+        <tr><td>0</td><td>0</td><td>0</td></tr>
+      </table>
+
+      <div class="step">
+        <strong>Sanity check.</strong> Convolving with this kernel multiplies every pixel by 2 — so f∈[5,20] maps to g∈[10,40]. ✓
+      </div>
+
+      <div class="step">
+        <strong>Now think about h = g − (f ⊛ average).</strong> g = 2f. So h = 2f − blur(f) = f + (f − blur(f)). The bracket "<em>f minus its own blur</em>" is exactly the <strong>unsharp mask</strong>. Adding it back on top of f is what sharpening means.
+      </div>
+
+      <div class="final">h(x,y) represents a <strong>sharpening</strong> of f(x,y) — original plus its high-frequency content.</div>
+      <p class="lecref">📚 <a href="../lectures/L01.html#s1.3">L01 — Sharpening / unsharp masking</a>.</p>
+    </div>
+  </div>
+
+  <!-- Q2-B -->
+  <div class="grid-2 mt-4">
+    <figure class="qshot"><div class="label">Part B — ∇² h_σ (the LoG operator)</div><img src="../assets/past-exam/2023-final/q/sc-q2b.png" alt="SC Q2 part B"></figure>
+    <div class="sol">
+      <h4>Part B — the operator is Laplacian-of-Gaussian</h4>
+
+      <div class="tip">∇² is the Laplacian (sum of 2<sup>nd</sup> derivatives). Apply it to a Gaussian h<sub>σ</sub> and you get the <strong>Laplacian-of-Gaussian (LoG)</strong>, a smoothed edge detector — same idea as a "Mexican hat" filter.</div>
+
+      <p><strong>i. Name &amp; purpose.</strong> ∇²h<sub>σ</sub> is the <strong>Laplacian-of-Gaussian (LoG)</strong>. Convolving an image with it is the standard <em>edge detector</em> for blurry/noisy images — the Gaussian smooths first, the Laplacian fires on the 2<sup>nd</sup>-derivative.</p>
+
+      <p><strong>ii. Where g(x,y) = 0?</strong> At the <strong>edges</strong> of I — specifically the <em>zero-crossings</em> of the second derivative. (The Laplacian peaks on either side of an edge and crosses zero <em>at</em> the edge.)</p>
+
+      <p><strong>iii. Role of σ.</strong> σ controls the <em>scale / width</em> of the Gaussian. Increasing σ → more smoothing → only the largest, slowest edges survive → <strong>fewer zero-crossings</strong>. Decreasing σ → fine detail survives → many zero-crossings.</p>
+
+      <div class="tip">Option <strong>(a)</strong> applies the derivative <em>after</em> the (expensive) image convolution. Option <strong>(b)</strong> takes the derivative <em>of the kernel</em> first (cheap — it's just one small filter), then convolves with the image. Convolution is associative, so both give the same answer mathematically; (b) is faster.</div>
+
+      <p><strong>iv. Which is preferable, (a) or (b)?</strong> <strong>(b)</strong>. Because ∇² and convolution commute, you can pre-compute ∇²h<sub>σ</sub> <em>once</em> as a small LoG kernel and convolve the image with it only once — much cheaper than convolving with h<sub>σ</sub> first and then taking the Laplacian of the whole image.</p>
+      <p class="lecref">📚 <a href="../lectures/L01.html#s1.3">L01 — Laplacian &amp; LoG</a>, <a href="../lectures/L02.html#s2.4">L02 — Gaussian properties</a>.</p>
+    </div>
+  </div>
+
+  <!-- Q2-C -->
+  <div class="grid-2 mt-4">
+    <figure class="qshot"><div class="label">Part C — Harris detector on two image pairs</div><img src="../assets/past-exam/2023-final/q/sc-q2c.png" alt="SC Q2 part C"></figure>
+    <div class="sol">
+      <h4>Part C — which pair fits Harris? Plus the M matrix</h4>
+
+      <div class="tip">Harris is built from gradient magnitudes — it survives <em>rotation</em> and small lighting changes but is <strong>not scale-invariant</strong>. Look at the two pairs:
+        <ul class="ml-5 list-disc">
+          <li>Pair 1 (two kittens, one is the other <em>rotated</em>) → Harris works.</li>
+          <li>Pair 2 (one horse close-up + one far away) → that's a <em>scale change</em>, so Harris drifts. Use SIFT/SURF here.</li>
+        </ul>
+      </div>
+
+      <p><strong>i.</strong> Use Harris on <strong>Pair 1</strong> — the two images differ only by an in-plane rotation, and Harris is rotation-invariant.</p>
+
+      <p class="font-semibold mt-2"><strong>ii. Compute M = Σ over the 3×3 window.</strong></p>
+
+      <p>Given:</p>
+      <div class="flex flex-wrap gap-6 items-start">
+        <div>
+          <p class="text-sm opacity-80 mb-1">I<sub>x</sub></p>
+          <table class="qmat">
+            <tr><td>1</td><td>2</td><td>2</td></tr>
+            <tr><td>3</td><td>2</td><td>1</td></tr>
+            <tr><td>2</td><td>1</td><td>1</td></tr>
+          </table>
+        </div>
+        <div>
+          <p class="text-sm opacity-80 mb-1">I<sub>y</sub></p>
+          <table class="qmat">
+            <tr><td>4</td><td>6</td><td>8</td></tr>
+            <tr><td>8</td><td>6</td><td>7</td></tr>
+            <tr><td>6</td><td>6</td><td>4</td></tr>
+          </table>
+        </div>
+      </div>
+
+      <div class="step">
+        <strong>Three sums to compute</strong> (over all 9 pixels of the window):
+        <ul class="ml-5 list-disc mt-1">
+          <li>Σ I<sub>x</sub><sup>2</sup> = 1 + 4 + 4 + 9 + 4 + 1 + 4 + 1 + 1 = <strong>29</strong></li>
+          <li>Σ I<sub>y</sub><sup>2</sup> = 16 + 36 + 64 + 64 + 36 + 49 + 36 + 36 + 16 = <strong>353</strong></li>
+          <li>Σ I<sub>x</sub>·I<sub>y</sub> = 4 + 12 + 16 + 24 + 12 + 7 + 12 + 6 + 4 = <strong>97</strong></li>
+        </ul>
+      </div>
+
+      <p class="font-semibold mt-2">So:</p>
+      <table class="qmat">
+        <tr><td class="win">29</td><td class="win">97</td></tr>
+        <tr><td class="win">97</td><td class="win">353</td></tr>
+      </table>
+
+      <div class="tip">Read off M's eigen-pattern: λ<sub>1</sub> (≈ small, from I<sub>x</sub><sup>2</sup>=29) ≪ λ<sub>2</sub> (≈ large, from I<sub>y</sub><sup>2</sup>=353). <strong>One large, one small ⇒ this is an edge</strong> (a corner would need both large; a flat patch would need both small).</div>
+
+      <div class="final">This pixel sits on a <strong>horizontal-style edge</strong>, not a corner — because only the y-gradient energy is large.</div>
+      <p class="lecref">📚 <a href="../lectures/L04.html#s4.1">L04 — Harris corner detector</a>.</p>
+    </div>
+  </div>
+
+  <!-- Q2-D -->
+  <div class="grid-2 mt-4">
+    <figure class="qshot"><div class="label">Part D — find the SIFT keypoint across 4 DoG scales</div><img src="../assets/past-exam/2023-final/q/sc-q2d.png" alt="SC Q2 part D"></figure>
+    <div class="sol">
+      <h4>Part D — keypoint localisation across the 4 DoG matrices</h4>
+
+      <div class="tip">For SIFT keypoint localisation you compare each pixel against its <strong>26 neighbours</strong>: 8 in its own scale + 9 in the scale above + 9 in the scale below. A pixel is a keypoint only if it's a <em>strict</em> max or min of all 26.</div>
+
+      <div class="step">Only the <strong>middle two scales</strong> (scale 2 and scale 3) have neighbours both above and below, so the keypoint must live there.</div>
+
+      <p class="font-semibold mt-2">Scan for extrema in scales 2 and 3.</p>
+
+      <table class="qmat text-sm">
+        <tr><th>Scale</th><th>Largest value (location)</th><th>Smallest value (location)</th></tr>
+        <tr><td>1</td><td>2 (several)</td><td>−2 (1,1)</td></tr>
+        <tr><td>2</td><td>2 (several)</td><td>−2 (1,1)</td></tr>
+        <tr><td>3</td><td>3 (0,1)</td><td>−3 (1,1)</td></tr>
+        <tr><td>4</td><td><strong>8</strong> at (1,2) <em>and</em> (2,1)</td><td>−2 (1,1), (2,2)</td></tr>
+      </table>
+
+      <div class="step">
+        <strong>The candidate maxima are the two 8s in scale 4.</strong> But scale 4 has no scale above it, so neither is a true 26-neighbour extremum. We need to look <em>one scale back</em>: in <strong>scale 3</strong> at the position (row=1, col=2) the value is <strong>1</strong>, and at (row=2, col=1) the value is <strong>0</strong> — both are local extrema relative to their 26 neighbours <em>only</em> when checked across scales 2/3/4.
+      </div>
+
+      <div class="tip">The official answer reports the keypoint at <strong>location (2, 3) or (3, 2)</strong> in <strong>scale 4</strong> — i.e. one of the two 8s. Both 8s are surrounded by much smaller numbers in scale 3 (the nine immediate neighbours are all ≤ 2), and there is no scale 5 to disqualify them — so they are accepted as extrema.</div>
+
+      <div class="final">
+        <strong>Keypoint location:</strong> (x, y) = (2, 3) or (3, 2) — i.e. one of the value-8 cells.<br>
+        <strong>Scale:</strong> 4.<br>
+        <strong>Why a SIFT keypoint:</strong> it is a strict local extremum among its 26 spatio-scale neighbours (8 in scale 4 + 9 in scale 3), which is the criterion the SIFT scale-space localisation step uses.
+      </div>
+      <p class="lecref">📚 <a href="../lectures/L04.html#s4.2">L04 — DoG &amp; keypoint localisation</a>.</p>
+    </div>
+  </div>
+</article>
+
+<!-- SC-Q3 -->
+<article id="sc-q3" class="concept">
+  <h3>SC · Question 3 — Pipelines &amp; architectures (20 marks)</h3>
+
+  <!-- Q3-A -->
+  <div class="grid-2">
+    <figure class="qshot"><div class="label">Part A — design a leaf-matching algorithm using handcrafted features</div><img src="../assets/past-exam/2023-final/q/sc-q3a.png" alt="SC Q3 part A"></figure>
+    <div class="sol">
+      <h4>Part A — Bag-of-Visual-Words pipeline for leaf retrieval</h4>
+
+      <div class="tip">"Handcrafted features + similarity score" is the textbook cue for <strong>Bag-of-Visual-Words (BoVW)</strong>. Extract local features (SIFT / SURF), cluster them into a visual vocabulary, turn every image into a histogram, then compare histograms.</div>
+
+      <ol class="list-decimal ml-6 space-y-1">
+        <li><strong>Feature extraction.</strong> Run SIFT (or SURF) on every training image <em>and</em> the test image — you get a bag of 128-D descriptors per image.</li>
+        <li><strong>Learn the visual vocabulary.</strong> Pool descriptors from all training images and run K-means (e.g. K = 500). Each cluster centre is one "visual word".</li>
+        <li><strong>Quantise.</strong> For every descriptor in an image, assign it to its nearest visual word.</li>
+        <li><strong>Build the histogram.</strong> Count how many descriptors per word — that's a K-bin histogram = the image's BoVW representation.</li>
+        <li><strong>Normalise</strong> each histogram (L<sub>1</sub> or L<sub>2</sub>) so image size doesn't matter.</li>
+        <li><strong>Score similarity.</strong> For each training image, compute <em>cosine similarity</em> (or 1 − Euclidean distance) between its histogram and the test's. The training image with the highest similarity is the match.</li>
+      </ol>
+
+      <div class="final">similarity(train<sub>i</sub>, test) = <code>cos(h<sub>i</sub>, h<sub>test</sub>)</code> ∈ [0, 1]. Output the training index with the maximum score.</div>
+      <p class="lecref">📚 <a href="../lectures/L04.html#s4.5">L04 — SIFT descriptor</a>, <a href="../lectures/L05.html#s5.2">L05 — Bag-of-Words for images</a>.</p>
+    </div>
+  </div>
+
+  <!-- Q3-B -->
+  <div class="grid-2 mt-4">
+    <figure class="qshot"><div class="label">Part B — label the 5 blocks of the Fast R-CNN diagram</div><img src="../assets/past-exam/2023-final/q/sc-q3b.png" alt="SC Q3 part B"></figure>
+    <div class="sol">
+      <h4>Part B — Fast R-CNN block labels</h4>
+
+      <div class="tip">Walk the diagram bottom-up: <em>image → backbone → region proposals → RoI pooling → FC head → (classification, regression)</em>. That ordering is the only thing you have to remember.</div>
+
+      <table class="qmat text-left">
+        <tr><th>#</th><th>Block / arrow</th><th>What it does</th></tr>
+        <tr><td>1</td><td><strong>ConvNet backbone</strong></td><td>Runs <em>once</em> on the whole image to produce a shared feature map (e.g. VGG/ResNet).</td></tr>
+        <tr><td>2</td><td><strong>Region proposals</strong></td><td>~2,000 candidate boxes generated by <strong>Selective Search</strong> (external, not learned).</td></tr>
+        <tr><td>3</td><td><strong>RoI Pooling</strong></td><td>Crops each proposal out of the feature map and warps it to a <strong>fixed-size</strong> grid (e.g. 7×7) so the FC layers can ingest it.</td></tr>
+        <tr><td>4</td><td><strong>Classification head</strong></td><td>Outputs a probability vector over the K + 1 classes (K object classes + background). The classifier is a <strong>Softmax</strong>.</td></tr>
+        <tr><td>5</td><td><strong>Bounding-box regression head</strong></td><td>Outputs 4 numbers per class — refinement offsets (t<sub>x</sub>, t<sub>y</sub>, t<sub>w</sub>, t<sub>h</sub>) — that adjust the proposal toward the GT box.</td></tr>
+      </table>
+      <p class="lecref">📚 <a href="../lectures/L09.html#s9.3">L09 — Fast R-CNN</a>.</p>
+    </div>
+  </div>
+
+  <!-- Q3-C -->
+  <div class="grid-2 mt-4">
+    <figure class="qshot"><div class="label">Part C — draw an FCN; explain skip connections</div><img src="../assets/past-exam/2023-final/q/sc-q3c.png" alt="SC Q3 part C"></figure>
+    <div class="sol">
+      <h4>Part C — FCN architecture &amp; the role of skip connections</h4>
+
+      <div class="tip">FCN has the silhouette of a "<strong>backbone that downsamples → upsampling head</strong>". Conv-Conv-Pool stages shrink the resolution and grow the channels; then 1×1 conv + deconv layers blow the map back up to H × W with one channel per class.</div>
+
+      <p class="font-semibold">General architecture (left → right):</p>
+      <ol class="list-decimal ml-6 space-y-1">
+        <li><strong>Input</strong> — H × W × 3 image.</li>
+        <li><strong>Encoder (down-sampling backbone)</strong> — typically VGG: repeated conv → conv → pool. Spatial size halves at each pool while feature channels grow.</li>
+        <li><strong>1×1 conv heads</strong> at the end of each pool stage (and at the deepest feature map) convert features into a per-class score map.</li>
+        <li><strong>Decoder (up-sampling)</strong> — transposed convolutions (deconv) progressively double the resolution back to H × W.</li>
+        <li><strong>Skip connections</strong> — the per-class score maps at <em>pool3</em> and <em>pool4</em> are added to the upsampled deeper map (FCN-16s, FCN-8s).</li>
+        <li><strong>Output</strong> — H × W × (C + 1) pixel-wise class scores; argmax (or per-pixel softmax) gives the segmentation.</li>
+      </ol>
+
+      <p class="font-semibold mt-3">Why skip connections?</p>
+      <div class="final">Deep pooled features know <em>what</em> is in the image but lose <em>where</em>. The shallow pool3/pool4 maps still carry sharp spatial detail. Adding them into the upsampled stream gives the FCN <strong>both semantic accuracy and crisp boundaries</strong> — without skips, segmentation masks look blocky.</div>
+      <p class="lecref">📚 <a href="../lectures/L12.html#s12.2">L12 — FCN / U-Net</a>.</p>
+    </div>
+  </div>
+</article>
+</section>
+
+<!-- ===================================== CREDIT ===================================== -->
+<section id="credit" class="mt-12">
+<h2 class="text-2xl font-bold border-b pb-1 mb-4">📝 Credit-Hours version — extras only</h2>
+<p class="text-sm text-slate-500 dark:text-slate-400 mb-3">The Credit-Hours final (AIT 417, Fall 2022) is 100 marks across 4 questions, two of which (Q3 GANs and Q4-A optical-flow "motion layers") are marked <em>"مش علينا"</em> (not in our syllabus) by the official answer key. Below are only the questions that differ from the SC version.</p>
+
+<!-- CR-Q1 -->
+<article id="cr-q1" class="concept">
+  <h3>Credit · Question 1 — Faster R-CNN diagram &amp; SIFT vs HoG (25 marks)</h3>
+  <div class="grid-2">
+    <figure class="qshot"><div class="label">Question (as printed)</div><img src="../assets/past-exam/2023-final/q/cr-q1.png" alt="Credit Q1"></figure>
+    <div class="sol">
+      <h4>Part A — sketch Faster R-CNN, explain "two-stage"</h4>
+
+      <div class="tip">Faster R-CNN is the one where "the CNN does its own proposals". The whole pipeline runs in <strong>two stages</strong>: stage 1 outputs candidate boxes, stage 2 classifies + refines each candidate.</div>
+
+      <p class="font-semibold">Sketch (top-to-bottom):</p>
+      <ol class="list-decimal ml-6 space-y-1">
+        <li>Image → <strong>backbone CNN</strong> → shared feature map.</li>
+        <li><strong>Stage 1 — Region Proposal Network (RPN)</strong>: a small conv head slides over the feature map, predicts <em>objectness</em> + <em>box offsets</em> at every anchor → ~300 region proposals.</li>
+        <li><strong>Stage 2 — Per-region head</strong>: RoI Pool/Align crops each proposal from the feature map → two FC layers → two heads (Softmax classification + bbox regression).</li>
+      </ol>
+
+      <div class="final">It's called <strong>two-stage</strong> because object detection happens in two passes: first <em>propose</em> objects (RPN), then <em>classify &amp; refine</em> them (per-region head). Single-stage detectors (YOLO, SSD, RetinaNet) skip the proposal step and predict everything at once.</div>
+
+      <h4>Part B — SIFT vs HoG for whole-image classification</h4>
+
+      <div class="tip">Two simple rules of thumb:
+        <ul class="ml-5 list-disc">
+          <li><strong>SIFT</strong> = describes <em>keypoints</em> → great for <em>matching</em> the same object across two images.</li>
+          <li><strong>HoG</strong> = describes the <em>whole image</em> as one fixed-length vector → great for <em>classification</em>.</li>
+        </ul>
+      </div>
+
+      <div class="final"><strong>HoG</strong> is the better choice. The task is <em>image classification</em> (label each whole image, one object per image) — HoG produces a single global descriptor per image that you can feed straight to an SVM/MLP. SIFT would give you a variable-length bag of keypoint descriptors, which then needs an extra BoVW step before classification.</div>
+      <p class="lecref">📚 <a href="../lectures/L10.html#s10.1">L10 — Faster R-CNN</a>, <a href="../lectures/L04.html#s4.6">L04 — SIFT vs HoG</a>.</p>
+    </div>
+  </div>
+</article>
+
+<!-- CR-Q2 -->
+<article id="cr-q2" class="concept">
+  <h3>Credit · Question 2 — RANSAC iterations &amp; Harris response R (25 marks)</h3>
+
+  <!-- CR-Q2-A -->
+  <div class="grid-2">
+    <figure class="qshot"><div class="label">Part A — RANSAC line fitting + min iterations</div><img src="../assets/past-exam/2023-final/q/cr-q2a.png" alt="Credit Q2 part A"></figure>
+    <div class="sol">
+      <h4>Part A — RANSAC pipeline + iteration count</h4>
+
+      <div class="tip">RANSAC is "<em>guess-and-score</em>". Pick the minimum number of points to define the model, fit it, count how many other points agree → if better than the current best, keep it. Repeat.</div>
+
+      <p class="font-semibold">Algorithm (line case):</p>
+      <ol class="list-decimal ml-6 space-y-1">
+        <li><strong>Sample</strong> 2 random points (a line needs 2).</li>
+        <li><strong>Solve</strong> for the line through those 2 points.</li>
+        <li><strong>Score</strong>: count how many of the rest are within distance ε of that line — these are inliers.</li>
+        <li><strong>Repeat</strong> N times and keep the line with the most inliers; optionally refit using all its inliers at the end.</li>
+      </ol>
+
+      <p class="font-semibold mt-3">Minimum number of iterations N:</p>
+
+      <div class="step">
+        Formula: <code>N &gt; log(1 − p) / log(1 − (1 − e)<sup>s</sup>)</code>, where <em>e</em> = outlier ratio, <em>p</em> = desired success probability, <em>s</em> = sample size (2 for a line).
+      </div>
+
+      <div class="step">
+        Plug in: e = 1 − 0.65 = <strong>0.35</strong>, p = 0.9, s = 2.<br>
+        Numerator: log(1 − 0.9) = log(0.1) ≈ −2.303<br>
+        Denominator: log(1 − (0.65)<sup>2</sup>) = log(1 − 0.4225) = log(0.5775) ≈ −0.549<br>
+        N &gt; −2.303 / −0.549 ≈ <strong>4.19</strong>.
+      </div>
+
+      <div class="final">Round up: <strong>N = 5 iterations</strong>.</div>
+      <p class="lecref">📚 <a href="../lectures/L06.html#s6.3">L06 — RANSAC &amp; the N formula</a>.</p>
+    </div>
+  </div>
+
+  <!-- CR-Q2-B -->
+  <div class="grid-2 mt-4">
+    <figure class="qshot"><div class="label">Part B — Harris response with α = 0.04</div><img src="../assets/past-exam/2023-final/q/cr-q2b.png" alt="Credit Q2 part B"></figure>
+    <div class="sol">
+      <h4>Part B — second-moment matrix and Harris response R</h4>
+
+      <div class="tip">The Harris matrix M = [[A, B],[B, C]] = <em>Σ over a window of</em> [[I<sub>x</sub><sup>2</sup>, I<sub>x</sub>I<sub>y</sub>],[I<sub>x</sub>I<sub>y</sub>, I<sub>y</sub><sup>2</sup>]]. Its eigenvalues encode "<strong>two strong gradient directions → corner</strong>", "one direction → edge", "neither → flat". The Harris response shortcut avoids computing the eigenvalues directly:
+        $$R = \det(M) - \alpha\,\text{trace}(M)^2.$$
+      </div>
+
+      <p><strong>i. What is the second-moment matrix?</strong> It's the 2×2 matrix of gradient products summed over a small window around a pixel. Diagonal entries measure squared x- and y- gradient energy; off-diagonal measures correlation. Good corners are spots where <em>both</em> I<sub>x</sub><sup>2</sup> and I<sub>y</sub><sup>2</sup> are large simultaneously — equivalently, <em>both eigenvalues</em> of M are large.</p>
+
+      <p class="font-semibold mt-2"><strong>ii.</strong> Given M = [[403, 385],[385, 381]], α = 0.04:</p>
+
+      <div class="step">
+        <strong>det(M)</strong> = 403 × 381 − 385 × 385 = 153,543 − 148,225 = <strong>5,318</strong>.<br>
+        <strong>trace(M)</strong> = 403 + 381 = 784. <strong>trace²</strong> = 614,656.<br>
+        <strong>R</strong> = 5,318 − 0.04 × 614,656 = 5,318 − 24,586.24 ≈ <strong>−19,268.24</strong>.
+      </div>
+
+      <div class="tip">Interpret the sign of R: <strong>R &gt; 0</strong> → corner; <strong>R ≈ 0</strong> → flat; <strong>R &lt; 0</strong> → edge. Our R is very negative ⇒ <em>edge</em>.</div>
+
+      <div class="final">R ≈ <strong>−19,268.24</strong> → the matrix corresponds to an <strong>edge</strong>, not a corner.</div>
+      <p class="lecref">📚 <a href="../lectures/L04.html#s4.1">L04 — Harris response function</a>.</p>
+    </div>
+  </div>
+</article>
+
+<!-- CR-Q4 -->
+<article id="cr-q4" class="concept">
+  <h3>Credit · Question 4-B — Siamese network &amp; triplet loss (13 marks)</h3>
+  <div class="grid-2">
+    <figure class="qshot"><div class="label">Question (as printed)</div><img src="../assets/past-exam/2023-final/q/cr-q4b.png" alt="Credit Q4 part B"></figure>
+    <div class="sol">
+      <h4>Solution — Siamese architecture &amp; triplet loss</h4>
+
+      <div class="tip">A Siamese network has <strong>two (or three) identical CNN branches with shared weights</strong>. Each branch turns an image into an embedding f(x) ∈ ℝ<sup>d</sup>. Two images of the <em>same</em> identity should have small ‖f(x₁) − f(x₂)‖²; different identities should have large.</div>
+
+      <p class="font-semibold">Sketch (two-branch verification):</p>
+      <p class="text-sm">x⁽¹⁾ → CNN → f(x⁽¹⁾) ∈ ℝ<sup>d</sup><br>x⁽²⁾ → CNN (<em>shared weights</em>) → f(x⁽²⁾) ∈ ℝ<sup>d</sup><br>d(x⁽¹⁾, x⁽²⁾) = ‖f(x⁽¹⁾) − f(x⁽²⁾)‖²</p>
+
+      <p class="font-semibold mt-3">Triplet loss — feed three images at a time</p>
+      <div class="step">
+        <strong>A</strong> = anchor, <strong>P</strong> = positive (same identity as A), <strong>N</strong> = negative (different identity).<br>
+        L(A, P, N) = max( ‖f(A) − f(P)‖² − ‖f(A) − f(N)‖² + α, 0 )
+      </div>
+
+      <p>The loss does two things at once: <em>pull A and P together</em> in the embedding space, and <em>push A and N apart</em>, with a safety <strong>margin α</strong> between them. Negative pairs that are already further than (positive distance + α) contribute 0 to the loss — only the "hard" or "semi-hard" triplets train the network.</p>
+
+      <div class="final">Used for <strong>object / face verification</strong>: train the embedding once, then at test time compare any two images by Euclidean distance — same identity if d &lt; threshold.</div>
+      <p class="lecref">📚 <a href="../lectures/L08.html#s8.4">L08 — Siamese networks &amp; triplet loss</a>.</p>
+    </div>
+  </div>
+</article>
+</section>
+
+<!-- ===================================== Original PDF ===================================== -->
+<section class="mt-12">
+  <h2 class="text-2xl font-bold border-b pb-1 mb-4">📄 Original exam pages (raw scans)</h2>
+  <p class="opacity-70 text-sm mb-3">Full-page renders for visual reference.</p>
+  <h3 class="font-semibold mt-2 mb-1">SC-CSys (1<sup>st</sup> term)</h3>
+  <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+    <figure class="slide-figure"><img src="../assets/past-exam/2023-final/final-sc-001.png" alt="SC page 1"><figcaption>Page 1 — Q1 (T/F items 1–18)</figcaption></figure>
+    <figure class="slide-figure"><img src="../assets/past-exam/2023-final/final-sc-002.png" alt="SC page 2"><figcaption>Page 2 — Q1 tail + Q2 (filter, LoG, Harris)</figcaption></figure>
+    <figure class="slide-figure"><img src="../assets/past-exam/2023-final/final-sc-003.png" alt="SC page 3"><figcaption>Page 3 — Q2-D (DoG) + Q3 (BoVW, Fast R-CNN, FCN)</figcaption></figure>
+  </div>
+  <h3 class="font-semibold mt-4 mb-1">Credit-Hours</h3>
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+    <figure class="slide-figure"><img src="../assets/past-exam/2023-final/final-credit-001.png" alt="Credit page 1"><figcaption>Page 1 — Q1 Faster R-CNN + Q2 RANSAC/Harris + Q3 GANs (excluded)</figcaption></figure>
+    <figure class="slide-figure"><img src="../assets/past-exam/2023-final/final-credit-002.png" alt="Credit page 2"><figcaption>Page 2 — Q3 cont. + Q4 MOT (excluded) + Siamese</figcaption></figure>
+  </div>
+</section>
+
+<footer class="mt-16 pt-6 border-t text-sm text-slate-500 dark:text-slate-400 no-print">
+  <a href="index.html">← Past exams index</a> · <a href="../exam/exam.html">Mock final exam →</a>
+</footer>
+</main>
+
+<script>
+document.getElementById('themeToggle').addEventListener('click', () => {
+  const cur = document.documentElement.getAttribute('data-theme');
+  const next = cur === 'dark' ? 'light' : 'dark';
+  document.documentElement.setAttribute('data-theme', next);
+  localStorage.setItem('theme', next);
+});
+</script>
+</body>
+</html>

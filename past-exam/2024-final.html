@@ -1,0 +1,582 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>2024 Final — Solved (SC + Credit)</title>
+<meta name="description" content="2024 Computer Vision final exam (Scientific Computing and Credit-hour versions), every question solved with simple how-to-recognise tips.">
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/katex.min.css">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/katex.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/contrib/auto-render.min.js"
+        onload="renderMathInElement(document.body,{delimiters:[{left:'$$',right:'$$',display:true},{left:'$',right:'$',display:false}]});"></script>
+<link rel="stylesheet" href="../assets/css/styles.css">
+<script>
+  (function(){
+    const saved = localStorage.getItem('theme') || 'light';
+    document.documentElement.setAttribute('data-theme', saved);
+  })();
+</script>
+<style>
+  .qmat { border-collapse:collapse; margin:0.5rem 0; }
+  .qmat td { border:1px solid var(--border); padding:0.35rem 0.6rem; text-align:center; font-family:ui-monospace,Menlo,monospace; min-width:2.2rem; }
+  .qmat th { border:1px solid var(--border); padding:0.35rem 0.6rem; background:var(--bg-soft); font-weight:700; text-align:left; }
+  .qmat td.hl { background: var(--accent-soft); font-weight:700; }
+  .qmat td.win { background: rgba(34,197,94,0.18); }
+  .qshot {
+    margin: 0.5rem 0 1rem;
+    border: 1px solid var(--border);
+    border-radius: 0.6rem;
+    background: var(--bg-elev);
+    padding: 0.5rem;
+  }
+  .qshot img { display:block; max-width:100%; height:auto; border-radius:0.3rem; }
+  .qshot .label { font-size: 0.8rem; color: var(--fg-soft); padding: 0.25rem 0.25rem 0.5rem; border-bottom: 1px dashed var(--border); margin-bottom: 0.4rem; }
+
+  .sol h4 { font-weight:700; margin:0.9rem 0 0.4rem; font-size:1.05rem; color:var(--ok); }
+  .sol h4::before { content:'✓ '; }
+
+  .tip {
+    background: rgba(59,130,246,0.08);
+    border-left: 3px solid var(--accent);
+    padding: 0.55rem 0.85rem; margin: 0.45rem 0;
+    border-radius: 0 0.4rem 0.4rem 0;
+  }
+  .tip::before { content:'💡 How to recognise: '; font-weight:700; color:var(--accent); }
+
+  .step {
+    background: var(--bg-soft);
+    border-left: 3px solid var(--fg-soft);
+    padding: 0.5rem 0.8rem; margin: 0.4rem 0;
+    border-radius: 0 0.4rem 0.4rem 0;
+  }
+  .final {
+    background: rgba(34,197,94,0.12);
+    border-left: 3px solid var(--ok);
+    padding: 0.6rem 0.8rem; margin: 0.6rem 0;
+    border-radius: 0 0.4rem 0.4rem 0;
+    font-weight: 600;
+  }
+  .grid-2 { display:grid; grid-template-columns:1fr; gap:1rem; }
+  @media (min-width: 900px){ .grid-2 { grid-template-columns: 1fr 1.2fr; } }
+  .lecref { font-size: 0.85rem; opacity: 0.8; }
+  .tf-list li { margin: 0.15rem 0; }
+  .tf-true { color: var(--ok); font-weight: 700; }
+  .tf-false { color: #ef4444; font-weight: 700; }
+</style>
+</head>
+<body class="max-w-6xl mx-auto px-4 pb-24">
+
+<header class="flex items-center justify-between py-4 border-b border-slate-200 dark:border-slate-700 no-print">
+  <a href="index.html" class="text-sm">← Past-exam index</a>
+  <div class="flex items-center gap-3">
+    <a class="text-xs underline" href="../assets/past-exam/2024-final/final-sc.pdf">SC PDF</a>
+    <a class="text-xs underline" href="../assets/past-exam/2024-final/final-credit.pdf">Credit PDF</a>
+    <a class="text-xs underline" href="../assets/past-exam/2024-final/solutions-sc.pdf">SC solutions</a>
+    <a class="text-xs underline" href="../assets/past-exam/2024-final/solution-credit.pdf">Credit solutions</a>
+    <button id="themeToggle" class="text-sm border rounded px-2 py-1">🌓 Theme</button>
+  </div>
+</header>
+
+<nav class="section-jump no-print">
+  <a href="#sc">SC version</a>
+  <a href="#sc-q1">Q1</a> <a href="#sc-q2">Q2</a> <a href="#sc-q3">Q3</a>
+  <a href="#credit">Credit extras</a>
+  <a href="#cr-q1b">Cr·Q1B</a> <a href="#cr-q2">Cr·Q2</a> <a href="#cr-q3">Cr·Q3</a> <a href="#cr-q4">Cr·Q4</a>
+</nav>
+
+<main>
+<h1 class="text-3xl font-extrabold mt-4 mb-2">2024 Final — Solved (SC + Credit)</h1>
+<p class="text-slate-500 dark:text-slate-400 mb-6">Two parallel exams ran the same week: the <strong>SC-CSys</strong> (Scientific Computing) version is the main one — solved in full below. The <strong>Credit-hours</strong> version shares the T/F questions but has different short-answer / long-answer sections — those extras are at the bottom. Screenshot on the left, plain-English solution on the right.</p>
+
+<!-- ===================================== SC VERSION ===================================== -->
+<section id="sc" class="mt-8">
+<h2 class="text-2xl font-bold border-b pb-1 mb-4">📝 SC-CSys Final — 2024 (3 questions, 50 marks)</h2>
+
+<!-- SC Q1 ============================================================== -->
+<article id="sc-q1" class="concept">
+  <h3>Question 1 — Theory (T/F + short-answer, 22 marks)</h3>
+
+  <!-- Q1 A : T/F -->
+  <div class="grid-2">
+    <figure class="qshot"><div class="label">Q1·A — True/False (9 marks)</div><img src="../assets/past-exam/2024-final/q/sc-q1a.png" alt="SC Q1A T/F"></figure>
+    <div class="sol">
+      <h4>True / False — with one-liner reasoning</h4>
+
+      <div class="tip">For T/F on filtering theory: anchor each statement to the one fact that pins it. "Symmetric kernel" ↔ convolution=correlation. "Edge" ↔ first-derivative peak / second-derivative zero-crossing. "Harris" ↔ invariant to <em>translation &amp; rotation</em>, not scale. "Laplacian" ↔ magnitude only (no direction).</div>
+
+      <ol class="tf-list ml-5 list-decimal">
+        <li><span class="tf-true">True</span> — symmetric kernels give the same answer either way; flipping doesn't change a symmetric mask.</li>
+        <li><span class="tf-true">True</span> — that's the definition of an edge: a place where the intensity function changes sharply.</li>
+        <li><span class="tf-false">False</span> — Harris is invariant to <strong>translation and rotation</strong> only. It is <em>not</em> scale-invariant (and that's the whole reason SIFT exists).</li>
+        <li><span class="tf-true">True</span> — first derivative has a peak at the edge; the second derivative zero-crosses there.</li>
+        <li><span class="tf-true">True</span> — one output pixel costs k² multiplies, and there are m·n output pixels.</li>
+        <li><span class="tf-false">False</span> — the Laplacian only gives <strong>magnitude</strong>. To get edge <em>direction</em> you need the gradient (Sobel/Prewitt).</li>
+        <li><span class="tf-true">True</span> — the Laplacian is one convolution; the gradient operator needs two (∂/∂x and ∂/∂y) and then a magnitude — strictly more compute.</li>
+        <li><span class="tf-false">False</span> — normalising along the dominant gradient direction gives <strong>rotation</strong> invariance, not scaling. Scale invariance comes from SIFT's scale-space pyramid.</li>
+        <li><span class="tf-true">True</span> — that's literally what RANSAC is for: throw away the wrong correspondences before fitting.</li>
+      </ol>
+      <p class="lecref">📚 <a href="../lectures/L05.html">L05 — Harris &amp; SIFT</a>, <a href="../lectures/L02.html">L02 — Derivatives &amp; edges</a>.</p>
+    </div>
+  </div>
+
+  <!-- Q1 B : short answer 13 -->
+  <div class="grid-2 mt-4">
+    <figure class="qshot"><div class="label">Q1·B — One-word/expression (13 marks)</div><img src="../assets/past-exam/2024-final/q/sc-q1b.png" alt="SC Q1B short answer"></figure>
+    <div class="sol">
+      <h4>13 one-word answers — pin each to a single concept</h4>
+
+      <div class="tip">These are all "name the technique" questions. Each one anchors to a single named idea from L05–L12. If a word fits in one sentence, that's the answer.</div>
+
+      <ol class="ml-5 list-decimal space-y-1">
+        <li><strong>Process that results from subtracting two blurred images at different σ</strong> → <strong class="text-emerald-600">Difference of Gaussians (DoG)</strong>. That's exactly how SIFT builds its scale pyramid.</li>
+        <li><strong>Indicator that a Laplacian-filtered pixel is on an edge</strong> → <strong class="text-emerald-600">Zero-crossing</strong>. The Laplacian goes from + to − across an edge, so the edge is where it crosses zero.</li>
+        <li><strong>Harris moment matrix with $\lambda_1\!=\!\lambda_2\!=\!0$ ⇒ which region?</strong> → <strong class="text-emerald-600">Flat region</strong>. Both eigenvalues zero ⇒ no intensity change in any direction.</li>
+        <li><strong>Linear mathematical property a mask/kernel must have to be separable</strong> → <strong class="text-emerald-600">Rank 1</strong> (equivalently, can be written as the outer product of a column and a row). The instructor's keyword: <em>"separable ⇒ outer-product / rank-1"</em>.</li>
+        <li><strong>What kind of images need to be pre-processed using a Gaussian filter?</strong> → <strong class="text-emerald-600">Noisy images</strong>. Gaussian = blur = denoise before differentiation.</li>
+        <li><strong>For instance segmentation, what task can be applied first?</strong> → <strong class="text-emerald-600">Object detection</strong>. Mask R-CNN is literally "Faster R-CNN + a mask head" — detect first, then segment.</li>
+        <li><strong>Which process/step does the FCN network use, to improve the segmentation accuracy?</strong> → <strong class="text-emerald-600">Skip connections</strong> (a.k.a. skip-fusion of pool3/pool4 with the upsampled output). They restore fine spatial detail.</li>
+        <li><strong>What kind of loss function a CNN-based net can use to verify two images are similar or different?</strong> → <strong class="text-emerald-600">Triplet loss</strong> (or contrastive loss — both accepted; Yassin marked "Triplet Loss").</li>
+        <li><strong>Which algorithm for region proposals does Fast R-CNN use?</strong> → <strong class="text-emerald-600">Selective search</strong>. (Faster R-CNN replaces it with the RPN — but the question is Fast R-CNN.)</li>
+        <li><strong>How many keypoint correspondences are needed to solve the homography transformation when two image pairs are scaled?</strong> → <strong class="text-emerald-600">4 point pairs</strong>. A homography has 8 DOF; each match gives 2 equations ⇒ need 4 matches.</li>
+        <li><strong>Main function of BoW (Bag of Words) for image recognition</strong> → <strong class="text-emerald-600">Simplifying object representation / classification</strong>. It throws away spatial layout and keeps a histogram of visual words.</li>
+        <li><strong>What function does the U-Net model for semantic segmentation use for the up-sampling path of the network?</strong> → <strong class="text-emerald-600">Skip connections</strong> (from each encoder block to the matching decoder block — the U-shape).</li>
+        <li><strong>Which parameter(s) in YOLO determines the size of the detected objects?</strong> → <strong class="text-emerald-600">Anchor boxes</strong> (their widths &amp; heights). Anchors are the priors for object sizes/ratios.</li>
+      </ol>
+
+      <p class="lecref">📚 <a href="../lectures/L05.html">L05 — DoG/Harris/SIFT</a>, <a href="../lectures/L09.html">L09 — Fast R-CNN</a>, <a href="../lectures/L10.html">L10 — RPN &amp; anchors</a>, <a href="../lectures/L11.html">L11 — Semantic segmentation (FCN/U-Net)</a>, <a href="../lectures/L12.html">L12 — Mask R-CNN</a>.</p>
+    </div>
+  </div>
+</article>
+
+<!-- SC Q2 ============================================================== -->
+<article id="sc-q2" class="concept mt-8">
+  <h3>Question 2 — Filtering (median + filter naming, 12 marks)</h3>
+
+  <!-- Q2 A -->
+  <div class="grid-2">
+    <figure class="qshot"><div class="label">Q2·A — Median 4×4 with a plus-shaped mask, zero padding (4 marks)</div><img src="../assets/past-exam/2024-final/q/sc-q2a.png" alt="SC Q2A median"></figure>
+    <div class="sol">
+      <h4>Solution — median with a plus-shaped (+) mask, zero padding</h4>
+
+      <div class="tip">The mask in Figure b is a <strong>plus shape</strong> (5 cells: centre + 4 sides). For each pixel you look at its 4-connected neighbours + itself = <strong>5 values</strong>, sort them, take the middle (3rd) one. Pad with zeros at borders.</div>
+
+      <p class="font-semibold mt-2">Input (Figure a) + zero padding:</p>
+      <table class="qmat">
+        <tr><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td></tr>
+        <tr><td>0</td><td>100</td><td>110</td><td>160</td><td>120</td><td>0</td></tr>
+        <tr><td>0</td><td>80</td><td>90</td><td>100</td><td>100</td><td>0</td></tr>
+        <tr><td>0</td><td>90</td><td>90</td><td>50</td><td>120</td><td>0</td></tr>
+        <tr><td>0</td><td>40</td><td>100</td><td>19</td><td>150</td><td>0</td></tr>
+        <tr><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td></tr>
+      </table>
+
+      <div class="step">
+        <strong>Worked example — pixel (1,1)=100.</strong> Neighbours in + shape: top=0 (pad), bottom=80, left=0 (pad), right=110, centre=100. Sorted: 0, 0, 80, <strong>100</strong>, 110. Median = <strong>80</strong>.
+      </div>
+      <div class="step">
+        <strong>Pixel (1,2)=110.</strong> + neighbours: top=0, bottom=90, left=100, right=160, centre=110. Sorted: 0, 90, <strong>100</strong>, 110, 160. Median = <strong>100</strong>.
+      </div>
+
+      <p class="font-semibold mt-3">Final result (Yassin's answer key):</p>
+      <table class="qmat">
+        <tr><td class="win">80</td><td class="win">100</td><td class="win">110</td><td class="win">100</td></tr>
+        <tr><td class="win">90</td><td class="win">90</td><td class="win">100</td><td class="win">100</td></tr>
+        <tr><td class="win">80</td><td class="win">90</td><td class="win">90</td><td class="win">100</td></tr>
+        <tr><td class="win">40</td><td class="win">40</td><td class="win">50</td><td class="win">19</td></tr>
+      </table>
+      <div class="final">Notice how the salt-like spike "160" got pulled down to 110, and the pepper-like "19" still survives only at the corner where padding zeros dominate the 5-window. That's the median filter's signature behaviour.</div>
+      <p class="lecref">📚 <a href="../lectures/L01.html">L01 — Order-statistics (median) filter</a>.</p>
+    </div>
+  </div>
+
+  <!-- Q2 B -->
+  <div class="grid-2 mt-4">
+    <figure class="qshot"><div class="label">Q2·B — Name 8 filter masks &amp; their function (8 marks)</div><img src="../assets/past-exam/2024-final/q/sc-q2b.png" alt="SC Q2B filter table"></figure>
+    <div class="sol">
+      <h4>Solution — read the kernel shape to name it</h4>
+
+      <div class="tip">Three fingerprints to look for:
+        <ul class="ml-5 list-disc">
+          <li><strong>All cells equal &amp; positive (sum=1)</strong> → averaging / box blur.</li>
+          <li><strong>Pascal-triangle pattern (1,2,1 in row &amp; column)</strong> → Gaussian smoothing.</li>
+          <li><strong>Negatives on the sides, big positive centre</strong> → Laplacian or sharpening.</li>
+          <li><strong>Antisymmetric column / row (e.g. -1 0 1)</strong> → Sobel (gradient detector).</li>
+          <li><strong>Identity (only the centre is 1, rest 0)</strong> → no-op / shift.</li>
+        </ul>
+      </div>
+
+      <table class="qmat text-left">
+        <tr><th>#</th><th>Mask</th><th>Title</th><th>Function</th></tr>
+        <tr><td>a</td><td>[1 0 −1; 2 0 −2; 1 0 −1]</td><td><strong>Sobel-x</strong></td><td>Detects <strong>vertical edges</strong> (large gradient across columns).</td></tr>
+        <tr><td>b</td><td>3×3 of 1/9</td><td><strong>Box blur / averaging</strong></td><td>Blurs the image by averaging each pixel with its 8 neighbours — smooths noise.</td></tr>
+        <tr><td>c</td><td>[0 1 0; 1 −4 1; 0 1 0]</td><td><strong>Laplacian (4-neighbour)</strong></td><td>Detects edges via zero-crossings of the second derivative.</td></tr>
+        <tr><td>d</td><td>[1 2 1; 0 0 0; −1 −2 −1]</td><td><strong>Sobel-y</strong></td><td>Detects <strong>horizontal edges</strong> (large gradient across rows).</td></tr>
+        <tr><td>e</td><td>[0 0 0; 1 0 0; 0 0 0]</td><td><strong>Shift / translation</strong></td><td>Shifts the image by one pixel (here, one column to the right). It's the identity in the wrong position.</td></tr>
+        <tr><td>f</td><td>[0 0 0; 0 1 0; 0 0 0]</td><td><strong>Identity (impulse)</strong></td><td>Does nothing — the output equals the input.</td></tr>
+        <tr><td>g</td><td>all −1/9 except centre +3/9</td><td><strong>Laplacian (normalised) / sharpening kernel</strong></td><td>Detects edges, normalised version. Yassin's key calls it "Laplacian filter normalized".</td></tr>
+        <tr><td>h</td><td>[1 2 1; 2 4 2; 1 2 1] (×1/16)</td><td><strong>Gaussian smoothing (3×3)</strong></td><td>Removes high-frequency noise — Pascal-triangle binomial approximation of a Gaussian.</td></tr>
+      </table>
+
+      <div class="final">Memory hook: <em>"averages blur, antisymmetric detect, centre-heavy sharpen, Pascal smooths."</em></div>
+      <p class="lecref">📚 <a href="../lectures/L01.html">L01 — Smoothing &amp; sharpening filters</a>, <a href="../lectures/L02.html">L02 — Sobel/Prewitt/Laplacian</a>.</p>
+    </div>
+  </div>
+</article>
+
+<!-- SC Q3 ============================================================== -->
+<article id="sc-q3" class="concept mt-8">
+  <h3>Question 3 — CBIR + CNN object-matching architecture (16 marks)</h3>
+
+  <!-- Q3 A -->
+  <div class="grid-2">
+    <figure class="qshot"><div class="label">Q3·A — Content-based image retrieval (4 marks)</div><img src="../assets/past-exam/2024-final/q/sc-q3a.png" alt="SC Q3A CBIR"></figure>
+    <div class="sol">
+      <h4>Solution</h4>
+
+      <div class="tip">CBIR = "image search like Google". The classical hard part is the <strong>semantic gap</strong>: the computer only sees pixel values, but the user is searching for meaning.</div>
+
+      <h4>i. Why is image searching fundamentally harder than text search?</h4>
+      <div class="final"><strong>The Semantic Gap.</strong> Text search compares strings of words — already semantic. Image search has only low-level pixel features (RGB values, edges, textures), but the user is looking for high-level meaning (a sunset, a car). The mismatch between what a computer sees and what a human means is what makes the problem hard.</div>
+
+      <h4>ii. Two related sub-problems → suggest a model that can switch feature types</h4>
+      <div class="tip">"Similar images" (e.g. all sunsets) needs <strong>global / semantic</strong> features. "Matching images" (rotated, resized versions of the same image) needs <strong>local geometric</strong> features. So the model must be able to pull either kind on demand.</div>
+      <div class="final"><strong>Use a CNN feature extractor with two heads</strong>, plus a switch:
+        <ul class="ml-5 list-disc">
+          <li>A <strong>deep semantic head</strong> (e.g. global-average-pool over the last conv block) ⇒ used for "similar images" task.</li>
+          <li>A <strong>local-keypoint head</strong> (SIFT-style or shallow conv features around detected keypoints), with skip connections to early layers ⇒ used for "matching same image, rotated/resized" task.</li>
+          <li>A retrieval module that takes whichever feature vector matches the search problem, computes cosine / Euclidean distance against the database index, and returns top-K.</li>
+        </ul>
+        Yassin's wording: <em>"CNN with skip connections + matching algorithms to retrieve similar images."</em>
+      </div>
+      <p class="lecref">📚 <a href="../lectures/L05.html">L05 — Local features for matching</a>, <a href="../lectures/L11.html">L11 — Deep features for retrieval</a>.</p>
+    </div>
+  </div>
+
+  <!-- Q3 B -->
+  <div class="grid-2 mt-4">
+    <figure class="qshot"><div class="label">Q3·B — Sketch a CNN-based object-proposal + matching pipeline (12 marks)</div><img src="../assets/past-exam/2024-final/q/sc-q3b.png" alt="SC Q3B CNN-based object matching"></figure>
+    <div class="sol">
+      <h4>i. Sketch the architecture &amp; explain each part</h4>
+
+      <div class="tip">The problem is "does Image B appear inside Image A?" — that's exactly the recipe Faster R-CNN solves: <strong>(1) propose object boxes</strong> on Image A, then <strong>(2) match each cropped box against Image B</strong>. Two networks chained.</div>
+
+      <p class="font-semibold mt-2">Stage 1 — CNN-based object proposal (Faster R-CNN style):</p>
+      <pre class="qshot text-xs whitespace-pre-wrap font-mono">Image A ─► [Backbone CNN] ─► feature map ─► [RPN] ─► proposals
+                                                  ▲
+                                                  │
+                                          [RoI Pooling]
+                                                  │
+                                                  ▼
+                                  ┌─ classifier head (object / background)
+                                  └─ bbox-regression head (4 coords)</pre>
+
+      <ol class="ml-5 list-decimal space-y-1">
+        <li><strong>Expected output of this network</strong>: <em>class predictions</em> (object vs background) + <em>bounding-box coordinates</em> for every candidate object in Image A.</li>
+        <li><strong>Ground-truth data to train it</strong>: bounding-box coordinates of every real object in the image, object class labels, and the background-region annotations (for negatives).</li>
+      </ol>
+
+      <h4>ii. Algorithmic matching procedure (input: Image B + the list of bounding boxes)</h4>
+
+      <div class="step"><strong>Step 0 — Preprocessing.</strong> Resize / normalise Image B so it matches the network input size used during training. Same for each crop of Image A.</div>
+      <div class="step"><strong>Step 1 — Extract a feature vector from Image B</strong> using the backbone CNN (e.g. global-average-pooled last conv layer).</div>
+      <div class="step"><strong>Step 2 — For every bounding box produced by Stage 1</strong>: crop that region from Image A, run it through the same CNN, get its feature vector.</div>
+      <div class="step"><strong>Step 3 — Compare</strong> the Image-B feature vector against each cropped feature vector using <strong>cosine similarity</strong> (or Euclidean distance).</div>
+      <div class="step"><strong>Step 4 — Thresholding.</strong> If any similarity exceeds a chosen threshold τ, declare a match.</div>
+      <div class="step"><strong>Step 5 — Final decision (Yes/No).</strong> If any cropped region matched ⇒ output "Yes, Image B is inside Image A". Else ⇒ "No".</div>
+
+      <div class="final">The hint in the question (use the histogram in Image D) means: optionally, before the CNN comparison, you can also compare the <strong>colour histograms</strong> of cropped boxes vs Image B as a fast pre-filter — boxes whose RGB histograms are wildly different can be skipped, saving compute.</div>
+      <p class="lecref">📚 <a href="../lectures/L09.html">L09 — Fast / Faster R-CNN</a>, <a href="../lectures/L10.html">L10 — RPN heads</a>, <a href="../lectures/L11.html">L11 — RoI Pooling/Align</a>.</p>
+    </div>
+  </div>
+</article>
+</section>
+
+<!-- ===================================== CREDIT-VERSION EXTRAS ===================================== -->
+<section id="credit" class="mt-12">
+<h2 class="text-2xl font-bold border-b pb-1 mb-4">📝 Credit-hours version — extras (different questions only)</h2>
+<p class="text-slate-500 dark:text-slate-400 mb-4">
+The Credit-hour version of the same final (Fall 2023, AIT 417 — "Robotics Vision and Learning") has the <em>same</em> True/False part as the SC version (Q1·A is identical), but the rest differs: Q1·B is multiple-choice, then Q2/Q3/Q4 are different long-answer questions. Below are only the parts that aren't already covered above.
+</p>
+
+<!-- Cr Q1B : MCQ ============================================================== -->
+<article id="cr-q1b" class="concept">
+  <h3>Credit · Q1·B — Multiple choice (16 marks)</h3>
+  <div class="grid-2">
+    <figure class="qshot"><div class="label">Cr·Q1·B — items 1–5</div><img src="../assets/past-exam/2024-final/q/cr-q1b.png" alt="Credit Q1B MCQ part 1"></figure>
+    <figure class="qshot"><div class="label">Cr·Q1·B — items 6–13</div><img src="../assets/past-exam/2024-final/q/cr-q1b-tail.png" alt="Credit Q1B MCQ part 2"></figure>
+  </div>
+  <div class="grid-2 mt-3">
+    <figure class="qshot"><div class="label">Cr·Q1·B — items 14–16 (continued)</div><img src="../assets/past-exam/2024-final/q/cr-q1b-end.png" alt="Credit Q1B MCQ part 3"></figure>
+    <div class="sol">
+      <h4>Multiple-choice — anchor each to one concept</h4>
+
+      <div class="tip">For MCQs about Harris/YOLO/RANSAC etc., the wrong options are usually deliberately close to a fact you might half-remember. Pin the right answer to the precise sentence in the slides, not to a vibe.</div>
+
+      <ol class="ml-5 list-decimal space-y-1">
+        <li><strong>Harris detector: M's eigenvalues λ₁, λ₂ both small ⇒ corner?</strong> No — both small means flat. A corner needs both <em>large</em>. Yassin's key says answer is <strong>(c) λ₁ ≈ λ₂ are large</strong>.</li>
+        <li><strong>3-class object detection (ped=1, car=2, motorcycle=3) — label for a car image?</strong> The class index is 2, so the one-hot/structured label is <strong>(b) y = [1, 0.3, 0.7, 0.3, 0.3, 0, 1, 0]</strong> — the box-confidence is 1, the bounding-box coords follow, then class probabilities pick c=2.</li>
+        <li><strong>Two boxes 2×1 and 2×3 overlap 1×1 ⇒ IoU?</strong> Intersection area = 1·1 = 1. Union = 2·1 + 2·3 − 1 = 2 + 6 − 1 = <strong>7</strong>. <strong>IoU = 1/7</strong> — that matches answer <strong>(a) 1/6</strong> if the overlap region is interpreted differently; Yassin's key gives <strong>IoU = 1/7</strong> directly (≈ 0.14).</li>
+        <li><strong>YOLO on a 19×19 grid, 20 classes, 5 anchors — output volume?</strong> Per cell: 5·(5 + 20) = 125. Total: 19·19·125 ⇒ <strong>(b) 19×19×125</strong>.</li>
+        <li><strong>Non-max suppression on the shown boxes, prob ≤ 0.4 discarded, IoU threshold 0.5 — how many remain?</strong> Throw out the two low-prob boxes, then for each remaining pair compute IoU vs 0.5. The Yassin key works out <strong>2 boxes</strong> remain.</li>
+        <li><strong>Detect a corner when the window slides for a small shift — intensity change is?</strong> The whole point of "corner" is that <em>any</em> small shift causes a <strong>(c) high</strong> change in window pixel values.</li>
+        <li><strong>Siamese network triplet-loss definition</strong>: max(‖f(A) − f(P)‖² − ‖f(A) − f(N)‖² + α, 0) is correct only if α ≥ 0 — answer <strong>(d) α ≥ 0</strong>.</li>
+        <li><strong>BoW algorithm: number of K clusters chosen by k-means should be representative of what?</strong> Yassin's key: <strong>(d) the number of features extracted from the image dataset</strong> (the visual-word vocabulary size).</li>
+        <li><strong>Object detection: false-negative if IoU = ?</strong> If detection-IoU is low but a GT box exists ⇒ the model failed ⇒ false negative. So <strong>(d) no bounding box produced for the object</strong>.</li>
+        <li><strong>RANSAC: translational model, 30% outliers, want 80% probability that at least one sample is all-inliers — how many samples N?</strong> N = log(1−p)/log(1−(1−ε)ⁿ) with p=0.8, ε=0.3, n=1 ⇒ N = log(0.2)/log(0.7) ≈ <strong>2.39 ⇒ N = 3 samples</strong>.</li>
+        <li><strong>A good feature descriptor should be?</strong> <strong>(d) All of the above</strong> — repeatable, local, and distinctive.</li>
+        <li><strong>Harris detector is stable under what image change?</strong> <strong>(b) Translation</strong> (and rotation). Not scale.</li>
+        <li><strong>Instance segmentation is a hybrid between?</strong> <strong>(b) image classification and object detection</strong>.</li>
+        <li><strong>Visual words help in encoding images representing them as ___ of feature occurrences</strong>: <strong>(b) distribution</strong> (i.e. histogram).</li>
+        <li><strong>U-Net upsampling is based mainly on what operation?</strong> <strong>(b) Up-pooling</strong> (using stored pooling indices) — or transposed convolution, but Yassin marks up-pooling.</li>
+        <li><strong>Brightness-constancy constraint relates the flow to what?</strong> <strong>(c) Spatial and temporal gradients</strong> together (Iₓu + Iᵧv + Iₜ = 0).</li>
+      </ol>
+      <p class="lecref">📚 <a href="../lectures/L05.html">L05 — Harris</a>, <a href="../lectures/L07.html">L07 — YOLO output</a>, <a href="../lectures/L08.html">L08 — NMS &amp; anchors</a>, <a href="../lectures/L11.html">L11 — U-Net &amp; FCN</a>.</p>
+    </div>
+  </div>
+</article>
+
+<!-- Cr Q2 : Template matching + optical flow ============================================================== -->
+<article id="cr-q2" class="concept mt-8">
+  <h3>Credit · Q2 — Template matching &amp; optical flow (25 marks)</h3>
+
+  <!-- Cr Q2 A -->
+  <div class="grid-2">
+    <figure class="qshot"><div class="label">Cr·Q2·A — Template matching with hand-crafted features (10 marks)</div><img src="../assets/past-exam/2024-final/q/cr-q2a.png" alt="Credit Q2A template matching"></figure>
+    <div class="sol">
+      <h4>i. Name the feature-extraction algorithm</h4>
+      <div class="tip">The matches between Figure-a (single template "6") and Figure-b (a sequence of digits including rotated, scaled, translated copies of "6") need <strong>scale, rotation and translation invariance</strong>. There's exactly one classical algorithm that gives all three: <strong>SIFT</strong>.</div>
+      <div class="final">Answer: <strong>SIFT</strong> — scale-invariant feature transform. It builds a scale-space, finds keypoints at DoG extrema, assigns each keypoint a canonical orientation, and produces a 128-D descriptor that is invariant to scale, rotation, and (small) viewpoint change.</div>
+
+      <h4>ii. Complete SIFT algorithm steps</h4>
+      <ol class="ml-5 list-decimal space-y-1">
+        <li><strong>Build the scale space</strong> — convolve the input image with Gaussians at increasing σ to form octaves.</li>
+        <li><strong>Compute Difference-of-Gaussians (DoG)</strong> — subtract adjacent blurred levels to approximate the Laplacian-of-Gaussian.</li>
+        <li><strong>Keypoint localisation</strong> — find local extrema of DoG in scale &amp; space; refine sub-pixel position.</li>
+        <li><strong>Reject low-contrast &amp; edge keypoints</strong> — use the Hessian ratio to throw out unstable points along edges.</li>
+        <li><strong>Orientation assignment</strong> — compute a gradient histogram around each keypoint and pick the dominant direction as the canonical orientation.</li>
+        <li><strong>Descriptor</strong> — sample 16×16 around the keypoint, rotate by the canonical orientation, build 4×4 sub-grids each with an 8-bin histogram ⇒ 128-D vector. Normalise.</li>
+      </ol>
+      <div class="step"><strong>Then match</strong>: for every SIFT descriptor in the template (Figure a), find its nearest descriptor in Figure b (Lowe's ratio test: nearest/second-nearest distance &lt; 0.7). The matches that survive vote for the location/scale/rotation of the digit.</div>
+      <p class="lecref">📚 <a href="../lectures/L05.html">L05 — SIFT keypoints &amp; descriptors</a>.</p>
+    </div>
+  </div>
+
+  <!-- Cr Q2 B -->
+  <div class="grid-2 mt-4">
+    <figure class="qshot"><div class="label">Cr·Q2·B — Optical flow with brightness-constancy linearisation (15 marks)</div><img src="../assets/past-exam/2024-final/q/cr-q2b.png" alt="Credit Q2B optical flow"></figure>
+    <div class="sol">
+      <h4>i. What is the brightness-constancy constraint? Assumptions?</h4>
+      <div class="tip">Brightness constancy = "a tiny patch of an object has the same brightness in both frames — it just moved." So I(x, y, t) = I(x + u·dt, y + v·dt, t + dt).</div>
+      <div class="final">Constraint: I(x, y, t) = I(x + dx, y + dy, t + dt). Assumptions: (a) brightness is preserved between consecutive frames; (b) frames are taken close in time so the motion is small; (c) neighbouring pixels move similarly (spatial coherence — needed for Lucas-Kanade).</div>
+
+      <h4>ii. Optical flow algorithm — assuming linear motion</h4>
+      <div class="step">Taylor-expand I(x+dx, y+dy, t+dt) around (x,y,t):
+        $$I(x+dx,y+dy,t+dt) \approx I(x,y,t) + I_x\,dx + I_y\,dy + I_t\,dt$$
+        and set the LHS equal to I(x,y,t) (brightness constancy). The constants cancel:
+        $$I_x\,u + I_y\,v + I_t = 0\quad\text{where } u=\dot x,\ v=\dot y$$
+      </div>
+      <div class="step">One equation, two unknowns ⇒ aperture problem. <strong>Lucas-Kanade</strong> assumes the same (u,v) inside a small window of n pixels and stacks one row per pixel:
+        $$\begin{bmatrix}I_x^{(1)} & I_y^{(1)} \\ \vdots & \vdots \\ I_x^{(n)} & I_y^{(n)}\end{bmatrix}\begin{bmatrix}u\\v\end{bmatrix}=-\begin{bmatrix}I_t^{(1)}\\ \vdots \\ I_t^{(n)}\end{bmatrix}\quad\Longleftrightarrow\quad A\,\mathbf{v}=-\mathbf{b}$$
+        Solve with least squares: $\mathbf{v}=(A^\top A)^{-1}A^\top(-\mathbf{b})$.
+      </div>
+      <div class="final">In matrix form Lucas-Kanade is just $A\mathbf{v}=\mathbf{b}$. Solve once per window.</div>
+
+      <h4>iii. If motion is non-linear → what to do? (extension)</h4>
+      <div class="tip">Plain Lucas-Kanade is a <em>linearisation</em> around the current pixel — it only works for small motion. For non-linear / large motion, use the same equation iteratively on a Gaussian pyramid (coarse-to-fine).</div>
+      <div class="final"><strong>Iterative Lucas-Kanade on a Gaussian pyramid:</strong>
+        <ol class="ml-5 list-decimal mt-1">
+          <li>Build a Gaussian image pyramid for both frames.</li>
+          <li>At the coarsest level, run linear Lucas-Kanade ⇒ initial flow (u₀, v₀).</li>
+          <li>Warp Image-2 toward Image-1 using current (u, v).</li>
+          <li>Re-linearise on the warped pair, solve LK ⇒ Δu, Δv.</li>
+          <li>Update u ← u + Δu, v ← v + Δv. Move to next pyramid level and repeat.</li>
+        </ol>
+        Each level handles motion of just a few pixels (the linear regime); the pyramid handles the rest. This is the standard "warp-and-iterate" loop.
+      </div>
+      <p class="lecref">📚 <a href="../lectures/L06.html">L06 — Optical flow &amp; Lucas-Kanade</a>.</p>
+    </div>
+  </div>
+</article>
+
+<!-- Cr Q3 : Faster R-CNN + Deconv ============================================================== -->
+<article id="cr-q3" class="concept mt-8">
+  <h3>Credit · Q3 — Faster R-CNN &amp; Deconvolution segmentation network (25 marks)</h3>
+  <div class="grid-2">
+    <figure class="qshot"><div class="label">Cr·Q3 — A) Faster R-CNN sketch &amp; B) deconvolution net</div><img src="../assets/past-exam/2024-final/q/cr-q3.png" alt="Credit Q3"></figure>
+    <div class="sol">
+      <h4>A) Faster R-CNN — sketch &amp; why it's "two-stage"</h4>
+
+      <div class="tip">"Two-stage detector" = (1) propose regions, (2) classify + refine boxes. R-CNN, Fast R-CNN, Faster R-CNN are all two-stage; YOLO/SSD are one-stage.</div>
+
+      <pre class="qshot text-xs whitespace-pre-wrap font-mono">Image ─► [Backbone CNN] ─► feature map
+                                  │
+                                  ├──► [RPN]  ──► object proposals (Stage 1)
+                                  │                      │
+                                  └──► [RoI Pool/Align] ◄┘
+                                              │
+                                              ▼
+                                   ┌─ classifier head (Stage 2 — class)
+                                   └─ bbox-regression head (Stage 2 — refine box)</pre>
+
+      <div class="final"><strong>Why two-stage?</strong> Stage 1 (RPN) is a small network that <em>only</em> decides "is there an object here? roughly where?". Stage 2 (classifier + regressor) takes those few hundred boxes and refines them + assigns a class. Splitting the work makes each part smaller and easier to train, and improves accuracy because the second stage only sees plausible boxes.</div>
+
+      <h4>B) Deconvolution network for semantic segmentation — architecture &amp; outputs</h4>
+
+      <div class="tip">"Deconvolution" here means the SegNet/DeconvNet style: a symmetric encoder–decoder. Encoder = conv + pool (downsamples). Decoder = unpool + conv (upsamples). The output is a pixel-wise class map.</div>
+
+      <pre class="qshot text-xs whitespace-pre-wrap font-mono">RGB image  ─► [Encoder: Conv-Pool blocks] ─► bottleneck features
+                                                    │
+                                                    ▼
+              [Decoder: Unpool-Conv blocks] ─► same H×W feature volume
+                                                    │
+                                                    ▼
+                                              [1×1 conv + softmax]
+                                                    │
+                                                    ▼
+                                          Segmentation map H × W × C</pre>
+
+      <ol class="ml-5 list-decimal space-y-1">
+        <li><strong>Input image:</strong> H × W × <strong>3</strong> (RGB).</li>
+        <li><strong>Output image:</strong> H × W × <strong>C</strong> (C = number of classes — same spatial size as input).</li>
+        <li><strong>Final layer:</strong> <strong>Softmax</strong> across the C channels — picks one class per pixel.</li>
+        <li><strong>Components &amp; functions:</strong>
+          <ul class="ml-5 list-disc">
+            <li><em>Convolutional blocks (Conv + BN + ReLU):</em> extract hierarchical features.</li>
+            <li><em>Max-pooling layers:</em> downsample; remember the pooling indices.</li>
+            <li><em>Unpooling layers:</em> upsample by placing the value back at the stored index (rest = 0).</li>
+            <li><em>Deconvolution (transposed conv) layers:</em> learn to fill in the holes left by unpooling, gradually refining the upsampled feature map.</li>
+            <li><em>Final 1×1 conv + Softmax:</em> turn per-pixel feature vectors into per-class probabilities.</li>
+          </ul>
+        </li>
+      </ol>
+      <p class="lecref">📚 <a href="../lectures/L10.html">L10 — Faster R-CNN &amp; RPN</a>, <a href="../lectures/L11.html">L11 — FCN / Deconv / U-Net</a>.</p>
+    </div>
+  </div>
+</article>
+
+<!-- Cr Q4 : SOT vs MOT + Denoising autoencoder ============================================================== -->
+<article id="cr-q4" class="concept mt-8">
+  <h3>Credit · Q4 — Single-vs-Multi-Object Tracking &amp; Denoising autoencoder (25 marks)</h3>
+  <div class="grid-2">
+    <figure class="qshot"><div class="label">Cr·Q4 — A) SOT vs MOT and B) denoising autoencoder</div><img src="../assets/past-exam/2024-final/q/cr-q4.png" alt="Credit Q4"></figure>
+    <div class="sol">
+      <h4>A) Single-Object Tracking (SOT) vs Multi-Object Tracking (MOT)</h4>
+
+      <div class="tip">SOT = "where is this one box, frame after frame?" MOT = "find every object, give each one an ID, keep the IDs consistent across frames." MOT therefore has a whole extra problem: data association.</div>
+
+      <table class="qmat text-left">
+        <tr><th>Criterion</th><th>SOT</th><th>MOT</th></tr>
+        <tr><td><strong>Short / long-term tracking</strong></td>
+            <td>Usually short-term — re-initialise if lost.</td>
+            <td>Long-term — IDs must persist for the whole video, even after occlusions.</td></tr>
+        <tr><td><strong>Detection-free vs detection-based</strong></td>
+            <td>Often <em>detection-free</em>: the user gives one box in frame 1; the tracker propagates it (correlation filter, Siamese tracker).</td>
+            <td>Almost always <em>detection-based</em>: a detector finds boxes in every frame; the tracker links them across frames.</td></tr>
+        <tr><td><strong>Type of tracking</strong></td>
+            <td>Pure motion / appearance model of one target.</td>
+            <td>Detection + data association (e.g. Hungarian/IoU matching) + ID management.</td></tr>
+        <tr><td><strong>Evaluation metrics</strong></td>
+            <td>Centre-pixel error, overlap (IoU) per frame, robustness.</td>
+            <td>MOTA, MOTP, ID-switches, IDF1 — they all penalise wrong IDs as well as wrong boxes.</td></tr>
+      </table>
+
+      <h4>B) Denoising autoencoder for image denoising</h4>
+
+      <div class="tip">A denoising autoencoder learns the identity-function the smart way: it gets a <em>noisy</em> image as input but is trained to output the <em>clean</em> one. The bottleneck forces it to keep only the signal, not the noise.</div>
+
+      <pre class="qshot text-xs whitespace-pre-wrap font-mono">Clean image x ──► add noise ──► x̃
+                                  │
+                                  ▼
+                  Encoder: Conv ↓ Conv ↓ Conv ↓
+                                  │
+                                  ▼
+                        Code (bottleneck z)
+                                  │
+                                  ▼
+                  Decoder: Conv ↑ Conv ↑ Conv ↑
+                                  │
+                                  ▼
+                            Reconstruction x̂
+                  Loss: ‖x̂ − x‖² (the *clean* x, not the noisy x̃)</pre>
+
+      <ol class="ml-5 list-decimal space-y-1">
+        <li><strong>Encoder</strong> — stacks of conv + downsample (stride / pool) layers. Job: compress the noisy input into a low-dim code z that mostly captures the signal (noise can't fit through the bottleneck).</li>
+        <li><strong>Code (bottleneck)</strong> — the compact representation. Its dimensionality is the "information budget" the network has.</li>
+        <li><strong>Decoder</strong> — stacks of upsample + conv (often transposed conv) layers. Job: reconstruct an image from z.</li>
+        <li><strong>Role of each layer</strong>:
+          <ul class="ml-5 list-disc">
+            <li>Early encoder convs → learn local denoising filters.</li>
+            <li>Deeper encoder convs + pooling → throw away spatial high-frequency noise.</li>
+            <li>Code → keeps just the structure of the clean image.</li>
+            <li>Decoder convs / deconv → expand the structure back to full resolution.</li>
+            <li>Final layer (often sigmoid for pixel values in [0,1]) → produces the denoised image.</li>
+          </ul>
+        </li>
+      </ol>
+      <div class="final">Loss = ‖x̂ − x‖² (MSE against the <em>clean</em> ground-truth image). The network never sees the clean image at inference — it has learned to filter noise out automatically.</div>
+      <p class="lecref">📚 <a href="../lectures/L12.html">L12 — Tracking (SOT / MOT)</a>, <a href="../lectures/L11.html">L11 — Autoencoders</a>.</p>
+    </div>
+  </div>
+</article>
+</section>
+
+<!-- ===================================== Original PDF pages ===================================== -->
+<section class="mt-12">
+  <h2 class="text-2xl font-bold border-b pb-1 mb-4">📄 Original exam pages (raw scans)</h2>
+  <p class="opacity-70 text-sm mb-3">Full-page renders for visual reference. Colored versions look cleaner; B/W versions are the official scan.</p>
+
+  <h3 class="text-lg font-bold mt-4 mb-2">SC version — questions</h3>
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+    <figure class="slide-figure"><img src="../assets/past-exam/2024-final/final-colored-001.png" alt="2024 SC final — page 1"><figcaption>Page 1 — Q1 (T/F + 13 short)</figcaption></figure>
+    <figure class="slide-figure"><img src="../assets/past-exam/2024-final/final-colored-002.png" alt="2024 SC final — page 2"><figcaption>Page 2 — Q2 (median + filter table), Q3·A</figcaption></figure>
+    <figure class="slide-figure"><img src="../assets/past-exam/2024-final/final-colored-003.png" alt="2024 SC final — page 3"><figcaption>Page 3 — Q3·B (CNN-based matching)</figcaption></figure>
+  </div>
+
+  <h3 class="text-lg font-bold mt-6 mb-2">SC version — official solutions (Yassin)</h3>
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+    <figure class="slide-figure"><img src="../assets/past-exam/2024-final/solutions-sc-001.png" alt="SC solutions p1"><figcaption>Page 1 — T/F key</figcaption></figure>
+    <figure class="slide-figure"><img src="../assets/past-exam/2024-final/solutions-sc-002.png" alt="SC solutions p2"><figcaption>Page 2 — 13 short answers</figcaption></figure>
+    <figure class="slide-figure"><img src="../assets/past-exam/2024-final/solutions-sc-003.png" alt="SC solutions p3"><figcaption>Page 3 — Median worked example</figcaption></figure>
+    <figure class="slide-figure"><img src="../assets/past-exam/2024-final/solutions-sc-004.png" alt="SC solutions p4"><figcaption>Page 4 — Median result &amp; filter masks</figcaption></figure>
+    <figure class="slide-figure"><img src="../assets/past-exam/2024-final/solutions-sc-005.png" alt="SC solutions p5"><figcaption>Page 5 — Filter table &amp; CBIR I</figcaption></figure>
+    <figure class="slide-figure"><img src="../assets/past-exam/2024-final/solutions-sc-006.png" alt="SC solutions p6"><figcaption>Page 6 — CBIR II + Q3·B</figcaption></figure>
+    <figure class="slide-figure"><img src="../assets/past-exam/2024-final/solutions-sc-007.png" alt="SC solutions p7"><figcaption>Page 7 — Faster-R-CNN-style sketch</figcaption></figure>
+    <figure class="slide-figure"><img src="../assets/past-exam/2024-final/solutions-sc-008.png" alt="SC solutions p8"><figcaption>Page 8 — Matching procedure steps</figcaption></figure>
+  </div>
+
+  <h3 class="text-lg font-bold mt-6 mb-2">Credit version — questions</h3>
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+    <figure class="slide-figure"><img src="../assets/past-exam/2024-final/final-credit-001.png" alt="Credit final p1"><figcaption>Page 1 — Q1 (T/F + MCQ 1-5)</figcaption></figure>
+    <figure class="slide-figure"><img src="../assets/past-exam/2024-final/final-credit-002.png" alt="Credit final p2"><figcaption>Page 2 — Q1·B MCQ 6-13</figcaption></figure>
+    <figure class="slide-figure"><img src="../assets/past-exam/2024-final/final-credit-003.png" alt="Credit final p3"><figcaption>Page 3 — Q1·B end &amp; Q2 (template matching + optical flow)</figcaption></figure>
+    <figure class="slide-figure"><img src="../assets/past-exam/2024-final/final-credit-004.png" alt="Credit final p4"><figcaption>Page 4 — Q3 (Faster R-CNN + Deconv) &amp; Q4 (SOT/MOT + AE)</figcaption></figure>
+  </div>
+
+  <h3 class="text-lg font-bold mt-6 mb-2">Credit version — official solutions</h3>
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+    <figure class="slide-figure"><img src="../assets/past-exam/2024-final/solution-credit-001.png" alt="Credit sol p1"><figcaption>Page 1 — T/F</figcaption></figure>
+    <figure class="slide-figure"><img src="../assets/past-exam/2024-final/solution-credit-002.png" alt="Credit sol p2"><figcaption>Page 2 — MCQ + output-vector explanation</figcaption></figure>
+    <figure class="slide-figure"><img src="../assets/past-exam/2024-final/solution-credit-003.png" alt="Credit sol p3"><figcaption>Page 3 — IoU/Volume/RANSAC</figcaption></figure>
+    <figure class="slide-figure"><img src="../assets/past-exam/2024-final/solution-credit-004.png" alt="Credit sol p4"><figcaption>Page 4 — SIFT</figcaption></figure>
+    <figure class="slide-figure"><img src="../assets/past-exam/2024-final/solution-credit-005.png" alt="Credit sol p5"><figcaption>Page 5 — SIFT steps + Q3·A</figcaption></figure>
+    <figure class="slide-figure"><img src="../assets/past-exam/2024-final/solution-credit-006.png" alt="Credit sol p6"><figcaption>Page 6 — Deconv network</figcaption></figure>
+    <figure class="slide-figure"><img src="../assets/past-exam/2024-final/solution-credit-007.png" alt="Credit sol p7"><figcaption>Page 7 — Decoder components</figcaption></figure>
+  </div>
+</section>
+
+<footer class="mt-16 pt-6 border-t text-sm text-slate-500 dark:text-slate-400 no-print">
+  <a href="index.html">← Past-exam index</a> · <a href="../exam/exam.html">Mock final exam →</a>
+</footer>
+</main>
+
+<script>
+document.getElementById('themeToggle').addEventListener('click', () => {
+  const cur = document.documentElement.getAttribute('data-theme');
+  const next = cur === 'dark' ? 'light' : 'dark';
+  document.documentElement.setAttribute('data-theme', next);
+  localStorage.setItem('theme', next);
+});
+</script>
+</body>
+</html>

@@ -4,7 +4,7 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
 <title>Spring 2025 — Midterm &amp; Final, Solved</title>
-<meta name="description" content="Spring 2025 Computer Vision midterm and final exam, every question solved step-by-step.">
+<meta name="description" content="Spring 2025 Computer Vision midterm and final, every question solved with simple how-to-recognise tips.">
 <script src="https://cdn.tailwindcss.com"></script>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/katex.min.css">
 <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/katex.min.js"></script>
@@ -31,31 +31,29 @@
     padding: 0.5rem;
   }
   .qshot img { display:block; max-width:100%; height:auto; border-radius:0.3rem; }
-  .qshot .label {
-    font-size: 0.8rem;
-    color: var(--fg-soft);
-    padding: 0.25rem 0.25rem 0.5rem;
-    border-bottom: 1px dashed var(--border);
-    margin-bottom: 0.4rem;
-  }
-  .sol h4 {
-    font-weight: 700; margin: 0.9rem 0 0.4rem;
-    font-size: 1.05rem;
-    color: var(--ok);
-  }
-  .sol h4::before { content: '✓ '; }
-  .sol .step {
-    background: var(--bg-soft);
+  .qshot .label { font-size: 0.8rem; color: var(--fg-soft); padding: 0.25rem 0.25rem 0.5rem; border-bottom: 1px dashed var(--border); margin-bottom: 0.4rem; }
+
+  .sol h4 { font-weight:700; margin:0.9rem 0 0.4rem; font-size:1.05rem; color:var(--ok); }
+  .sol h4::before { content:'✓ '; }
+
+  .tip {
+    background: rgba(59,130,246,0.08);
     border-left: 3px solid var(--accent);
-    padding: 0.5rem 0.8rem;
-    margin: 0.4rem 0;
+    padding: 0.55rem 0.85rem; margin: 0.45rem 0;
     border-radius: 0 0.4rem 0.4rem 0;
   }
-  .sol .final {
+  .tip::before { content:'💡 How to recognise: '; font-weight:700; color:var(--accent); }
+
+  .step {
+    background: var(--bg-soft);
+    border-left: 3px solid var(--fg-soft);
+    padding: 0.5rem 0.8rem; margin: 0.4rem 0;
+    border-radius: 0 0.4rem 0.4rem 0;
+  }
+  .final {
     background: rgba(34,197,94,0.12);
     border-left: 3px solid var(--ok);
-    padding: 0.6rem 0.8rem;
-    margin: 0.6rem 0;
+    padding: 0.6rem 0.8rem; margin: 0.6rem 0;
     border-radius: 0 0.4rem 0.4rem 0;
     font-weight: 600;
   }
@@ -83,53 +81,51 @@
 
 <main>
 <h1 class="text-3xl font-extrabold mt-4 mb-2">Spring 2025 — Midterm &amp; Final, Solved</h1>
-<p class="text-slate-500 dark:text-slate-400 mb-6">Every question from last year's actual exam — screenshot on the left, step-by-step solution on the right.</p>
+<p class="text-slate-500 dark:text-slate-400 mb-6">Screenshot on the left, plain-English solution on the right. Blue boxes are <em>"how to recognise"</em> tips.</p>
 
 <!-- ===================================== MIDTERM ===================================== -->
 <section id="midterm" class="mt-8">
 <h2 class="text-2xl font-bold border-b pb-1 mb-4">📝 Midterm — Spring 2025</h2>
 
-<!-- M-Q1 ============================================================== -->
+<!-- M-Q1 -->
 <article id="m-q1" class="concept">
   <h3>Midterm · Question 1 — Identify what each 3×3 mask does</h3>
   <div class="grid-2">
-    <figure class="qshot"><div class="label">Question (as printed)</div><img src="../assets/past-exam/q/m-q1.png" alt="Midterm Q1 — identify the two 3×3 masks"></figure>
+    <figure class="qshot"><div class="label">Question (as printed)</div><img src="../assets/past-exam/q/m-q1.png" alt="Midterm Q1"></figure>
     <div class="sol">
       <h4>Solution</h4>
 
-      <div class="step">
-        <strong>Matrix 1</strong> — centre $+4$, four cardinal neighbours $-1$, corners $0$.<br>
-        Apply to a pixel $f(x,y)$:
-        $$g(x,y) = 4f(x,y) - f(x{+}1,y) - f(x{-}1,y) - f(x,y{+}1) - f(x,y{-}1)$$
-        This is exactly $-\nabla^2 f$ (the Laplacian) — its output is large in magnitude <em>only at intensity changes</em>.
+      <div class="tip">A mask with corners = 0, four sides = −1, and the centre = a positive number is a <strong>Laplacian-family kernel</strong>. The size of the centre tells you which one:
+        <ul class="ml-5 list-disc">
+          <li>centre = <strong>4</strong> → the Laplacian itself → <strong>edge detector</strong>.</li>
+          <li>centre = <strong>5</strong> (= 4 + 1) → Laplacian + identity → <strong>sharpening mask</strong>.</li>
+          <li>centre = <strong>8</strong> → 8-neighbour Laplacian (the diagonal version).</li>
+          <li>centre = <strong>9</strong> → 8-neighbour Laplacian + identity → sharpening (diagonal).</li>
+        </ul>
       </div>
-      <div class="final">Matrix 1 → <strong>Laplacian edge detector.</strong> Output ≈ 0 in flat regions, large at edges.</div>
 
-      <div class="step">
-        <strong>Matrix 2</strong> — same as Matrix 1 but the centre is $+5$ (one bigger). That is:
-        $$\text{Matrix 2} = \underbrace{\text{Identity}}_{\text{centre}=1} + \underbrace{\text{Matrix 1}}_{\text{centre}=4}$$
-        Convolution is linear, so applying Matrix 2 = applying the identity (keep the original) + applying the Laplacian.
-        $$g(x,y) = f(x,y) + (-\nabla^2 f)$$
+      <div class="final">
+        <strong>Matrix 1 (centre = 4) → detects edges.</strong> It produces a near-zero response in flat regions and a large response wherever the brightness changes.<br><br>
+        <strong>Matrix 2 (centre = 5) → sharpening, keeps shapes.</strong> Think of it as "original image + edges": the +1 added to the centre says "keep everything you had", the rest of the kernel adds the edge map on top.
       </div>
-      <div class="final">Matrix 2 → <strong>Sharpening mask.</strong> Original image with edges emphasised — keeps the shapes <em>and</em> highlights edges.</div>
-
       <p class="lecref">📚 <a href="../lectures/L01.html#s1.3">L01 — Sharpening filters &amp; Laplacian</a>.</p>
     </div>
   </div>
 </article>
 
-<!-- M-Q2 ============================================================== -->
+<!-- M-Q2 -->
 <article id="m-q2" class="concept">
   <h3>Midterm · Question 2 — Median 3×3 (no padding) on a 5×5</h3>
   <div class="grid-2">
-    <figure class="qshot"><div class="label">Question (as printed)</div><img src="../assets/past-exam/q/m-q2.png" alt="Midterm Q2 — median filter 5x5 matrix"></figure>
+    <figure class="qshot"><div class="label">Question (as printed)</div><img src="../assets/past-exam/q/m-q2.png" alt="Midterm Q2"></figure>
     <div class="sol">
-      <h4>Solution — output is 3×3 (only interior pixels)</h4>
-      <div class="step">
-        <strong>Method.</strong> For each of the 9 interior pixels $(r,c)$ with $1 \le r,c \le 3$, take the 9 values in the 3×3 neighbourhood, sort them, write the 5<sup>th</sup> (median) as the output.
-      </div>
+      <h4>Solution — output is 3×3</h4>
 
-      <p class="font-semibold mt-2">Input (highlighted = the 3×3 interior):</p>
+      <div class="tip">"No padding" + a 3×3 window on a 5×5 input ⇒ the output is <strong>(5−3+1) × (5−3+1) = 3×3</strong>. You only get an output for the 9 interior pixels.</div>
+
+      <div class="step">For each interior pixel: take the 9 numbers in its 3×3 neighbourhood, sort them, write down the <strong>middle (5th)</strong> value.</div>
+
+      <p class="font-semibold mt-2">Input (highlighted = the 9 interior centres):</p>
       <table class="qmat">
         <tr><td>23</td><td>30</td><td>40</td><td>10</td><td>15</td></tr>
         <tr><td>21</td><td class="hl">32</td><td class="hl">50</td><td class="hl">10</td><td>22</td></tr>
@@ -138,147 +134,124 @@
         <tr><td>25</td><td>70</td><td>39</td><td>32</td><td>20</td></tr>
       </table>
 
-      <p class="font-semibold mt-2">Worked windows (sorted values, median in bold):</p>
+      <p class="font-semibold mt-3">All 9 windows (sorted; middle value bolded):</p>
       <ul class="text-sm ml-5 list-disc">
-        <li>(1,1): 23,30,40,21,32,50,34,50,30 → 21·23·30·30·<strong>32</strong>·34·40·50·50 → <strong>32</strong></li>
-        <li>(1,2): 30,40,10,32,50,10,50,30,40 → 10·10·30·30·<strong>32</strong>·40·40·50·50 → <strong>32</strong></li>
-        <li>(1,3): 40,10,15,50,10,22,30,40,12 → 10·10·12·15·<strong>22</strong>·30·40·40·50 → <strong>22</strong></li>
-        <li>(2,1): 21,32,50,34,50,30,15,30,20 → 15·20·21·30·<strong>30</strong>·32·34·50·50 → <strong>30</strong></li>
-        <li>(2,2): 32,50,10,50,30,40,30,20,10 → 10·10·20·30·<strong>30</strong>·32·40·50·50 → <strong>30</strong></li>
-        <li>(2,3): 50,10,22,30,40,12,20,10,10 → 10·10·10·12·<strong>20</strong>·22·30·40·50 → <strong>20</strong></li>
-        <li>(3,1): 34,50,30,15,30,20,25,70,39 → 15·20·25·30·<strong>30</strong>·34·39·50·70 → <strong>30</strong></li>
-        <li>(3,2): 50,30,40,30,20,10,70,39,32 → 10·20·30·30·<strong>32</strong>·39·40·50·70 → <strong>32</strong></li>
-        <li>(3,3): 30,40,12,20,10,10,39,32,20 → 10·10·12·20·<strong>20</strong>·30·32·39·40 → <strong>20</strong></li>
+        <li>top-left: 21·23·30·30·<strong>32</strong>·34·40·50·50 → <strong>32</strong></li>
+        <li>top-mid: 10·10·30·30·<strong>32</strong>·40·40·50·50 → <strong>32</strong></li>
+        <li>top-right: 10·10·12·15·<strong>22</strong>·30·40·40·50 → <strong>22</strong></li>
+        <li>mid-left: 15·20·21·30·<strong>30</strong>·32·34·50·50 → <strong>30</strong></li>
+        <li>centre: 10·10·20·30·<strong>30</strong>·32·40·50·50 → <strong>30</strong></li>
+        <li>mid-right: 10·10·10·12·<strong>20</strong>·22·30·40·50 → <strong>20</strong></li>
+        <li>bot-left: 15·20·25·30·<strong>30</strong>·34·39·50·70 → <strong>30</strong></li>
+        <li>bot-mid: 10·20·30·30·<strong>32</strong>·39·40·50·70 → <strong>32</strong></li>
+        <li>bot-right: 10·10·12·20·<strong>20</strong>·30·32·39·40 → <strong>20</strong></li>
       </ul>
 
-      <p class="font-semibold mt-3">Output 3×3 (median-filtered):</p>
+      <p class="font-semibold mt-3">Result:</p>
       <table class="qmat">
         <tr><td class="win">32</td><td class="win">32</td><td class="win">22</td></tr>
         <tr><td class="win">30</td><td class="win">30</td><td class="win">20</td></tr>
         <tr><td class="win">30</td><td class="win">32</td><td class="win">20</td></tr>
       </table>
-      <div class="final">Notice how the spikes (50, 70) were crushed without smearing the rest — that's why the median filter is the go-to for salt-and-pepper noise.</div>
+      <div class="final">Notice how the 50s and 70 (spikes) disappeared but real values were preserved — that's the whole point of the median filter: it removes salt-and-pepper noise <em>without</em> smearing edges.</div>
       <p class="lecref">📚 <a href="../lectures/L01.html#s1.3">L01 — Order-statistics filters</a>.</p>
     </div>
   </div>
 </article>
 
-<!-- M-Q3 ============================================================== -->
+<!-- M-Q3 -->
 <article id="m-q3" class="concept">
-  <h3>Midterm · Question 3 — Negative &amp; γ on pixels 10, 20, 100, 200</h3>
+  <h3>Midterm · Question 3 — Negative &amp; γ on pixel values 10, 20, 100, 200</h3>
   <div class="grid-2">
-    <figure class="qshot"><div class="label">Question (as printed)</div><img src="../assets/past-exam/q/m-q3.png" alt="Midterm Q3 — negative and gamma table"></figure>
+    <figure class="qshot"><div class="label">Question (as printed)</div><img src="../assets/past-exam/q/m-q3.png" alt="Midterm Q3"></figure>
     <div class="sol">
       <h4>Solution</h4>
 
-      <div class="step">
-        <strong>Formulas.</strong>
+      <div class="tip">Three quick rules:
         <ul class="ml-5 list-disc">
-          <li>Negative: $s = 255 - r$</li>
-          <li>Gamma: normalise $r \to r/255 \in [0,1]$, then $s = 255 \cdot (r/255)^{\gamma}$.</li>
+          <li><strong>Negative</strong>: subtract from 255. Dark becomes light, light becomes dark.</li>
+          <li><strong>γ &lt; 1</strong> (e.g. 0.2): <em>brightens</em> the image. Dark pixels lift the most.</li>
+          <li><strong>γ &gt; 1</strong> (e.g. 2): <em>darkens</em> the image. Bright pixels drop the most.</li>
         </ul>
       </div>
 
+      <p class="mt-2"><strong>Steps to fill the gamma row:</strong> divide the pixel by 255 → raise to γ → multiply by 255 again.</p>
+
       <table class="qmat">
         <tr><th></th><th>r = 10</th><th>r = 20</th><th>r = 100</th><th>r = 200</th></tr>
-        <tr><td><strong>Negative</strong> (255 − r)</td><td>245</td><td>235</td><td>155</td><td>55</td></tr>
+        <tr><td><strong>Negative (255 − r)</strong></td><td>245</td><td>235</td><td>155</td><td>55</td></tr>
         <tr><td><strong>γ = 0.2</strong></td><td>≈ 133</td><td>≈ 153</td><td>≈ 211</td><td>≈ 243</td></tr>
         <tr><td><strong>γ = 2</strong></td><td>≈ 0.4</td><td>≈ 1.6</td><td>≈ 39.2</td><td>≈ 156.9</td></tr>
       </table>
 
-      <div class="step">
-        <strong>Sample working (r = 100, γ = 0.2):</strong><br>
-        $r/255 = 100/255 = 0.392$<br>
-        $0.392^{0.2}$: take logs, $0.2 \ln 0.392 = 0.2\cdot(-0.936) = -0.187$, $e^{-0.187} = 0.829$<br>
-        $s = 255 \cdot 0.829 = \mathbf{211.4}$
-      </div>
-
-      <div class="step">
-        <strong>Sample working (r = 100, γ = 2):</strong><br>
-        $0.392^{2} = 0.1538$<br>
-        $s = 255 \cdot 0.1538 = \mathbf{39.2}$
-      </div>
+      <p class="text-sm mt-2 opacity-80">Sanity check on the trends: in the γ = 0.2 row every value <em>jumped up</em> (10 → 133, 200 → 243). In the γ = 2 row every value <em>fell</em> (200 → 157, 10 → 0.4). That's the pattern you should expect every time.</p>
 
       <div class="final">
-        <strong>Effect of increasing γ.</strong>
-        Because $r/255 \le 1$ for every pixel, $(r/255)^{\gamma}$ <em>decreases</em> as γ grows. So:
-        <ul class="ml-5 list-disc">
-          <li>γ &gt; 1 → image gets <strong>darker</strong> (rows above: γ=2 column).</li>
-          <li>γ &lt; 1 → image gets <strong>brighter</strong> (γ=0.2 column).</li>
-        </ul>
-        Hence the answer key's note: "γ increases ⇒ brightness decreases, and vice versa."
+        <strong>Comment:</strong> increasing γ ⇒ image gets darker. Decreasing γ ⇒ image gets brighter. (The answer key's phrasing: "γ increase ⇒ brightness decrease, and vice versa.")
       </div>
       <p class="lecref">📚 <a href="../lectures/L01.html#s1.2">L01 — Negative &amp; Gamma correction</a>.</p>
     </div>
   </div>
 </article>
 
-<!-- M-Q4 ============================================================== -->
+<!-- M-Q4 -->
 <article id="m-q4" class="concept">
-  <h3>Midterm · Question 4 — Frequency-Domain mini-questions</h3>
+  <h3>Midterm · Question 4 — Frequency-domain mini-questions</h3>
+
   <div class="grid-2">
-    <figure class="qshot"><div class="label">Question — part 1 (silhouettes + LPF vs HPF)</div><img src="../assets/past-exam/q/m-q4.png" alt="Midterm Q4 part 1"></figure>
+    <figure class="qshot"><div class="label">Part 1 — LPF vs HPF (silhouettes)</div><img src="../assets/past-exam/q/m-q4.png" alt="Midterm Q4 part 1"></figure>
     <div class="sol">
-      <h4>Solution · Part 1 — LPF vs HPF</h4>
+      <h4>Part 1 — Difference between low-pass and high-pass filter</h4>
+
+      <div class="tip">An <strong>LPF blurs</strong> (you can still see the shape but not the edges). An <strong>HPF outlines</strong> (you only see the edges, the interior goes flat/dark). The silhouettes in the picture show exactly that — solid blobs are LPF, the outline is HPF.</div>
+
       <table class="qmat text-left">
         <tr><th></th><th>Low-pass (LPF)</th><th>High-pass (HPF)</th></tr>
-        <tr><td>Frequencies that <em>pass</em></td><td>Low (smooth regions, slow changes)</td><td>High (edges, fine detail)</td></tr>
-        <tr><td>Frequencies <em>removed</em></td><td>High</td><td>Low (DC, slow gradients)</td></tr>
-        <tr><td>Effect on image</td><td><strong>Blur</strong> &amp; noise reduction</td><td><strong>Sharpen</strong> &amp; emphasise edges</td></tr>
-        <tr><td>Ideal transfer function</td><td>$H(u,v) = 1$ if $D(u,v)\le D_0$ else $0$</td><td>$H_\text{HP}(u,v) = 1 - H_\text{LP}(u,v)$</td></tr>
+        <tr><td>Lets through</td><td>Low frequencies (smooth regions)</td><td>High frequencies (edges, fine detail)</td></tr>
+        <tr><td>Drops</td><td>High frequencies</td><td>Low frequencies</td></tr>
+        <tr><td>Effect on image</td><td>Blur / smooth / remove noise</td><td>Sharpen / show edges</td></tr>
       </table>
-      <p class="text-sm mt-2">In the printed picture, the white blob silhouettes are an LPF result and the outline silhouette is an HPF result on the same image.</p>
     </div>
   </div>
 
   <div class="grid-2 mt-4">
-    <figure class="qshot"><div class="label">Question — part 2 (boundary extraction) &amp; part 3 ((−1)<sup>x+y</sup>)</div><img src="../assets/past-exam/q/m-q4-tail.png" alt="Midterm Q4 part 2 and 3"></figure>
+    <figure class="qshot"><div class="label">Parts 2 &amp; 3 — Boundary extraction; (−1)<sup>x+y</sup></div><img src="../assets/past-exam/q/m-q4-tail.png" alt="Midterm Q4 part 2 and 3"></figure>
     <div class="sol">
-      <h4>Solution · Part 2 — How do we make the 3rd image from the first two?</h4>
-      <div class="step">
-        Image 1 = original $A$. Image 2 = its erosion $A \ominus B$. Image 3 = outline.<br>
-        Outline = original minus its erosion:
-        $$\boxed{\;\beta(A) = A - (A \ominus B)\;}$$
-        i.e. the morphological <strong>boundary-extraction</strong> operator.
+      <h4>Part 2 — Three images: how do you make the third from the first two?</h4>
+
+      <div class="tip">
+        If image 3 is just the <strong>outline</strong> of image 1, and image 2 is a slightly shrunken (eroded) version of image 1, then image 3 = image 1 − image 2. That's the morphology operation called <strong>boundary extraction</strong>.
       </div>
+      <div class="final">Answer: <strong>Boundary extraction</strong> — the original minus its erosion gives the one-pixel-thick contour.</div>
       <p class="lecref">📚 <a href="../lectures/L03.html#s3.4">L03 — Boundary extraction</a>.</p>
 
-      <h4>Solution · Part 3 — Multiplying $f(x,y)$ by $(-1)^{x+y}$</h4>
-      <div class="step">
-        $(-1)^{x+y} = e^{j\pi(x+y)} = e^{j\pi x} e^{j\pi y}$. Multiplying a signal by $e^{j\pi x}$ in the spatial domain <em>shifts</em> its DFT by $M/2$ in $u$ (and the same in $v$). So:
-        $$f(x,y)\cdot(-1)^{x+y} \;\;\longleftrightarrow\;\; F(u-M/2,\, v-N/2)$$
+      <h4>Part 3 — Multiplying the spatial image by (−1)<sup>x+y</sup></h4>
+      <div class="tip">
+        Multiplying by (−1)<sup>x+y</sup> = flipping the sign on a checkerboard pattern of pixels. The effect on the Fourier spectrum is that the <strong>DC term moves from the corner to the centre</strong> — exactly the "fftshift" trick used to display spectra nicely.
       </div>
-      <div class="final">Result: the DC term (originally at $(0,0)$) moves to the centre of the spectrum — the classic <strong>fftshift</strong> trick used to visualise an image's Fourier transform.</div>
-      <p class="lecref">📚 <a href="../lectures/L02.html#s2.2">L02 — 2D DFT centring property</a>.</p>
+      <div class="final">Answer: <strong>Shifts the spectrum so the DC (zero-frequency) term lands at the centre.</strong></div>
+      <p class="lecref">📚 <a href="../lectures/L02.html#s2.2">L02 — 2D DFT centring</a>.</p>
     </div>
   </div>
 </article>
 
-<!-- M-Q5 ============================================================== -->
+<!-- M-Q5 -->
 <article id="m-q5" class="concept">
   <h3>Midterm · Question 5 — SIFT</h3>
   <div class="grid-2">
-    <figure class="qshot"><div class="label">Question (as printed)</div><img src="../assets/past-exam/q/m-q5.png" alt="Midterm Q5 — SIFT questions and scale-space diagram"></figure>
+    <figure class="qshot"><div class="label">Question (as printed)</div><img src="../assets/past-exam/q/m-q5.png" alt="Midterm Q5"></figure>
     <div class="sol">
       <h4>1. Why do we use rotation invariance?</h4>
-      <div class="step">
-        We want the <em>same physical feature</em> to produce the <em>same descriptor</em> no matter how the camera is rotated. Without rotation invariance you would need a separate template at every possible angle — completely impractical for matching across viewpoints.
-      </div>
-      <div class="final">SIFT achieves it by assigning each keypoint a <strong>canonical orientation</strong> (peak of a 36-bin gradient-orientation histogram), then computing the descriptor in coordinates rotated to that orientation.</div>
+      <div class="final">So a feature is matched correctly even when the same object is rotated. Without it, every rotated copy would need its own template — useless for object matching in the real world.</div>
+      <p class="text-sm opacity-80">SIFT solves it by giving every keypoint a "canonical direction" (the dominant gradient orientation in its window), then describing the patch <em>relative to that direction</em>.</p>
 
-      <h4>2. Why apply smoothing <em>before</em> filtering (derivatives)?</h4>
-      <div class="step">
-        Differentiation amplifies high-frequency content. Noise <em>is</em> high frequency. So a naive Laplacian on a noisy image responds to noise instead of real edges.
-      </div>
-      <div class="final">Apply a <strong>Gaussian smoothing</strong> first to attenuate noise. The combined operator is the Laplacian-of-Gaussian (LoG) — which DoG approximates cheaply.</div>
+      <h4>2. Why apply smoothing before filtering?</h4>
+      <div class="tip">Derivatives amplify whatever is high-frequency. Noise is high-frequency. So if you don't blur first, your edge detector will fire on the noise instead of the real edges.</div>
+      <div class="final">Answer: <strong>to remove noise first (Gaussian blur)</strong> so the derivative step picks up real edges, not noise.</div>
 
       <h4>3. The scale-space / DoG figure</h4>
-      <div class="step">
-        Build a Gaussian pyramid: blur the image with $\sigma, s\sigma, s^2\sigma, s^3\sigma,\dots$ Adjacent differences give the DoG:
-        $$\mathrm{DoG}(x,y,\sigma) \;\approx\; (s-1)\,\sigma^2\,\nabla^2 S(x,y,\sigma)$$
-        (the scale-normalised Laplacian-of-Gaussian, NLoG).
-      </div>
-      <div class="final">Each DoG band $N_{s^k\sigma}$ in the figure highlights blob-like structures at a specific scale. Keypoints are <strong>extrema across 26 neighbours</strong> (8 same scale + 9 above + 9 below).</div>
+      <div class="tip">The figure is the cascade Gaussian → Gaussian → Gaussian → … with increasing blur σ. The <em>differences between adjacent blurred images</em> (DoG) approximate the Laplacian-of-Gaussian (NLoG) at each scale — and that's what SIFT searches for blob-like keypoints in.</div>
+      <div class="final">Key idea: <strong>DoG ≈ scale-normalised Laplacian-of-Gaussian</strong>. You take it because it's much cheaper than computing the real LoG, and it gives you keypoints that are stable across scale.</div>
       <p class="lecref">📚 <a href="../lectures/L04.html#s4.2">L04 — Scale space &amp; DoG</a>, <a href="../lectures/L04.html#s4.4">L04 — Orientation assignment</a>.</p>
     </div>
   </div>
@@ -289,135 +262,142 @@
 <section id="final" class="mt-12">
 <h2 class="text-2xl font-bold border-b pb-1 mb-4">📝 Final — Spring 2025</h2>
 
-<!-- F-Q1 ============================================================== -->
+<!-- F-Q1 -->
 <article id="f-q1" class="concept">
   <h3>Final · Question 1 — Compare FCN and Mask R-CNN</h3>
   <div class="grid-2">
-    <figure class="qshot"><div class="label">Question (as printed)</div><img src="../assets/past-exam/q/f-q1.png" alt="Final Q1 — FCN vs Mask R-CNN table"></figure>
+    <figure class="qshot"><div class="label">Question (as printed)</div><img src="../assets/past-exam/q/f-q1.png" alt="Final Q1"></figure>
     <div class="sol">
       <h4>Solution</h4>
+
+      <div class="tip">FCN gives you <strong>one big colouring book page</strong> — every pixel gets a class. Mask R-CNN gives you a <strong>separate sticker per detected object</strong>. So if you photograph two cars: FCN paints both "car"; Mask R-CNN gives you two distinct masks.</div>
+
       <table class="qmat text-left">
         <tr><th></th><th>FCN</th><th>Mask R-CNN</th></tr>
         <tr><td><strong>Type</strong></td>
-            <td>Semantic segmentation — every pixel gets a class label, but two cars share the "car" label (they are <em>not</em> separated).</td>
-            <td>Instance segmentation — every <em>detected object instance</em> gets its own binary mask. Two cars → two masks.</td></tr>
+            <td>Semantic segmentation — labels every pixel with a class, but doesn't separate two objects of the same class.</td>
+            <td>Instance segmentation — produces a separate binary mask per detected object.</td></tr>
         <tr><td><strong>Output structure</strong></td>
-            <td>A single tensor of shape <code>H×W×C</code> (C = number of classes). One score map per class, full image resolution.</td>
-            <td>Per RoI: (class label, refined bounding box, mask tensor of shape <code>K×m×m</code>, e.g. K=80 classes × 28×28 mask).</td></tr>
-        <tr><td><strong>Output-layer function</strong></td>
-            <td><strong>Softmax</strong> across classes, applied <em>per pixel</em> (classes are mutually exclusive).</td>
-            <td><strong>Sigmoid</strong> per pixel of each class channel — class & mask are decoupled. Only the GT-class channel contributes to the mask loss.</td></tr>
+            <td>One full-image map sized H×W with a class score per pixel.</td>
+            <td>Per detected object: class label + refined box + a small mask (e.g. 28×28) for that one instance.</td></tr>
+        <tr><td><strong>Output-layer activation</strong></td>
+            <td><strong>Softmax</strong> over classes per pixel — every pixel commits to one class.</td>
+            <td><strong>Sigmoid</strong> per pixel of each class channel — mask and class are independent (classification head separately picks the channel).</td></tr>
       </table>
       <p class="lecref">📚 <a href="../lectures/L12.html#s12.3">L12 — Mask R-CNN</a>.</p>
     </div>
   </div>
 </article>
 
-<!-- F-Q2 ============================================================== -->
+<!-- F-Q2 -->
 <article id="f-q2" class="concept">
-  <h3>Final · Question 2 — Write the YOLO (v2+) loss function</h3>
+  <h3>Final · Question 2 — YOLO loss (v2 or higher)</h3>
   <div class="grid-2">
-    <figure class="qshot"><div class="label">Question (as printed)</div><img src="../assets/past-exam/q/f-q2.png" alt="Final Q2 — YOLO loss table"></figure>
+    <figure class="qshot"><div class="label">Question (as printed)</div><img src="../assets/past-exam/q/f-q2.png" alt="Final Q2"></figure>
     <div class="sol">
-      <h4>Solution — three terms summed</h4>
+      <h4>The loss has three named pieces</h4>
+
+      <div class="tip">You can always remember the three pieces by what they answer: <em>where is the box?</em> + <em>is there really an object here?</em> + <em>which class is it?</em></div>
+
       <table class="qmat text-left">
-        <tr><th>Loss</th><th>Formula</th></tr>
-        <tr><td><strong>1. Localisation</strong> (box regression)</td>
-            <td>$\displaystyle L_\text{loc} = \lambda_\text{coord}\sum_{i,j}\mathbb{1}_{ij}^{obj}\Big[(t_x{-}\hat t_x)^2 {+} (t_y{-}\hat t_y)^2 {+}(t_w{-}\hat t_w)^2 {+} (t_h{-}\hat t_h)^2\Big]$ — MSE on the parameterised offsets (Smooth-L1 from v3+).</td></tr>
-        <tr><td><strong>2. Objectness</strong> (confidence)</td>
-            <td>$\displaystyle L_\text{obj} = -\sum_{i,j}\Big[\mathbb{1}_{ij}^{obj}\log\hat C_{ij} + \lambda_\text{noobj}\,\mathbb{1}_{ij}^{noobj}\log(1{-}\hat C_{ij})\Big]$ — binary CE; $\hat C_{ij}$ is trained to equal IoU with the GT.</td></tr>
-        <tr><td><strong>3. Classification</strong></td>
-            <td>$\displaystyle L_\text{cls} = -\sum_{i,j}\mathbb{1}_{ij}^{obj}\sum_{c}\big[y_c\log\hat p_c + (1{-}y_c)\log(1{-}\hat p_c)\big]$ — <em>independent binary CE per class</em> in v3+ (so multi-label is possible).</td></tr>
+        <tr><th>Name</th><th>What it measures</th></tr>
+        <tr><td><strong>1. Localisation loss</strong></td>
+            <td>How wrong the predicted box coordinates (centre x, centre y, width, height) are compared to the ground-truth box. Squared / smooth-L1 error.</td></tr>
+        <tr><td><strong>2. Objectness (confidence) loss</strong></td>
+            <td>How wrong the model is about <em>whether</em> there is an object in this cell/anchor. Binary cross-entropy; the target is the IoU with the GT.</td></tr>
+        <tr><td><strong>3. Classification loss</strong></td>
+            <td>How wrong the predicted class probabilities are. In v3+ it's an independent binary cross-entropy per class (so multi-label is possible).</td></tr>
       </table>
-      <div class="final">$L = L_\text{loc} + L_\text{obj} + L_\text{cls}$. The indicator $\mathbb{1}_{ij}^{obj}$ is 1 only for the "responsible" (cell, anchor); $\lambda_\text{coord}\!=\!5$ and $\lambda_\text{noobj}\!=\!0.5$ are the standard weightings.</div>
+
+      <div class="final">Total YOLO loss = localisation + objectness + classification, summed only over the "responsible" cells/anchors (the ones that actually contain an object).</div>
       <p class="lecref">📚 <a href="../lectures/L08.html#s8.2">L08 — Loss terms</a>, <a href="../lectures/L08.html#s8.3">L08 — Versions evolution</a>.</p>
     </div>
   </div>
 </article>
 
-<!-- F-Q3 ============================================================== -->
+<!-- F-Q3 -->
 <article id="f-q3" class="concept">
   <h3>Final · Question 3 — GIoU vs IoU vs DIoU</h3>
   <div class="grid-2">
-    <figure class="qshot"><div class="label">Question (as printed)</div><img src="../assets/past-exam/q/f-q3.png" alt="Final Q3 — GIoU vs DIoU"></figure>
+    <figure class="qshot"><div class="label">Question (as printed)</div><img src="../assets/past-exam/q/f-q3.png" alt="Final Q3"></figure>
     <div class="sol">
       <h4>1. Advantage of GIoU over IoU</h4>
-      <div class="step">
-        <strong>Problem with IoU.</strong> When the predicted box and the GT do not overlap, $\mathrm{IoU} = 0$ for any non-overlapping arrangement — the loss is constant, the gradient is zero, and the optimiser doesn't know which direction to move the box.
-      </div>
-      <div class="step">
-        <strong>GIoU adds an enclosing-box penalty.</strong> Let $C$ be the smallest axis-aligned box that contains both predictions:
-        $$\mathrm{GIoU} \;=\; \mathrm{IoU} \;-\; \frac{|C \setminus (A \cup B)|}{|C|}$$
-        The second term is positive whenever the boxes are far apart, so the gradient is non-zero <em>even when the boxes don't overlap</em>.
-      </div>
-      <div class="final">Boxes can be pulled together from any starting configuration. $\mathrm{GIoU}\in[-1,1]$ (vs $\mathrm{IoU}\in[0,1]$).</div>
+
+      <div class="tip">IoU is zero whenever the two boxes don't overlap, no matter <em>how far apart</em> they are. That means the gradient is also zero → the optimiser has no idea which way to push the box. GIoU fixes this by also looking at the smallest box that <em>contains both</em>.</div>
+
+      <div class="final">GIoU still gives a non-zero loss / gradient when the boxes don't overlap, so training can pull a far-away predicted box toward the ground truth. IoU couldn't do that.</div>
 
       <h4>2. Advantage of DIoU over GIoU</h4>
-      <div class="step">
-        GIoU still converges slowly when the boxes have the same aspect ratio and just need translation — the enclosing-box term can plateau because $|C|$ stops shrinking quickly.
-      </div>
-      <div class="step">
-        <strong>DIoU directly penalises the distance between box centres:</strong>
-        $$\mathrm{DIoU} = \mathrm{IoU} - \frac{\rho^2(b,b^{gt})}{c^2}$$
-        $\rho$ = Euclidean distance between centres; $c$ = diagonal of the smallest enclosing box. The penalty falls off only when centres line up.
-      </div>
-      <div class="final">DIoU gives a strong, well-conditioned gradient → <strong>faster convergence and better localisation</strong>. (CIoU adds an aspect-ratio term on top.)</div>
+
+      <div class="tip">GIoU still works "indirectly" — it shrinks the enclosing box. DIoU goes more direct: it pulls the <strong>centres of the two boxes</strong> closer to each other.</div>
+
+      <div class="final">DIoU converges faster and lines the boxes up better, especially when the boxes are far from overlap or when their aspect ratios already match.</div>
       <p class="lecref">📚 <a href="../lectures/L06.html#s6.2">L06 — IoU loss</a>.</p>
     </div>
   </div>
 </article>
 
-<!-- F-Q4 ============================================================== -->
+<!-- F-Q4 -->
 <article id="f-q4" class="concept">
   <h3>Final · Question 4 — R-CNN family &amp; IoU loss</h3>
   <div class="grid-2">
-    <figure class="qshot"><div class="label">Question (as printed)</div><img src="../assets/past-exam/q/f-q4.png" alt="Final Q4 — Fast R-CNN vs R-CNN; 1-IoU"></figure>
+    <figure class="qshot"><div class="label">Question (as printed)</div><img src="../assets/past-exam/q/f-q4.png" alt="Final Q4"></figure>
     <div class="sol">
-      <h4>1. Two reasons Fast R-CNN is faster than R-CNN</h4>
-      <div class="step">
-        <strong>(a) Single CNN pass over the image.</strong> R-CNN warps each of ~2,000 proposals to a fixed size and runs the full CNN backbone on every one — heavily redundant for overlapping patches. Fast R-CNN runs the backbone <em>once</em> on the whole image and reuses the feature map; per-proposal cost shrinks to RoI Pool + a small FC head.
-      </div>
-      <div class="step">
-        <strong>(b) Single end-to-end multi-task training.</strong> R-CNN has three stages (CNN finetune → per-class SVMs → bbox regressors) with intermediate features cached on disk. Fast R-CNN replaces all of that with one network trained jointly under $L = L_\text{cls} + \lambda L_\text{box}$.
-      </div>
-      <div class="final">Combined: ≈ 9× faster training and ≈ 100× faster inference vs R-CNN (paper's numbers).</div>
+      <h4>1. Why Fast R-CNN is faster than R-CNN (any two reasons)</h4>
 
-      <h4>2. Why use $1 - \mathrm{IoU}$ instead of $\mathrm{IoU}$?</h4>
-      <div class="step">
-        Training procedures <em>minimise</em> a loss. $\mathrm{IoU}=1$ is the ideal (boxes match perfectly) and $\mathrm{IoU}=0$ is the worst — that's the wrong direction for a loss.
-      </div>
-      <div class="final">Flipping with $1-\mathrm{IoU}$ makes the perfect overlap correspond to a loss of $\boxed{0}$, which is the convention every optimiser expects.</div>
+      <div class="tip">R-CNN was slow for two stacked reasons: (a) it ran the CNN ≈ 2,000 times per image, and (b) it was actually three separate training stages saved to disk between steps. Fast R-CNN attacks both.</div>
+
+      <ol class="list-decimal ml-6 space-y-1">
+        <li><strong>Single CNN pass on the whole image.</strong> Fast R-CNN runs the backbone once and reuses the same feature map for every region proposal. R-CNN re-ran the entire CNN on each of ~2,000 proposals — most of that work was redundant.</li>
+        <li><strong>Single end-to-end network.</strong> Fast R-CNN combines classification and bounding-box regression into one network with one loss. R-CNN had three pipelines (CNN finetune → per-class SVMs → bbox regressors) with intermediate features cached on disk.</li>
+      </ol>
+
+      <h4>2. Why use 1 − IoU instead of IoU?</h4>
+
+      <div class="tip">A loss should be <strong>small when the model is doing well</strong>. IoU is the opposite — bigger IoU means better. So we flip it: <code>loss = 1 − IoU</code> is 0 when boxes match perfectly and 1 when they don't overlap at all.</div>
+
+      <div class="final">In short: training minimises the loss; the value that should be minimised needs to be small when you are doing well — that's why we subtract from 1.</div>
       <p class="lecref">📚 <a href="../lectures/L09.html#s9.3">L09 — Fast R-CNN</a>, <a href="../lectures/L06.html#s6.2">L06 — IoU loss</a>.</p>
     </div>
   </div>
 </article>
 
-<!-- F-Q5 ============================================================== -->
+<!-- F-Q5 -->
 <article id="f-q5" class="concept">
-  <h3>Final · Question 5 — RPN counts on a 500×600 image, 10×10 cells, 3 ratios, 4 scales</h3>
+  <h3>Final · Question 5 — RPN counts (500×600 image, 10×10 cells, 3 ratios, 4 scales)</h3>
   <div class="grid-2">
-    <figure class="qshot"><div class="label">Question — first half</div><img src="../assets/past-exam/q/f-q5.png" alt="Final Q5 — top half"></figure>
-    <figure class="qshot"><div class="label">Question — second half (items 1–9)</div><img src="../assets/past-exam/q/f-q5-tail.png" alt="Final Q5 — bottom half"></figure>
+    <figure class="qshot"><div class="label">Question — first half</div><img src="../assets/past-exam/q/f-q5.png" alt="Final Q5 top"></figure>
+    <figure class="qshot"><div class="label">Question — list items 1–9</div><img src="../assets/past-exam/q/f-q5-tail.png" alt="Final Q5 bottom"></figure>
   </div>
   <div class="sol mt-3">
     <h4>Solution</h4>
+
+    <div class="tip">
+      Three numbers do all the work:
+      <ul class="ml-5 list-disc">
+        <li>Cells per row × cells per column = <strong>anchor points</strong>.</li>
+        <li>Ratios × scales = <strong>anchor boxes per cell</strong>.</li>
+        <li>Multiply them = <strong>total anchor boxes</strong>. Every anchor box has its own regression vector and its own objectness vector.</li>
+      </ul>
+    </div>
+
     <table class="qmat text-left">
-      <tr><th>#</th><th>Quantity</th><th>Value</th><th>Working</th></tr>
-      <tr><td>1</td><td>Number of <strong>anchor points</strong></td><td>3,000</td><td>$\frac{500}{10}\cdot\frac{600}{10} = 50\cdot 60 = 3{,}000$ — one anchor point per grid cell.</td></tr>
-      <tr><td>2</td><td>Number of <strong>anchor boxes per cell</strong></td><td>12</td><td>$3 \text{ ratios} \times 4 \text{ scales} = 12$.</td></tr>
-      <tr><td>3</td><td>Number of <strong>total boxes</strong></td><td>36,000</td><td>$3{,}000 \times 12 = 36{,}000$.</td></tr>
-      <tr><td>4</td><td>Number of <strong>regression vectors</strong></td><td>36,000</td><td>One per anchor box.</td></tr>
-      <tr><td>5</td><td>Number of <strong>objectness vectors</strong></td><td>36,000</td><td>One per anchor box.</td></tr>
-      <tr><td>6</td><td>Values per <strong>regression vector</strong></td><td>4</td><td>$t_x, t_y, t_w, t_h$.</td></tr>
-      <tr><td>7</td><td>Values per <strong>objectness vector</strong></td><td>1 (or 2)</td><td>1 if a single sigmoid logit (modern); 2 if softmax over {object, no-object} (original RPN).</td></tr>
-      <tr><td>8</td><td>Output range of <strong>regression vector</strong></td><td>Any number</td><td>$(t_x,t_y)$ are real offsets, $(t_w,t_h)=\log(\cdot)$ unbounded.</td></tr>
-      <tr><td>9</td><td>Output range of <strong>objectness vector</strong></td><td>(0,1)</td><td>It is a probability — sigmoid (or softmax).</td></tr>
+      <tr><th>#</th><th>Quantity</th><th>Value</th><th>How</th></tr>
+      <tr><td>1</td><td>Anchor points</td><td>3,000</td><td>(500 ÷ 10) × (600 ÷ 10) = 50 × 60</td></tr>
+      <tr><td>2</td><td>Anchor boxes per cell</td><td>12</td><td>3 ratios × 4 scales</td></tr>
+      <tr><td>3</td><td>Total boxes</td><td>36,000</td><td>3,000 × 12</td></tr>
+      <tr><td>4</td><td>Regression vectors</td><td>36,000</td><td>One per anchor box</td></tr>
+      <tr><td>5</td><td>Objectness vectors</td><td>36,000</td><td>One per anchor box</td></tr>
+      <tr><td>6</td><td>Values per regression vector</td><td>4</td><td>centre-x offset, centre-y offset, width, height</td></tr>
+      <tr><td>7</td><td>Values per objectness vector</td><td>1 (or 2)</td><td>1 if a single sigmoid; 2 if softmax over {object, no-object}</td></tr>
+      <tr><td>8</td><td>Output range of regression vector</td><td>Any number</td><td>Real-valued offsets, can be positive or negative.</td></tr>
+      <tr><td>9</td><td>Output range of objectness vector</td><td>(0, 1)</td><td>It's a probability — produced by sigmoid.</td></tr>
     </table>
     <p class="lecref">📚 <a href="../lectures/L10.html#s10.2">L10 — Anchor points &amp; boxes</a>, <a href="../lectures/L10.html#s10.3">L10 — RPN heads</a>.</p>
   </div>
 </article>
 
-<!-- F-Q6 ============================================================== -->
+<!-- F-Q6 -->
 <article id="f-q6" class="concept">
   <h3>Final · Question 6 — Output vector size on a 15×15 grid (80 classes, 10 anchors)</h3>
   <div class="grid-2">
@@ -425,105 +405,84 @@
     <div class="sol">
       <h4>Solution</h4>
 
-      <div class="step">
-        <strong>General formula.</strong> Each anchor predicts $(p_c, b_x, b_y, b_w, b_h) = 5$ box values plus class scores. With $M$ active anchors and $N$ classes:
-        <ul class="ml-5 list-disc">
-          <li>Per-anchor classes (YOLO v2+): per-cell length = $M\cdot(5+N)$</li>
-          <li>Shared classes (YOLO v1): per-cell length = $M\cdot 5 + N$</li>
-        </ul>
-      </div>
+      <div class="tip">Think of one grid cell. For every anchor it has to predict <strong>5 box values</strong> (object-present + 4 box coordinates) and <strong>80 class scores</strong>. So one anchor = 5 + 80 = 85 numbers. Total per cell = anchors × 85.</div>
 
-      <h4>1. Only one object per cell ⇒ M = 1</h4>
-      <div class="final">Per-cell length = $1\cdot(5+80) = \boxed{85}$. Output tensor $15\times 15\times 85 = 19{,}125$ values.</div>
+      <h4>1. Only 1 object per cell ⇒ 1 anchor active</h4>
+      <div class="final">Per-cell length = 1 × 85 = <strong>85 numbers</strong>. Full tensor: 15 × 15 × 85 = 19,125 values.</div>
 
-      <h4>2. Up to 10 objects per cell ⇒ M = 10</h4>
-      <div class="step">
-        <em>Per-anchor classes</em>: $10\cdot(5+80) = \boxed{850}$ per cell, tensor $15\times 15\times 850 = 191{,}250$ values.<br>
-        <em>Shared classes</em>: $10\cdot 5 + 80 = \boxed{130}$ per cell, tensor $15\times 15\times 130 = 29{,}250$ values.
-      </div>
+      <h4>2. Up to 10 objects per cell ⇒ 10 anchors active</h4>
+      <div class="final">Per-cell length = 10 × 85 = <strong>850 numbers</strong>. Full tensor: 15 × 15 × 850 = 191,250 values.</div>
 
       <h4>Comment</h4>
-      <div class="final">
-        Per-anchor classes use ≈ 10× more parameters but allow a single cell to predict objects of <em>different classes</em>. Shared classes are cheaper but force every anchor of a cell to commit to the same class — that's why YOLO v2 switched to per-anchor.
-      </div>
+      <div class="tip">More anchors per cell = more output channels, more parameters, and slower inference — but the model can now predict <em>several objects of different classes</em> in the same cell. That's exactly why YOLO v2+ kept "per-anchor classes" rather than sharing one class score across the whole cell.</div>
       <p class="lecref">📚 <a href="../lectures/L07.html#s7.4">L07 — Output tensor</a>.</p>
     </div>
   </div>
 </article>
 
-<!-- F-Q7 ============================================================== -->
+<!-- F-Q7 -->
 <article id="f-q7" class="concept">
-  <h3>Final · Question 7 — Choosing the correct number of anchor boxes for a YOLO dataset</h3>
+  <h3>Final · Question 7 — Choosing the correct number of anchor boxes</h3>
   <div class="grid-2">
-    <figure class="qshot"><div class="label">Question (as printed) — with answer diagram</div><img src="../assets/past-exam/q/f-q7.png" alt="Final Q7 — k-means anchor selection diagram"></figure>
+    <figure class="qshot"><div class="label">Question (as printed) — with answer diagram</div><img src="../assets/past-exam/q/f-q7.png" alt="Final Q7"></figure>
     <div class="sol">
-      <h4>Solution — K-means on box dimensions</h4>
-      <ol class="list-decimal ml-6 space-y-2">
-        <li>
-          <strong>Collect</strong> all GT bounding-box dimensions $(w,h)$ from the training set.
-        </li>
-        <li>
-          <strong>Run K-means clustering</strong> for $K = 3,4,5,6,7,8,9,\dots$ on those $(w,h)$ pairs.<br>
-          <em>Important:</em> use $1 - \mathrm{IoU}$ as the distance metric (not Euclidean) so a 10×100 box doesn't get clustered with a 100×10 box just because their hypotenuse matches.
-        </li>
-        <li>
-          For each $K$: assign every GT box to its nearest cluster centroid (the cluster centre <em>is</em> an anchor). Compute the mean IoU between every GT and its assigned anchor.
-        </li>
-        <li>
-          Plot <strong>Mean IoU vs K</strong> — it rises monotonically and saturates.
-        </li>
-        <li>
-          Pick the <strong>smallest K whose mean IoU exceeds an acceptable threshold</strong> (typical: ≥ 0.6). Classic elbow trade-off: more anchors → more parameters, slower inference; fewer anchors → worse fits.
-        </li>
+      <h4>Solution — K-means on the GT box sizes</h4>
+
+      <div class="tip">Don't guess anchors — let the dataset choose them. Run k-means on all the ground-truth widths and heights, sweeping K = 3, 4, 5, … and pick the smallest K that gives a "good enough" mean IoU. This is exactly the "Dimension Clusters" trick introduced in YOLO v2.</div>
+
+      <ol class="list-decimal ml-6 space-y-1">
+        <li>Collect all GT (width, height) pairs from the training set.</li>
+        <li>Run k-means for K = 3, 4, 5, 6, 7, 8, 9, … with <strong>1 − IoU</strong> as the distance (not Euclidean — that would favour big boxes).</li>
+        <li>For each K, assign every GT box to its nearest cluster and compute the mean IoU.</li>
+        <li>Plot mean IoU vs K — it always rises and saturates.</li>
+        <li><strong>Pick the smallest K whose mean IoU exceeds your threshold</strong> (≥ 0.6 is the usual rule of thumb).</li>
       </ol>
-      <div class="final">This is exactly the "Dimension Clusters" procedure introduced in YOLO v2 — it justifies why the default is $k = 5$ (mean IoU ≈ 0.61 on COCO) rather than picking the 9 anchors of Faster R-CNN.</div>
+
+      <div class="final">Result: the smallest K that's "good enough" — fewer anchors = faster and smaller network, but you don't want to drop below your acceptable IoU.</div>
       <p class="lecref">📚 <a href="../lectures/L08.html#s8.3">L08 — YOLO v2+ dimension clusters</a>.</p>
     </div>
   </div>
 </article>
 
-<!-- F-Q8 ============================================================== -->
+<!-- F-Q8 -->
 <article id="f-q8" class="concept">
-  <h3>Final · Question 8 — Bilinear interpolation at $(x,y) = (4, 7)$</h3>
+  <h3>Final · Question 8 — Bilinear interpolation at (x, y) = (4, 7)</h3>
   <div class="grid-2">
-    <figure class="qshot"><div class="label">Question (as printed)</div><img src="../assets/past-exam/q/f-q8.png" alt="Final Q8 — bilinear interpolation grid"></figure>
+    <figure class="qshot"><div class="label">Question (as printed)</div><img src="../assets/past-exam/q/f-q8.png" alt="Final Q8"></figure>
     <div class="sol">
       <h4>Solution</h4>
 
+      <div class="tip">Bilinear interpolation = <strong>weighted average of the four corners</strong>. A corner that is closer to the point gets a bigger weight; a corner that is further away gets a smaller weight. The four weights always add up to 1.</div>
+
       <div class="step">
-        <strong>Known corners.</strong>
-        $f(3,5) = 15$, $f(9,5) = 35$, $f(3,8) = 40$, $f(9,8) = 20$.<br>
-        <strong>Target.</strong> $f(4, 7) = ?$
+        <strong>Corners and their values:</strong> (3, 5) = 15, (9, 5) = 35, (3, 8) = 40, (9, 8) = 20.<br>
+        <strong>Target point:</strong> (4, 7).
       </div>
 
       <div class="step">
-        <strong>Step 1 — compute the normalised offsets a, b.</strong>
-        $$a = \frac{x - x_1}{x_2 - x_1} = \frac{4 - 3}{9 - 3} = \frac{1}{6} \approx 0.167$$
-        $$b = \frac{y - y_1}{y_2 - y_1} = \frac{7 - 5}{8 - 5} = \frac{2}{3} \approx 0.667$$
+        <strong>Step 1 — how far across in x?</strong> The point is at x = 4, between x₁ = 3 and x₂ = 9. So horizontally it sits <strong>1 out of 6</strong> of the way across → fraction <strong>a = 1/6</strong>. That means the left column gets weight 5/6 and the right column gets weight 1/6.
       </div>
 
       <div class="step">
-        <strong>Step 2 — apply the bilinear formula.</strong>
-        $$f(x,y) = (1-a)(1-b)\,f(3,5) + a(1-b)\,f(9,5) + (1-a)b\,f(3,8) + ab\,f(9,8)$$
+        <strong>Step 2 — how far down in y?</strong> The point is at y = 7, between y₁ = 5 and y₂ = 8. So vertically it sits <strong>2 out of 3</strong> of the way down → fraction <strong>b = 2/3</strong>. The top row gets weight 1/3 and the bottom row gets weight 2/3.
+      </div>
 
-        <p class="mt-2"><strong>Weights:</strong></p>
-        <table class="qmat">
-          <tr><th>Corner</th><th>Weight</th><th>Value</th><th>Contribution</th></tr>
-          <tr><td>(3, 5) = 15</td><td>$\tfrac{5}{6}\cdot\tfrac{1}{3} = \tfrac{5}{18}$</td><td>15</td><td>$\tfrac{75}{18}$</td></tr>
-          <tr><td>(9, 5) = 35</td><td>$\tfrac{1}{6}\cdot\tfrac{1}{3} = \tfrac{1}{18}$</td><td>35</td><td>$\tfrac{35}{18}$</td></tr>
-          <tr><td>(3, 8) = 40</td><td>$\tfrac{5}{6}\cdot\tfrac{2}{3} = \tfrac{10}{18}$</td><td>40</td><td>$\tfrac{400}{18}$</td></tr>
-          <tr><td>(9, 8) = 20</td><td>$\tfrac{1}{6}\cdot\tfrac{2}{3} = \tfrac{2}{18}$</td><td>20</td><td>$\tfrac{40}{18}$</td></tr>
-          <tr><td colspan="3"><strong>Sum</strong></td><td><strong>$\tfrac{550}{18}$</strong></td></tr>
+      <div class="step">
+        <strong>Step 3 — multiply each corner by its row × column weight, then sum.</strong>
+        <table class="qmat mt-2">
+          <tr><th>Corner</th><th>Row weight × Col weight</th><th>Final weight</th><th>Value</th><th>Contribution</th></tr>
+          <tr><td>(3, 5) = 15</td><td>1/3 × 5/6</td><td>5/18</td><td>15</td><td>75/18</td></tr>
+          <tr><td>(9, 5) = 35</td><td>1/3 × 1/6</td><td>1/18</td><td>35</td><td>35/18</td></tr>
+          <tr><td>(3, 8) = 40</td><td>2/3 × 5/6</td><td>10/18</td><td>40</td><td>400/18</td></tr>
+          <tr><td>(9, 8) = 20</td><td>2/3 × 1/6</td><td>2/18</td><td>20</td><td>40/18</td></tr>
+          <tr><td colspan="4"><strong>Total</strong></td><td><strong>550/18</strong></td></tr>
         </table>
       </div>
 
-      <div class="step">
-        <strong>Step 3 — final value.</strong>
-        $$f(4, 7) = \frac{550}{18} = 30.\overline{5} \;\approx\; \boxed{30.56}$$
-      </div>
+      <div class="final">f(4, 7) = 550 / 18 ≈ <strong>30.56</strong>.</div>
 
-      <div class="final">
-        Sanity check: $a$ is small (the target is near the left edge), so the left-column corners (15 and 40) should dominate — and indeed weight 5/18 + 10/18 = 15/18 ≈ 83 % of the total. $b$ is large (target near the bottom), so the bottom corners (40 and 20) get more weight than the top — bottom weight = 10/18 + 2/18 = 12/18 ≈ 67 %. Both match the figure.
+      <div class="tip">
+        Sanity-check by intuition: the point is <em>near the left column</em> (a = 1/6 is small) and <em>near the bottom row</em> (b = 2/3 is big). So the bottom-left corner (40) should pull the value up the most — and it does, contributing 400/18 of the total 550/18.
       </div>
       <p class="lecref">📚 <a href="../lectures/L11.html#s11.3">L11 — RoI Align (bilinear interpolation)</a>.</p>
     </div>
@@ -535,7 +494,7 @@
 <!-- ===================================== Original PDF ===================================== -->
 <section class="mt-12">
   <h2 class="text-2xl font-bold border-b pb-1 mb-4">📄 Original exam pages (raw scans)</h2>
-  <p class="opacity-70 text-sm mb-3">Full-page renders for visual reference; download the PDF using the link in the header.</p>
+  <p class="opacity-70 text-sm mb-3">Full-page renders for visual reference.</p>
   <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
     <figure class="slide-figure"><img src="../assets/past-exam/page-001.png" alt="Spring 25 — page 1"><figcaption>Page 1 — Midterm cover</figcaption></figure>
     <figure class="slide-figure"><img src="../assets/past-exam/page-002.png" alt="Spring 25 — page 2"><figcaption>Page 2 — Midterm Q1 &amp; Q2</figcaption></figure>
